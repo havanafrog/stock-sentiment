@@ -300,5 +300,110 @@ console.log('\n── I. 탭 제목 ──');
   r2.L.paint(snap({ close: 1608, open: 1668 }, 'SNDK', { rate: 1400 }));
   ok('원화면 ₩ 로 환산', document.title.startsWith('₩2,251,200'), document.title);
 }
+
+console.log('\n── J. 종목 관리 ──');
+{
+  const { L, node } = run();
+  const row = (base, lev, opt = {}) => ({
+    base, lev,
+    names: [base, lev].filter(Boolean).map(t => ({
+      t, name: t + '이름', baseline: opt.baseline ?? true, job: opt.job ?? null })),
+  });
+
+  L.tkRender({ rows: [row('SNDK', 'SNXX'), row('KORU', null)],
+               count: 3, pollMs: 5000, lastPollMs: 650, crowded: false });
+  const html = node('tkList').innerHTML;
+  ok('종목마다 한 줄', (html.match(/tkrow/g) || []).length === 2);
+  ok('레버리지도 같이 보인다', html.includes('SNXX'));
+  ok('삭제 버튼에 본주가 붙는다', html.includes('data-del="KORU"'));
+  ok('기준선 있으면 경고 없음', !html.includes('기준선 없음'));
+  ok('폴링 상태를 적는다', /3개 종목 · 폴링 5초 · 한 바퀴 650ms/.test(node('tkNote').textContent),
+     node('tkNote').textContent);
+
+  // 갓 추가한 종목 — 기준선이 아직 없다
+  L.tkRender({ rows: [row('TSLA', null, { baseline: false })],
+               count: 1, pollMs: 5000, lastPollMs: 200, crowded: false });
+  ok('기준선 없으면 그렇다고 적는다', node('tkList').innerHTML.includes('기준선 없음'));
+
+  // 수집이 도는 중
+  L.tkRender({ rows: [row('TSLA', null, { baseline: false,
+                 job: { phase: '글 수집 중', pages: 120, posts: 1320 } })],
+               count: 1, pollMs: 5000, lastPollMs: 200, crowded: false });
+  const busy = node('tkList').innerHTML;
+  ok('수집 단계를 적는다', busy.includes('글 수집 중'));
+  ok('진행 수치를 적는다', busy.includes('120페이지') && busy.includes('1,320건'), busy.slice(0, 160));
+
+  // 종목이 많아 한 바퀴가 주기에 근접
+  L.tkRender({ rows: [row('A', null)], count: 20, pollMs: 5000, lastPollMs: 4200, crowded: true });
+  ok('혼잡하면 경고한다', /주기에 근접/.test(node('tkNote').textContent), node('tkNote').textContent);
+  ok('경고는 색으로도 표시', node('tkNote').style.color === 'var(--fear-ink)');
+}
+
+console.log('\n── K. 보조지표 ──');
+{
+  const { L, node } = run();
+
+  // EMA — 앞의 n-1 개는 씨를 못 뿌린다
+  const v = [1, 2, 3, 4, 5, 6, 7, 8];
+  ok('EMA 앞은 null', L.ema(v, 3).slice(0, 2).every(x => x === null));
+  ok('EMA 첫 값은 단순평균', L.ema(v, 3)[2] === 2, String(L.ema(v, 3)[2]));
+  ok('EMA 길이 보존', L.ema(v, 3).length === 8);
+  ok('봉이 모자라면 전부 null', L.ema([1, 2], 20).every(x => x === null));
+  // 값이 일정하면 EMA 도 그 값이다
+  const flat = new Array(30).fill(50);
+  ok('평평하면 EMA 도 평평', L.ema(flat, 12).slice(11).every(x => Math.abs(x - 50) < 1e-9));
+
+  // MACD
+  const closes = Array.from({ length: 120 }, (_, i) => 100 + Math.sin(i / 7) * 8 + i * 0.15);
+  const m = L.macd(closes);
+  ok('MACD 세 줄 다 원본 길이', m.line.length === 120 && m.signal.length === 120 && m.hist.length === 120);
+  ok('느린 EMA 전에는 선이 없다', m.line.slice(0, 25).every(x => x === null));
+  ok('26번째부터 선이 난다', m.line[25] !== null);
+  ok('시그널은 선보다 늦게 난다', m.signal.findIndex(x => x !== null) > m.line.findIndex(x => x !== null));
+  const k = 100;
+  ok('히스토그램 = 선 − 시그널', Math.abs(m.hist[k] - (m.line[k] - m.signal[k])) < 1e-9);
+  // 값이 일정하면 MACD 는 0 이다
+  const fm = L.macd(new Array(80).fill(42));
+  ok('평평하면 MACD 0', Math.abs(fm.line[79]) < 1e-9, String(fm.line[79]));
+
+  // RSI
+  const up = Array.from({ length: 60 }, (_, i) => 100 + i);      // 계속 오름
+  const dn = Array.from({ length: 60 }, (_, i) => 200 - i);      // 계속 내림
+  ok('계속 오르면 RSI 100', Math.abs(L.rsi(up)[59] - 100) < 1e-9, String(L.rsi(up)[59]));
+  ok('계속 내리면 RSI 0', Math.abs(L.rsi(dn)[59]) < 1e-9, String(L.rsi(dn)[59]));
+  ok('앞 14개는 null', L.rsi(up).slice(0, 14).every(x => x === null));
+  ok('봉이 모자라면 전부 null', L.rsi([1, 2, 3]).every(x => x === null));
+  const r = L.rsi(closes);
+  ok('RSI 는 0~100 안', r.filter(x => x !== null).every(x => x >= 0 && x <= 100));
+
+  // 그리기 — 꺼져 있으면 칸이 숨는다
+  L.BAR.rows = closes.map((c, i) => [Date.UTC(2026, 7, 19) + i * 60000, c, c + 1, c - 1, c, 100, 'day']);
+  L.BAR.err = null; L.BAR.view = null;
+  L.BAR.ind.macd = false; L.BAR.ind.rsi = false;
+  L.drawBars();
+  ok('꺼져 있으면 MACD 칸 숨김', node('cMacd').hidden === true);
+  ok('꺼져 있으면 RSI 칸 숨김', node('cRsi').hidden === true);
+
+  L.BAR.ind.macd = true; L.BAR.ind.rsi = true;
+  L.drawBars();
+  ok('켜면 MACD 칸이 보인다', node('cMacd').hidden === false);
+  ok('켜면 RSI 칸이 보인다', node('cRsi').hidden === false);
+  const mLines = node('cMacd').children.filter(c => c._attrs.d !== undefined);
+  ok('MACD 는 선 두 개 (MACD·시그널)', mLines.length === 2, String(mLines.length));
+  const mBars = node('cMacd').children.filter(c => c._attrs.width !== undefined && /var\(--(up|down)\)/.test(c._attrs.fill ?? ''));
+  ok('히스토그램 막대도 그린다', mBars.length > 50, String(mBars.length));
+  ok('RSI 는 선 하나', node('cRsi').children.filter(c => c._attrs.d !== undefined).length === 1);
+  ok('RSI 눈금은 0~100 고정', L.YSCALE.get('cRsi').lo === 0 && L.YSCALE.get('cRsi').hi === 100);
+  const dashed = node('cRsi').children.filter(c => c._attrs['stroke-dasharray']);
+  ok('RSI 에 30·70 선', dashed.length >= 2, String(dashed.length));
+
+  // 봉이 모자랄 때
+  const r2 = run();
+  r2.L.BAR.ind.rsi = true;
+  r2.L.BAR.rows = Array.from({ length: 5 }, (_, i) => [Date.UTC(2026, 7, 19) + i * 60000, 100, 101, 99, 100, 1, 'day']);
+  r2.L.BAR.err = null;
+  r2.L.drawBars();
+  ok('봉이 모자라면 그렇다고 적는다', r2.node('cRsi').children.some(c => /모자/.test(c.textContent ?? '')));
+}
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

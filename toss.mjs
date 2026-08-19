@@ -161,8 +161,11 @@ export async function fetchLatest(code, cursor = null) {
       at: String(c.createdAt),
       text: [c.message?.title, c.message?.message].filter(Boolean).join(' ').trim(),
       likes: c.statistic?.likeCount ?? 0,
+      // 사진은 토스 CDN 주소로 온다. 275글 중 20건 정도가 붙어 있다.
+      img: c.image?.commentPictureUrl ?? c.media?.find(m => m.type === 'image')?.url ?? null,
     }))
-    .filter(p => p.text);
+    // 사진만 있고 글이 없는 것도 있다. 그건 남긴다 — 채점은 0 이지만 흐름에는 보인다.
+    .filter(p => p.text || p.img);
   return { posts, key: r.key ?? null, hasNext: !!r.hasNext };
 }
 
