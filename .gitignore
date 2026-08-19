@@ -1,0 +1,21 @@
+# 자격증명 — 절대 커밋 금지
+.env
+.access-key
+*.pem
+*.key
+
+# 생성물 — fetch-comments.mjs / build.mjs 가 다시 만든다
+data.js
+data/
+
+# 휴대용 묶음 (node.exe 포함, 120MB)
+dist/
+stock-sentiment-portable.zip
+
+# 로고 원본. 화면에는 logo-128.png 만 쓴다
+logo.png
+logo-256.png
+
+# 로컬 설정
+.claude/settings.local.json
+node_modules/

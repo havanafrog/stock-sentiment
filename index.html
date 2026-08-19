@@ -1,0 +1,625 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>본주 × 레버리지 커뮤니티 감정</title>
+<style>
+  :root { --r: 16px; }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+
+  .app {
+    color-scheme: light;
+    /* TASTE — tossinvest.com 실측 (2026-08-19). --wts-adaptive-* 418개를 읽고
+       실렌더 값으로 확인했다. 값 근거는 대화의 TASTE BRIEF 참조. */
+    --page: #f4f5f8;            /* body 배경 */
+    --surface-1: #fbfcfd;       /* 패널. 순백이 아니라 살짝 띄운 흰색 */
+    --text-primary: #191f28;
+    --text-secondary: #4e5968;  /* 토스는 본문 기본색이 검정이 아니라 이것 */
+    --muted: #6b7684;
+    --faint: #8b95a1;
+    --grid: #e5e8eb;
+    --axis: #d1d6db;            /* 0선·축 (grey300) */
+    --border: rgba(2, 32, 71, 0.05);
+    --hairline: #e5e8eb;
+    --pos: #3182f6;             /* 감정 긍정 = blue500 */
+    --neg: #f04452;             /* 감정 부정 = red500 */
+    --neutral: #f2f4f6;         /* grey100 */
+    --accent-wash: #e8f3ff;     /* blue50 */
+    --fear: #f04452;            /* 공포 선·게이지 (red500) */
+    --fear-bg: #ffeeee; --fear-ink: #bc1b2a; --fear-bd: rgba(240, 68, 82, .35);
+    --up: #f04452; --down: #3182f6;    /* 한국 시세 관례: 빨강 상승 */
+    --ma20: #f5a623; --ma120: #7a5af8; --ma200: #00a29a;
+    --warn-bg: #fff4e6; --warn-ink: #9a5b00; --warn-bd: rgba(245, 166, 35, .35);
+    --ok-bg: #eaf5ec;   --ok-ink: #1a6b2a;   --ok-bd: rgba(26, 107, 42, .30);
+    --radius: 9px;              /* 버튼·입력 (실측) */
+    --radius-lg: 16px;          /* 패널 (실측) */
+    --ring: inset 0 0 0 1px rgba(2, 32, 71, 0.05);   /* 테두리가 아니라 링 (실측) */
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .app {
+      color-scheme: dark;
+      /* 파생 — tossinvest.com 은 color-scheme: light only 라 다크를 측정할 수 없다.
+         회색 램프(grey50~900)를 뒤집고 채도색은 밝기만 올렸다. */
+      --page: #17171c; --surface-1: #1f2027;
+      --text-primary: #f2f4f6; --text-secondary: #b0b8c1; --muted: #8b95a1; --faint: #6b7684;
+      --grid: #2b2d35; --axis: #3a3d47; --border: rgba(255, 255, 255, 0.07); --hairline: #2b2d35;
+      --pos: #64a8ff; --neg: #f66570; --neutral: #2b2d35;
+      --accent-wash: rgba(100, 168, 255, 0.14);
+        --fear: #f66570;
+    --fear-bg: #2e1517; --fear-ink: #feafb4; --fear-bd: rgba(246, 101, 112, .35);
+      --up: #f66570; --down: #64a8ff;
+      --ma20: #f5b74d; --ma120: #9b82ff; --ma200: #3fc4bb;
+      --warn-bg: #2a2110; --warn-ink: #f5c97a; --warn-bd: rgba(245, 166, 35, .30);
+      --ok-bg: #12210f;   --ok-ink: #9ad79a;   --ok-bd: rgba(26, 107, 42, .30);
+    --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+      --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+    }
+  }
+  :root[data-theme="dark"] .app {
+    color-scheme: dark;
+    /* 파생 — tossinvest.com 은 color-scheme: light only 라 다크를 측정할 수 없다.
+       회색 램프(grey50~900)를 뒤집고 채도색은 밝기만 올렸다. */
+    --page: #17171c; --surface-1: #1f2027;
+    --text-primary: #f2f4f6; --text-secondary: #b0b8c1; --muted: #8b95a1; --faint: #6b7684;
+    --grid: #2b2d35; --axis: #3a3d47; --border: rgba(255, 255, 255, 0.07); --hairline: #2b2d35;
+    --pos: #64a8ff; --neg: #f66570; --neutral: #2b2d35;
+    --accent-wash: rgba(100, 168, 255, 0.14);
+    --fear: #f66570;
+    --fear-bg: #2e1517; --fear-ink: #feafb4; --fear-bd: rgba(246, 101, 112, .35);
+    --up: #f66570; --down: #64a8ff;
+    --ma20: #f5b74d; --ma120: #9b82ff; --ma200: #3fc4bb;
+    --warn-bg: #2a2110; --warn-ink: #f5c97a; --warn-bd: rgba(245, 166, 35, .30);
+    --ok-bg: #12210f;   --ok-ink: #9ad79a;   --ok-bd: rgba(26, 107, 42, .30);
+    --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  }
+  .app {
+    /* "Toss Product Sans" 는 토스 자산이라 안 쓴다. 한글 폴백 순서만 가져왔다. */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+      "Apple SD Gothic Neo", Roboto, "Noto Sans KR", "Malgun Gothic", sans-serif;
+    font-size: 13px;          /* 실측 분포에서 13px/600 이 압도적 */
+    font-weight: 600;         /* 토스의 본문 기본 굵기 */
+    letter-spacing: -0.01em;
+    background: var(--page); color: var(--text-primary);
+    padding: 24px 18px 64px; max-width: 1060px; margin: 0 auto; line-height: 1.5;
+  }
+  h1 { font-size: 22px; font-weight: 650; margin: 0 0 4px; letter-spacing: -.01em; }
+  .sub { color: var(--text-secondary); font-size: 14px; margin: 0 0 18px; }
+
+  .note { border-radius: var(--radius); padding: 11px 13px; font-size: 13px; margin-bottom: 18px; }
+  .note.warn { background: var(--warn-bg); border: 1px solid var(--warn-bd); color: var(--warn-ink); }
+  .note.ok   { background: var(--ok-bg);   border: 1px solid var(--ok-bd);   color: var(--ok-ink); }
+  .note strong { font-weight: 650; }
+
+  .card { background: var(--surface-1); border: 0; box-shadow: var(--ring);
+          border-radius: var(--radius-lg); padding: 16px; margin-bottom: 14px; }
+
+  /* controls */
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: flex-end;
+           padding: 14px 20px; }
+  .ctrl { display: flex; flex-direction: column; gap: 5px; }
+  .ctrl label { font-size: 11.5px; color: var(--text-secondary); }
+  .seg { display: flex; box-shadow: var(--ring); border-radius: var(--radius); overflow: hidden; }
+  .seg button { border: 0; background: var(--surface-1); color: var(--text-secondary);
+                padding: 6px 11px; font: inherit; font-size: 12.5px; cursor: pointer; }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button[aria-pressed="true"] { background: var(--accent-wash); color: var(--text-primary); font-weight: 600; }
+  .seg button:hover { background: var(--neutral); }
+  .seg button[aria-pressed="true"]:hover { background: var(--accent-wash); }
+  input[type=number] { width: 66px; padding: 6px 8px; font: inherit; font-size: 12.5px;
+    border: 1px solid var(--border); border-radius: 9px; background: var(--surface-1); color: var(--text-primary); }
+  .chk { display: flex; align-items: center; gap: 7px; font-size: 12.5px;
+         padding: 6px 0; color: var(--text-primary); cursor: pointer; }
+  .chk input { width: 15px; height: 15px; accent-color: var(--pos); cursor: pointer; }
+  .btn { border: 1px solid var(--border); background: var(--surface-1); color: var(--text-primary);
+         border-radius: 9px; padding: 7px 13px; font: inherit; font-size: 12.5px; cursor: pointer; }
+  .btn:hover { background: var(--neutral); }
+  .spacer { flex: 1 1 auto; }
+
+  .hero-wrap { display: flex; flex-wrap: wrap; gap: 26px; align-items: flex-end; }
+  .hero-num { font-size: 54px; font-weight: 650; letter-spacing: -.02em; line-height: 1; }
+  .hero-lab { font-size: 13px; color: var(--text-secondary); margin-top: 8px; }
+  .hero-note { font-size: 13px; color: var(--text-secondary); max-width: 430px; }
+
+  .tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(158px,1fr));
+           gap: 1px; background: var(--border); border-radius: 12px; overflow: hidden; margin-top: 18px; }
+  .tile { background: var(--surface-1); padding: 13px 15px; }
+  .tile .k { font-size: 11.5px; color: var(--text-secondary); }
+  .tile .v { font-size: 20px; font-weight: 620; margin-top: 3px; letter-spacing: -.01em; }
+  .tile .d { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+  .panel-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 2px; }
+  .panel-head .tk { font-size: 15px; font-weight: 650; letter-spacing: -.01em; }
+  .panel-head .nm { font-size: 13px; color: var(--text-secondary); }
+  .badge { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 20px;
+           background: var(--accent-wash); color: var(--text-primary); }
+
+  .chart-title { font-size: 15px; font-weight: 620; margin: 0 0 2px; }
+  .chart-sub { font-size: 12.5px; color: var(--text-secondary); margin: 0 0 12px; }
+  .legend { display: flex; gap: 15px; font-size: 12px; color: var(--text-secondary); margin: 10px 0; flex-wrap: wrap; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .gridline { stroke: var(--grid); stroke-width: 1; }
+  .axisline { stroke: var(--axis); stroke-width: 1; }
+  .tick { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .rowlab { fill: var(--text-primary); font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  .cellnum { font-size: 10.5px; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .endlab { fill: var(--text-primary); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .crosshair { stroke: var(--axis); stroke-width: 1; pointer-events: none; opacity: 0; }
+  .hitrect { fill: transparent; }
+  .empty { color: var(--muted); font-size: 13px; padding: 26px 0; text-align: center; }
+
+  .tip { position: fixed; pointer-events: none; opacity: 0; transition: opacity .08s;
+    background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+    padding: 9px 11px; font-size: 12px; box-shadow: 0 6px 20px rgba(0,0,0,.14); z-index: 20; min-width: 178px; }
+  .tip .t-date { font-weight: 620; margin-bottom: 5px; }
+  .tip .t-row { display: flex; justify-content: space-between; gap: 16px; color: var(--text-secondary); }
+  .tip .t-row b { color: var(--text-primary); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .tip .t-sec { margin-top: 6px; padding-top: 5px; border-top: 1px solid var(--border); }
+
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td { text-align: right; padding: 6px 9px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  th:first-child, td:first-child { text-align: left; font-variant-numeric: normal; }
+  th { color: var(--text-secondary); font-weight: 600; }
+  th.grp { text-align: center; border-bottom: 0; padding-bottom: 1px; }
+  .scroll { overflow-x: auto; max-height: 340px; overflow-y: auto; }
+  details summary { cursor: pointer; font-size: 13px; color: var(--text-secondary); padding: 5px 0; }
+
+  code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px;
+         background: var(--neutral); padding: 1px 5px; border-radius: 4px; }
+  .foot { font-size: 12.5px; color: var(--text-secondary); }
+  .foot h3 { font-size: 14px; color: var(--text-primary); margin: 16px 0 6px; }
+  .foot p { margin: 0 0 8px; }
+
+  .tabs { display: flex; gap: 2px; margin: 0 0 18px; border-bottom: 1px solid var(--border); }
+  .tabs button { appearance: none; border: 0; background: none; cursor: pointer; font: inherit;
+    font-size: 14px; color: var(--text-secondary); padding: 8px 14px;
+    border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tabs button:hover { color: var(--text-primary); }
+  .tabs button[aria-selected="true"] { color: var(--text-primary); font-weight: 600;
+    border-bottom-color: var(--text-primary); }
+
+  /* live.html 안에 iframe 으로 들어갈 때. 제목·탭·바깥 여백은 부모가 갖고 있다. */
+  body.embed .app { padding: 0; max-width: none; background: transparent; }
+  body.embed #hdr, body.embed .tabs { display: none; }
+</style>
+</head>
+<body>
+
+<div class="app">
+  <h1 id="hdr">본주 × 레버리지 커뮤니티 감정</h1>
+  <p class="sub" id="subhdr"></p>
+  <div class="note" id="banner"></div>
+
+  <div class="tabs" role="tablist">
+    <button id="tabMain" role="tab" aria-selected="true">분석</button>
+    <button id="tabHelp" role="tab" aria-selected="false">사용법</button>
+  </div>
+
+  <div id="viewMain">
+
+  <!-- 필터 -->
+  <div class="card ctrls">
+    <div class="ctrl">
+      <label>종목 쌍</label>
+      <div class="seg" id="segPair"></div>
+    </div>
+    <div class="ctrl">
+      <label>기간</label>
+      <div class="seg" id="segRange"></div>
+    </div>
+    <div class="ctrl">
+      <label>감정 집계</label>
+      <div class="seg" id="segWeight">
+        <button data-w="0" aria-pressed="true">단순 평균</button>
+        <button data-w="1" aria-pressed="false">게시글 수 가중</button>
+      </div>
+    </div>
+    <div class="ctrl">
+      <label for="minPosts">최소 게시글</label>
+      <input type="number" id="minPosts" min="1" max="2000" value="1">
+    </div>
+    <div class="ctrl">
+      <label>표본</label>
+      <label class="chk" for="chkIntra" title="정규장(09:30~16:00 ET) 중에 쓰인 글만 씁니다">
+        <input type="checkbox" id="chkIntra"> 장중 글만
+      </label>
+    </div>
+    <div class="ctrl">
+      <label>통화</label>
+      <div class="seg" id="segCur">
+        <button data-c="USD" aria-pressed="true">USD $</button>
+        <button data-c="KRW" aria-pressed="false">원화 ₩</button>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="ctrl">
+      <label>&nbsp;</label>
+      <button class="btn" id="btnCsv">CSV</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <p class="chart-title">데이터 표</p>
+    <p class="chart-sub">위 필터가 그대로 적용됩니다. CSV 로 내려받으면 같은 내용이 나옵니다.</p>
+    <div class="scroll"><table id="tbl">
+      <thead></thead>
+      <tbody></tbody>
+    </table></div>
+  </div>
+
+  </div><!-- /viewMain -->
+
+  <div id="viewHelp" hidden>
+    <div class="card foot" id="howto"></div>
+  </div>
+</div>
+
+
+<!-- build.mjs 산출물. 없으면 404지만 무시되고 아래에서 안내 배너가 뜹니다. -->
+<script src="lexicon.js"></script>
+<script src="data.js"></script>
+
+<script>
+'use strict';
+
+// ══════════════════════════════════════════════════════════════
+// 1. 데이터 — 전적으로 data.js 에서 온다
+// ══════════════════════════════════════════════════════════════
+// 채점은 build.mjs 가 끝내고 왔다. 이 페이지는 그리기만 한다.
+// (사전을 고치려면 lexicon.js 를 고치고 `node build.mjs` 를 다시 돌린다)
+const D = (typeof window !== 'undefined' && window.STOCK_DATA) || null;
+
+const app = document.querySelector('.app');
+if (!D) {
+  document.getElementById('banner').className = 'note warn';
+  document.getElementById('banner').innerHTML =
+    '<strong>data.js 가 없습니다.</strong> 터미널에서 <code>node fetch-comments.mjs</code> 로 게시글을 받고 '
+    + '<code>node build.mjs</code> 를 돌리면 이 페이지가 자동으로 씁니다.';
+  [...app.children].forEach(c => { if (!c.matches('h1,.sub,#banner')) c.style.display = 'none'; });
+}
+
+const PAIRS = D ? D.pairs : [];
+const TK = D ? D.tickers : {};
+
+// ══════════════════════════════════════════════════════════════
+// 2. 상태
+// ══════════════════════════════════════════════════════════════
+const UI = { pair: 0, range: 'all', weighted: false, minPosts: 1, intraday: false, cur: 'USD' };
+
+// 시세는 전부 달러다(전부 미국 상장). 원화는 표시할 때만 곱한다.
+// 빌드 시점 환율 하나로 전 기간을 환산한다 — 날짜별 환율을 쓰면 주가 변동과
+// 환율 변동이 섞여서, 감정 대비 수익률을 보는 이 대시보드의 축이 흐려진다.
+const RATE = D?.rate?.rate ?? null;
+const cur = v => (UI.cur === 'KRW' && RATE ? v * RATE : v);
+const money = v => (UI.cur === 'KRW'
+  ? (RATE ? '₩' + Math.round(v * RATE).toLocaleString() : '—')
+  : '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+// 축 눈금은 원화로 가면 자릿수가 커져 겹친다 — "231만" 처럼 줄인다
+const AXIS_KRW = new Intl.NumberFormat('ko', { notation: 'compact', maximumFractionDigits: 1 });
+const axisMoney = v => (UI.cur === 'KRW' ? AXIS_KRW.format(v) : v.toFixed(v < 10 ? 1 : 0));
+
+// 공포지수 경보선. lexicon.js 가 유일한 출처다 — 여기서 90 을 다시 쓰면 갈린다.
+const ALERT = window.FEAR_ALERT;
+
+const pairTickers = () => PAIRS[UI.pair].filter(Boolean);   // [본주] 또는 [본주, 레버리지]
+const isLev = t => PAIRS[UI.pair][1] === t;
+
+// ══════════════════════════════════════════════════════════════
+// 3. 파이프라인 — 종목 → 일별 행
+// ══════════════════════════════════════════════════════════════
+// 한 쌍의 두 종목은 같은 미국 거래일 달력을 쓰므로 인덱스가 그대로 맞물린다.
+// 교차 상관에서 rows[i] 끼리 비교할 수 있는 건 그 덕분이다.
+function buildRows(ticker) {
+  const src = TK[ticker].days;
+  const n = { '30': 30, '60': 60, '90': 90 }[UI.range];
+  const sliced = n ? src.slice(-n) : src;
+
+  // 기준선은 '장중 글만' 토글과 짝이 맞아야 한다. 전체 글로 만든 기준선에
+  // 장중 비율을 대면 없는 공포가 보인다(장중 비율이 대체로 더 낮다).
+  const base = TK[ticker].baseline?.daily?.[UI.intraday ? 'intra' : 'all'] ?? null;
+
+  return sliced.map((d, i) => {
+    const posts = UI.intraday ? d.postsIntra : d.posts;
+    const sentiment = UI.intraday ? d.sentimentIntra : d.sentiment;
+    const fear = (UI.intraday ? d.fearIntra : d.fear) ?? null;
+    return {
+      date: d.date,
+      close: d.close,
+      open: d.open ?? null, high: d.high ?? null, low: d.low ?? null,
+      volume: d.volume ?? null,
+      // 수익률은 잘라낸 구간 안에서 다시 계산한다
+      ret: i === 0 ? 0 : (d.close / sliced[i - 1].close - 1),
+      posts,
+      sentiment,
+      fear,
+      fearIdx: window.fearIndex(fear, base),
+      usable: sentiment !== null && posts >= UI.minPosts,
+    };
+  });
+}
+
+// ── 통계 ──
+function pearson(a, b) {
+  const n = Math.min(a.length, b.length);
+  if (n < 3) return NaN;
+  let ma = 0, mb = 0, sa = 0, sb = 0;
+  for (let i = 0; i < n; i++) {
+    ma += a[i]; mb += b[i];
+    sa = Math.max(sa, Math.abs(a[i])); sb = Math.max(sb, Math.abs(b[i]));
+  }
+  ma /= n; mb /= n;
+  let num = 0, da = 0, db = 0;
+  for (let i = 0; i < n; i++) { const x = a[i]-ma, y = b[i]-mb; num += x*y; da += x*x; db += y*y; }
+  // 상수 계열은 상관이 정의되지 않는다. `=== 0` 으로만 막으면 안 된다 —
+  // 값이 모두 같아도 평균이 부동소수점 오차만큼 어긋나 da 가 1e-32 처럼 남고,
+  // 그러면 의미 없는 r = ±1.00 이 나와서 화면에 "완벽한 상관"으로 뜬다.
+  const eps = 1e-9;
+  if (da <= n * (eps * (sa || 1)) ** 2 || db <= n * (eps * (sb || 1)) ** 2) return NaN;
+  return num / Math.sqrt(da * db);
+}
+
+/**
+ * 감정(sRows[i]) vs 수익률(pRows[i+lag]).
+ * sRows 와 pRows 는 서로 다른 종목일 수 있다 — 그게 이 대시보드의 요점이다.
+ * 가중 모드면 게시글 수를 반복 횟수로 근사한다.
+ */
+function corrAtLag(sRows, pRows, lag) {
+  const s = [], r = [];
+  for (let i = 1; i < sRows.length; i++) {
+    const j = i + lag;
+    if (j < 1 || j >= pRows.length) continue;
+    if (!sRows[i].usable) continue;
+    const reps = UI.weighted ? Math.min(20, Math.max(1, Math.round(sRows[i].posts / 5))) : 1;
+    for (let k = 0; k < reps; k++) { s.push(sRows[i].sentiment); r.push(pRows[j].ret); }
+  }
+  return pearson(s, r);
+}
+
+const LAGS = [-4,-3,-2,-1,0,1,2,3,4];
+
+/** 볼 조합: 레버리지가 있으면 4개, 없으면 1개 */
+function series() {
+  const [base, lev] = PAIRS[UI.pair];
+  if (!lev) return [{ s: base, p: base }];
+  return [
+    { s: lev,  p: lev  },
+    { s: lev,  p: base },
+    { s: base, p: base },
+    { s: base, p: lev  },
+  ];
+}
+
+// ══════════════════════════════════════════════════════════════
+// 4. 렌더
+// ══════════════════════════════════════════════════════════════
+const $ = id => document.getElementById(id);
+const sign = v => (isNaN(v) ? '—' : (v >= 0 ? '+' : '') + v.toFixed(2));
+const fmtD = s => s.slice(5).replace('-', '/');
+const pct = v => (v * 100 >= 0 ? '+' : '') + (v * 100).toFixed(2) + '%';
+
+let ROWS = {};        // { 티커: rows[] }
+let DATES = [];       // 축 공유용
+let CELLS = [];       // [{ s, p, lag, r }]
+let BEST = null, NOISE = 0, BEST_REAL = false;
+
+
+function render() {
+  if (!D) return;
+
+  ROWS = {};
+  for (const t of pairTickers()) ROWS[t] = buildRows(t);
+  DATES = ROWS[pairTickers()[0]].map(r => r.date);
+
+  // 잡음 문턱은 실제로 상관에 들어간 날 수로 잡는다
+  const usableCount = Math.max(...pairTickers().map(t => ROWS[t].filter(r => r.usable).length));
+  NOISE = 2 / Math.sqrt(Math.max(4, usableCount || DATES.length));
+
+  CELLS = [];
+  for (const { s, p } of series()) {
+    for (const lag of LAGS) CELLS.push({ s, p, lag, r: corrAtLag(ROWS[s], ROWS[p], lag) });
+  }
+  const valid = CELLS.filter(c => !isNaN(c.r));
+  BEST = valid.length ? valid.reduce((a, b) => Math.abs(b.r) > Math.abs(a.r) ? b : a) : null;
+  BEST_REAL = !!BEST && Math.abs(BEST.r) > NOISE;
+
+  renderHeader();
+  renderTable();
+  // 요약·종목 패널·교차 시차 행렬은 화면에서 뺐다. 실시간 탭의 봉·공포 차트가
+  // 같은 걸 더 잘 보여준다. 계산(pearson·corrAtLag)은 CSV 와 점검이 쓰므로 남긴다.
+}
+
+// ETF 는 name 이 티커와 같게 오는 경우가 많다 ("SNXX SNXX" 로 겹쳐 보이지 않게)
+const fullName = t => (TK[t].name && TK[t].name !== t) ? `${t} ${TK[t].name}` : t;
+
+function renderHeader() {
+  const ts = pairTickers();
+  $('subhdr').textContent = DATES.length
+    ? `${DATES[0]} ~ ${DATES[DATES.length-1]} · 거래일 ${DATES.length}일 · `
+      + ts.map(fullName).join('  vs  ')
+    : '';
+
+  const total = ts.reduce((s, t) => s + ROWS[t].reduce((a, r) => a + r.posts, 0), 0);
+  const b = $('banner');
+  if (!total) {
+    b.className = 'note warn';
+    b.innerHTML = `<strong>${ts.join(', ')} 의 게시글이 없습니다.</strong> `
+      + `터미널에서 <code>node fetch-comments.mjs ${ts.join(' ')}</code> 후 <code>node build.mjs</code> 를 돌리세요.`;
+  } else {
+    b.className = 'note ok';
+    b.innerHTML = `<strong>실데이터.</strong> 시세·게시글 모두 토스증권에서 수집 `
+      + `(${D.builtAt.slice(0,10)} 빌드). 이 쌍의 분석 대상 게시글 ${total.toLocaleString()}건`
+      + (UI.intraday ? ' <b>(장중 글만)</b>' : '') + '.';
+  }
+}
+
+function renderTable() {
+  const ts = pairTickers();
+  const head = document.querySelector('#tbl thead');
+  head.innerHTML = `<tr><th class="grp"></th>`
+    + ts.map(t => `<th class="grp" colspan="6">${t}</th>`).join('') + '</tr>'
+    + `<tr><th>날짜</th>`
+    + ts.map(() => '<th>종가</th><th>수익률</th><th>게시글</th><th>감정</th><th>공포</th><th>공포지수</th>').join('') + '</tr>';
+
+  const tb = document.querySelector('#tbl tbody');
+  tb.innerHTML = '';
+  DATES.forEach((date, i) => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${date}</td>` + ts.map(t => {
+      const r = ROWS[t][i];
+      const s = r.sentiment === null ? '—' : sign(r.sentiment) + (r.usable ? '' : '*');
+      return `<td>${money(r.close)}</td><td>${pct(r.ret)}</td>`
+        + `<td>${r.posts.toLocaleString()}</td><td>${s}</td>`
+        + `<td>${r.fear === null ? '—' : (r.fear * 100).toFixed(1) + '%'}</td>`
+        + `<td>${r.fearIdx === null ? '—' : r.fearIdx.toFixed(0)}</td>`;
+    }).join('');
+    tb.appendChild(tr);
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// 5. 컨트롤 배선
+// ══════════════════════════════════════════════════════════════
+function seg(host, items, get, set) {
+  host.innerHTML = '';
+  items.forEach(([v, lab]) => {
+    const b = document.createElement('button');
+    b.textContent = lab; b.dataset.v = String(v);
+    b.setAttribute('aria-pressed', String(get() === v));
+    b.onclick = () => {
+      set(v);
+      [...host.children].forEach(c => c.setAttribute('aria-pressed', String(c.dataset.v === String(v))));
+      render();
+    };
+    host.appendChild(b);
+  });
+}
+
+// ── 끼워넣기 ──
+// iframe 은 내용 높이를 스스로 못 잡는다. 그릴 때마다 부모에게 알려 준다.
+// 부모가 없으면(직접 열면) postMessage 가 아무 데도 안 가고 조용히 끝난다.
+const EMBED = new URLSearchParams(location.search).get('embed') === '1';
+if (EMBED) document.body.classList.add('embed');
+function tellHeight() {
+  if (!EMBED) return;
+  const h = Math.ceil(document.documentElement.getBoundingClientRect().height);
+  parent.postMessage({ type: 'snapshot-height', h }, '*');
+}
+if (EMBED) {
+  addEventListener('resize', tellHeight);
+  new ResizeObserver(tellHeight).observe(document.body);
+}
+
+// ── 탭 ── 사용법은 본문과 같은 페이지에 두되 따로 연다. 라우트가 늘지 않는다.
+(function tabs() {
+  const view = { main: $('viewMain'), help: $('viewHelp') };
+  const btn  = { main: $('tabMain'),  help: $('tabHelp')  };
+  const show = name => {
+    for (const k in view) {
+      view[k].hidden = k !== name;
+      btn[k].setAttribute('aria-selected', String(k === name));
+    }
+  };
+  const fromHash = () => (location.hash === '#help' ? 'help' : 'main');
+  if (EMBED) { show('main'); return; }        // 사용법은 부모 탭에 있다
+  btn.main.onclick = () => { location.hash = ''; show('main'); };
+  btn.help.onclick = () => { location.hash = 'help'; show('help'); };
+  addEventListener('hashchange', () => show(fromHash()));
+  show(fromHash());
+})();
+
+$('howto').innerHTML = `
+<h3>쓰는 순서</h3>
+<p><b>1. 게시글</b> — <code>node fetch-comments.mjs</code>. 두 번째부터는 증분이라 몇 초면 끝납니다.</p>
+<p><b>2. 빌드</b> — <code>node build.mjs</code>. 시세를 받아 게시글을 채점하고 <code>data.js</code> 를 만듭니다.</p>
+<p><b>사전을 고치려면</b> <code>lexicon.js</code> 를 고치고 <code>node build.mjs</code> 만 다시 돌리세요. 게시글은 다시 받지 않습니다.</p>
+
+<h3>가격 차트</h3>
+<p><b>일봉입니다.</b> 몸통은 시가~종가, 심지는 그날 고가·저가.
+<b style="color:var(--up)">빨강 = 오른 날</b>, <b style="color:var(--down)">파랑 = 내린 날</b> (한국 시세 관례).
+아래 칸은 같은 x축의 거래량입니다.</p>
+<p>시가·고가·저가·거래량은 토스 일봉 응답에 원래 들어있습니다. 따로 받아오는 게 아닙니다.
+예전에 만든 <code>data.js</code> 라 이 값이 없으면 종가 선으로 물러납니다 — <code>node build.mjs</code> 를 다시 돌리세요.</p>
+
+<h3>공포지수</h3>
+<p><b>0~100 입니다.</b> 그날 공포어("무섭다", "손절", "물렸다", "나락"…)가 든 글의 비율을,
+그 종목의 평소 분포와 견줘 몇 표준편차인지로 바꾼 뒤 0~100 으로 편 값입니다.
+<b>50 = 평소</b>, <b>90 = 평소보다 2 표준편차 위</b>(경보선, 실시간 화면에서 카드가 붉어지는 지점과 같습니다).</p>
+<p><b>비율을 그대로 안 쓰는 이유</b> — 평소 비율이 종목마다 다릅니다(SNDK 5.0% ↔ MUU 6.3%).
+같은 "평온한 날"인데 숫자가 1.3배 차이나면 종목끼리 겹쳐 볼 수가 없습니다.</p>
+<p><b>기준선은 지금 보고 있는 창 안에서 뽑습니다.</b> 그래서 지수는 절대 눈금이 아니라 <b>그 창 안의 상대값</b>이고,
+평균이 구조적으로 50 근처가 됩니다. 기간을 바꾸면 같은 날의 지수도 바뀝니다.
+창이 길수록 안정됩니다 — <code>node fetch-comments.mjs --days 90</code> 로 늘릴 수 있습니다.</p>
+<p><b>글이 20건 미만인 날은 기준선에서 뺍니다.</b> 5일치가 안 모이면 지수를 아예 안 그립니다.</p>
+<p><b>장중 글만</b> 을 켜면 기준선도 장중 것으로 같이 바뀝니다. 전체 기준선에 장중 비율을 대면 없는 공포가 보입니다.</p>
+
+<h3>읽을 때 조심할 것</h3>
+<p><b>레버리지 주가는 본주를 배로 따라갑니다.</b> 주가끼리 상관이 1에 가까운 건 발견이 아닙니다.
+볼 것은 <b>어느 커뮤니티의 감정이 먼저·세게 붙는가</b> 입니다.</p>
+<p><b>음수 시차를 먼저 보세요.</b> 음수 쪽이 양수보다 강하면 주가가 먼저 움직이고 커뮤니티가 따라간 것입니다 —
+감정이 주가를 예측한 게 아닙니다. 이 구분이 이 대시보드에서 가장 중요합니다.</p>
+<p><b>장중 글만</b> 을 켜보세요. 정규장(09:30~16:00 ET) 중 글만 남깁니다.
+마감 후 글은 그날 종가에 영향을 줄 수 없으므로, 껐을 때만 보이는 상관은 예측이 아니라 반응입니다.</p>
+<p><b>조합을 ${LAGS.length * 4}개 훑습니다.</b> 그중 하나쯤은 우연히 커집니다. 회색 칸 안이면 발견이 아닙니다.</p>
+<p><b>옵션을 바꿔가며 확인하세요.</b> 최소 게시글 수를 올리거나 가중 모드를 켰을 때 결론이 뒤집힌다면 그 상관은 신뢰할 수 없습니다.</p>
+<p><b>사전 채점의 한계</b> — "안 오른다" 같은 부정어는 처리하지만 반어법("좋겠다 참")과 신조어는 놓칩니다.
+부분 문자열 매칭이라 문맥도 무시합니다. 정확도가 중요하면 LLM으로 배치 채점해 <code>build.mjs</code> 의 채점기를 갈아끼우세요.</p>
+`;
+
+if (D) {
+  seg($('segPair'), PAIRS.map((p, i) => [i, p.filter(Boolean).join(' / ')]),
+      () => UI.pair, v => { UI.pair = v; });
+  seg($('segRange'), [['all','전체'],['90','90일'],['60','60일'],['30','30일']],
+      () => UI.range, v => { UI.range = v; });
+
+  $('segWeight').onclick = ev => {
+    const b = ev.target.closest('button'); if (!b) return;
+    UI.weighted = b.dataset.w === '1';
+    [...$('segWeight').children].forEach(c => c.setAttribute('aria-pressed', String(c === b)));
+    render();
+  };
+  $('minPosts').oninput = e => { UI.minPosts = Math.max(1, +e.target.value || 1); render(); };
+  $('chkIntra').onchange = e => { UI.intraday = e.target.checked; render(); };
+  $('segCur').onclick = ev => {
+    const b = ev.target.closest('button'); if (!b) return;
+    if (b.dataset.c === 'KRW' && !RATE) return;      // 환율이 없으면 못 바꾼다
+    UI.cur = b.dataset.c;
+    [...$('segCur').children].forEach(c => c.setAttribute('aria-pressed', String(c === b)));
+    render();
+  };
+  const krwBtn = [...$('segCur').children].find(c => c.dataset.c === 'KRW');
+  if (!RATE && krwBtn) {
+    krwBtn.disabled = true;
+    krwBtn.title = '환율을 못 받았습니다. node build.mjs 를 다시 돌리세요.';
+    krwBtn.style.opacity = .45;
+  }
+
+  $('btnCsv').onclick = () => {
+    const ts = pairTickers();
+    const head = ['date', ...ts.flatMap(t =>
+      [`${t}_open`, `${t}_high`, `${t}_low`, `${t}_close`, `${t}_return`, `${t}_volume`, `${t}_posts`, `${t}_sentiment`, `${t}_fear`, `${t}_fear_index`])].join(',');
+    const body = DATES.map((date, i) => [date, ...ts.flatMap(t => {
+      const r = ROWS[t][i];
+      return [r.open ?? '', r.high ?? '', r.low ?? '', r.close, r.ret.toFixed(6), r.volume ?? '', r.posts,
+              r.sentiment === null ? '' : r.sentiment.toFixed(4),
+              r.fear === null ? '' : r.fear.toFixed(5),
+              r.fearIdx === null ? '' : r.fearIdx.toFixed(1)];
+    })].join(','));
+    const url = URL.createObjectURL(new Blob(['﻿' + [head, ...body].join('\n')],
+                                            { type: 'text/csv;charset=utf-8' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `${ts.join('-')}_sentiment.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+
+
+  render();
+}
+</script>
+</body>
+</html>
