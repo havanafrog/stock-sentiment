@@ -1,0 +1,1350 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>실시간 커뮤니티 온도</title>
+<link rel="icon" type="image/png" href="logo-128.png">
+<meta name="theme-color" content="#f4f5f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#17171c" media="(prefers-color-scheme: dark)">
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+
+  .app {
+    color-scheme: light;
+    /* TASTE — tossinvest.com 실측 (2026-08-19). --wts-adaptive-* 418개를 읽고
+       실렌더 값으로 확인했다. 값 근거는 대화의 TASTE BRIEF 참조. */
+    --page: #f4f5f8;            /* body 배경 */
+    --surface-1: #fbfcfd;       /* 패널. 순백이 아니라 살짝 띄운 흰색 */
+    --surface-glass: rgba(251, 252, 253, 0.72);   /* 차트 위에 뜨는 툴팁 */
+    --text-primary: #191f28;
+    --text-secondary: #4e5968;  /* 토스는 본문 기본색이 검정이 아니라 이것 */
+    --muted: #6b7684;
+    --faint: #8b95a1;
+    --grid: #e5e8eb;
+    --border: rgba(2, 32, 71, 0.05);
+    --hairline: #e5e8eb;
+    --pos: #3182f6;             /* 감정 긍정 = blue500 */
+    --neg: #f04452;             /* 감정 부정 = red500 */
+    --neutral: #f2f4f6;         /* grey100 */
+    --accent-wash: #e8f3ff;     /* blue50 */
+    --fear: #f04452;            /* 공포 선·게이지 (red500) */
+    --fear-bg: #ffeeee; --fear-ink: #bc1b2a; --fear-bd: rgba(240, 68, 82, .35);
+    --up: #f04452; --down: #3182f6;    /* 한국 시세 관례: 빨강 상승 */
+    --ma20: #f5a623; --ma120: #7a5af8; --ma200: #00a29a;
+    --warn-bg: #fff4e6; --warn-ink: #9a5b00; --warn-bd: rgba(245, 166, 35, .35);
+    --ok-bg: #eaf5ec;   --ok-ink: #1a6b2a;   --ok-bd: rgba(26, 107, 42, .30);
+    --radius: 9px;              /* 버튼·입력 (실측) */
+    --radius-lg: 16px;          /* 패널 (실측) */
+    --ring: inset 0 0 0 1px rgba(2, 32, 71, 0.05);   /* 테두리가 아니라 링 (실측) */
+    --on-solid: #ffffff;        /* 진한 배경 위 글자 */
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:where(:not([data-theme="light"])) .app {
+      color-scheme: dark;
+      /* 파생 — tossinvest.com 은 color-scheme: light only 라 다크를 측정할 수 없다.
+         회색 램프(grey50~900)를 뒤집고 채도색은 밝기만 올렸다. */
+      --page: #17171c; --surface-1: #1f2027;
+      --surface-glass: rgba(31, 32, 39, 0.76);
+      --text-primary: #f2f4f6; --text-secondary: #b0b8c1; --muted: #8b95a1; --faint: #6b7684;
+      --grid: #2b2d35; --border: rgba(255, 255, 255, 0.07); --hairline: #2b2d35;
+      --pos: #64a8ff; --neg: #f66570; --neutral: #2b2d35;
+      --accent-wash: rgba(100, 168, 255, 0.14);
+        --fear: #f66570;
+    --fear-bg: #2e1517; --fear-ink: #feafb4; --fear-bd: rgba(246, 101, 112, .35);
+      --up: #f66570; --down: #64a8ff;
+      --ma20: #f5b74d; --ma120: #9b82ff; --ma200: #3fc4bb;
+      --warn-bg: #2a2110; --warn-ink: #f5c97a; --warn-bd: rgba(245, 166, 35, .30);
+      --ok-bg: #12210f;   --ok-ink: #9ad79a;   --ok-bd: rgba(26, 107, 42, .30);
+    --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+      --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+    }
+  }
+  :root[data-theme="dark"] .app {
+    color-scheme: dark;
+    /* 파생 — tossinvest.com 은 color-scheme: light only 라 다크를 측정할 수 없다.
+       회색 램프(grey50~900)를 뒤집고 채도색은 밝기만 올렸다. */
+    --page: #17171c; --surface-1: #1f2027;
+    --surface-glass: rgba(31, 32, 39, 0.76);
+    --text-primary: #f2f4f6; --text-secondary: #b0b8c1; --muted: #8b95a1; --faint: #6b7684;
+    --grid: #2b2d35; --border: rgba(255, 255, 255, 0.07); --hairline: #2b2d35;
+    --pos: #64a8ff; --neg: #f66570; --neutral: #2b2d35;
+    --accent-wash: rgba(100, 168, 255, 0.14);
+    --fear: #f66570;
+    --fear-bg: #2e1517; --fear-ink: #feafb4; --fear-bd: rgba(246, 101, 112, .35);
+    --up: #f66570; --down: #64a8ff;
+    --ma20: #f5b74d; --ma120: #9b82ff; --ma200: #3fc4bb;
+    --warn-bg: #2a2110; --warn-ink: #f5c97a; --warn-bd: rgba(245, 166, 35, .30);
+    --ok-bg: #12210f;   --ok-ink: #9ad79a;   --ok-bd: rgba(26, 107, 42, .30);
+    --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+  }
+  .app {
+    /* "Toss Product Sans" 는 토스 자산이라 안 쓴다. 한글 폴백 순서만 가져왔다. */
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+      "Apple SD Gothic Neo", Roboto, "Noto Sans KR", "Malgun Gothic", sans-serif;
+    font-size: 13px;          /* 실측 분포에서 13px/600 이 압도적 */
+    font-weight: 600;         /* 토스의 본문 기본 굵기 */
+    letter-spacing: -0.01em;
+    background: var(--page); color: var(--text-primary);
+    padding: 24px 18px 64px; max-width: 1180px; margin: 0 auto; line-height: 1.5;
+  }
+  h1 { font-size: 22px; font-weight: 650; margin: 0; letter-spacing: -.01em; }
+  .brand { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; }
+  .brand img { width: 30px; height: 30px; display: block; flex: none; }
+  .madeby { margin: 28px 0 0; text-align: center; font-size: 11.5px;
+    color: var(--faint); font-weight: 500; letter-spacing: .02em; }
+  .sub { color: var(--text-secondary); font-size: 13.5px; margin: 0 0 16px; }
+  .sub a { color: inherit; }
+
+  .bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+         font-size: 12.5px; color: var(--text-secondary); margin-bottom: 18px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pos);
+         box-shadow: 0 0 0 0 currentColor; animation: pulse 2s infinite; }
+  .dot.stale { background: var(--muted); animation: none; }
+  .dot.err { background: var(--neg); animation: none; }
+  @keyframes pulse { 0% { opacity: 1 } 50% { opacity: .35 } 100% { opacity: 1 } }
+
+  .note { border-radius: var(--radius); padding: 11px 13px; font-size: 13px; margin-bottom: 18px; }
+  .note.warn { background: var(--warn-bg); border: 1px solid var(--warn-bd); color: var(--warn-ink); }
+
+  /* 컨트롤 */
+  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: flex-end;
+           background: var(--surface-1); border: 1px solid var(--border);
+           border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 14px; }
+  .ctrl { display: flex; flex-direction: column; gap: 5px; }
+  .ctrl > label { font-size: 11.5px; color: var(--text-secondary); }
+  .seg { display: flex; box-shadow: var(--ring); border-radius: var(--radius); overflow: hidden; }
+  .seg button { border: 0; background: var(--surface-1); color: var(--text-secondary);
+                padding: 6px 12px; font: inherit; font-size: 12.5px; cursor: pointer;
+                display: inline-flex; align-items: center; gap: 6px; }
+  .seg button + button { border-left: 1px solid var(--border); }
+  .seg button[aria-pressed="true"] { background: var(--accent-wash); color: var(--text-primary); font-weight: 600; }
+  .seg button:hover { background: var(--neutral); }
+  .seg button[aria-pressed="true"]:hover { background: var(--accent-wash); }
+  /* 한 종목만 보고 있어도 다른 종목의 공포는 탭에서 알 수 있어야 한다 */
+  .seg button .fdot { width: 6px; height: 6px; border-radius: 50%; background: var(--neg); }
+  .spacer { flex: 1 1 auto; }
+
+  /* 봉 차트 */
+  .cbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 20px; margin: 0 0 14px; }
+  .cbar .seg button { padding: 4px 9px; font-size: 11.5px; }
+  .mas { display: flex; gap: 9px; font-size: 11px; color: var(--text-secondary); }
+  .mas label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
+  .mas input { margin: 0; }
+  .mas .k { width: 9px; height: 2.5px; border-radius: 2px; display: inline-block; }
+  .cnote { font-size: 11px; color: var(--muted); margin: 4px 0 0; }
+
+  /* 크로스헤어 · 툴팁 */
+  .xh { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0;
+        pointer-events: none; }
+  .xlab { font-size: 9px; fill: var(--surface-1); pointer-events: none; }
+  .xlabbg { fill: var(--text-secondary); pointer-events: none; }
+  .ctip { position: fixed; z-index: 50; pointer-events: none; opacity: 0;
+    background: var(--surface-glass);
+    -webkit-backdrop-filter: blur(10px) saturate(1.4);
+    backdrop-filter: blur(10px) saturate(1.4);
+    box-shadow: var(--ring), 0 6px 20px rgba(0,0,0,.10);
+    border-radius: var(--radius); padding: 9px 11px; font-size: 11.5px; min-width: 168px;
+    transition: opacity .1s; }
+  /* blur 를 못 쓰는 브라우저에서는 그냥 불투명하게 — 반투명만 남으면 글자가 안 읽힌다 */
+  @supports not (backdrop-filter: blur(1px)) {
+    .ctip { background: var(--surface-1); }
+  }
+  .ctip .d { color: var(--muted); margin-bottom: 5px; font-variant-numeric: tabular-nums; }
+  .ctip .r { display: flex; justify-content: space-between; gap: 14px; line-height: 1.7; }
+  .ctip .r span { color: var(--muted); }
+  .ctip .r b { font-variant-numeric: tabular-nums; }
+  .ctip .sep { border-top: 1px solid var(--hairline); margin: 5px 0; }
+  .lnk { border: 0; background: none; padding: 0 0 0 6px; font: inherit; cursor: pointer;
+    color: var(--pos); text-decoration: underline; text-underline-offset: 2px; }
+
+  /* 실시간 그래프 */
+  .charts { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border); }
+  .chead { display: flex; align-items: baseline; gap: 8px; font-size: 12px;
+    color: var(--text-secondary); margin: 0 0 2px; }
+  .chead b { font-size: 12.5px; color: var(--text-primary); }
+  .chead .now { margin-left: auto; font-variant-numeric: tabular-nums; }
+  .charts svg { display: block; width: 100%; height: auto; overflow: visible; }
+  /* 끌어서 이동할 때 축 글자가 선택되면 파랗게 잡혀 끌린다.
+     touch-action: none 은 터치에서 페이지가 같이 스크롤되는 것도 막는다. */
+  #cPrice, #cVol { user-select: none; -webkit-user-select: none; touch-action: none; }
+  #cPrice text, #cVol text { user-select: none; -webkit-user-select: none; }
+  #cPrice { cursor: grab; }
+  #cPrice.grabbing, #cVol.grabbing { cursor: grabbing; }
+  .charts svg + .chead { margin-top: 10px; }
+  #cVol { margin-top: 3px; }
+  .gl { stroke: var(--border); stroke-width: 1; }
+  .ax { stroke: var(--muted); stroke-width: 1; opacity: .5; }
+  .ctk { font-size: 9px; fill: var(--muted); }
+  .cempty { font-size: 11.5px; color: var(--muted); padding: 6px 0; }
+
+  /* 분석 탭 — index.html 을 그대로 끼워넣는다 */
+  #snapFrame { width: 100%; border: 0; display: block; min-height: 420px; }
+
+  /* 글 탭 */
+  .fld { border: 0; box-shadow: var(--ring); border-radius: var(--radius); background: var(--surface-1);
+    color: var(--text-primary); font: inherit; font-size: 13px; padding: 7px 10px; }
+  .fld:focus { outline: 2px solid var(--accent-wash); outline-offset: 1px; }
+  .dates { display: flex; align-items: center; gap: 6px; }
+  .dates span { color: var(--muted); font-size: 12px; }
+  .btn { border: 0; box-shadow: var(--ring); border-radius: var(--radius); background: var(--surface-1);
+    color: var(--text-primary); font: inherit; font-size: 13px; padding: 8px 16px; cursor: pointer; }
+  .btn:hover { background: var(--neutral); }
+  .plist { margin-top: 12px; padding-top: 4px; border-top: 1px solid var(--border); }
+  .pitem { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .pitem:last-child { border-bottom: 0; }
+  .ph { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted);
+    margin-bottom: 3px; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
+  .ph .ps { font-weight: 600; }
+  .ph .ps.p { color: var(--pos); }
+  .ph .ps.n { color: var(--neg); }
+  .ph .pf { color: var(--fear-ink); background: var(--fear-bg); border: 1px solid var(--fear-bd);
+    border-radius: 5px; padding: 0 5px; font-weight: 600; }
+  .ptxt { font-size: 13.5px; line-height: 1.55; color: var(--text-primary); overflow-wrap: anywhere;
+    white-space: pre-wrap; }
+  .pitem.f .ptxt { color: var(--fear-ink); }
+  .ptxt mark { background: var(--accent-wash); color: inherit; border-radius: 3px; padding: 0 1px; }
+  .pmore { display: flex; justify-content: center; padding-top: 14px; }
+  .pnote { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
+  .rate { font-size: 11.5px; color: var(--muted); }
+
+  .single { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  @media (min-width: 820px) { .single { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); } }
+
+  .card { background: var(--surface-1); border: 0; box-shadow: var(--ring);
+          border-radius: var(--radius-lg); padding: 16px; transition: background .3s, box-shadow .3s; }
+  .card.fear { background: var(--fear-bg); box-shadow: inset 0 0 0 1px var(--fear-bd); }
+
+  .head { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+  .tk { font-size: 17px; font-weight: 650; letter-spacing: -.01em; }
+  .nm { font-size: 12.5px; color: var(--text-secondary); }
+  .tag { font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 20px;
+         background: var(--accent-wash); color: var(--text-primary); }
+  .tag.fear { background: var(--neg); color: var(--on-solid); }
+  .grow { flex: 1 1 auto; }
+
+  .px { font-size: 26px; font-weight: 650; letter-spacing: -.02em; margin: 10px 0 2px;
+        font-variant-numeric: tabular-nums; }
+  .pxd { font-size: 12.5px; font-variant-numeric: tabular-nums; }
+  .up { color: var(--neg); } .down { color: var(--pos); }
+
+  .rows { margin-top: 14px; display: grid; gap: 9px; }
+  .row { display: grid; grid-template-columns: 62px 1fr auto; align-items: center; gap: 10px;
+         font-size: 12.5px; }
+  .row .k { color: var(--text-secondary); }
+  .row .v { font-variant-numeric: tabular-nums; font-weight: 600; }
+  .row .v .thin { color: var(--muted); font-weight: 400; font-size: 11.5px; }
+
+  .meter { height: 8px; border-radius: 5px; background: var(--neutral); overflow: hidden; position: relative; }
+  .meter i { display: block; height: 100%; border-radius: 5px; transition: width .4s, background .3s; }
+  .meter .base { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--muted); opacity: .8; }
+
+  .zline { margin-top: 12px; font-size: 12.5px; color: var(--text-secondary);
+           padding-top: 11px; border-top: 1px solid var(--border); }
+  .zline b { color: var(--text-primary); font-variant-numeric: tabular-nums; }
+  .card.fear .zline b { color: var(--fear-ink); }
+
+  .feed { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border);
+          max-height: 420px; overflow-y: auto; display: grid; gap: 9px; }
+  .feed-head { font-size: 12.5px; font-weight: 620; }
+  .post { font-size: 12px; line-height: 1.45; display: grid; grid-template-columns: 40px 1fr; gap: 8px; }
+  .post .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .post .x { color: var(--text-secondary); overflow-wrap: anywhere; }
+  .post.f .x { color: var(--fear-ink); font-weight: 500; }
+  :root:where(:not([data-theme="dark"])) .card:not(.fear) .post.f .x { color: var(--fear-ink); }
+
+  .err { font-size: 12.5px; color: var(--neg); margin-top: 10px; }
+  .foot { font-size: 12.5px; color: var(--text-secondary); margin-top: 22px;
+          background: var(--surface-1); border: 1px solid var(--border);
+          border-radius: var(--radius-lg); padding: 16px; }
+  .foot h3 { font-size: 14px; color: var(--text-primary); margin: 14px 0 6px; }
+  .foot h3:first-child { margin-top: 0; }
+  .foot p { margin: 0 0 8px; }
+
+  /* 계산식 */
+  .eq { background: var(--neutral); border-radius: var(--radius); padding: 11px 13px;
+    margin: 8px 0 12px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+    font-size: 12px; line-height: 1.75; white-space: pre-wrap; overflow-x: auto;
+    color: var(--text-primary); font-weight: 500; }
+  .eq b { color: var(--fear); font-weight: 700; }
+  .foot h4 { font-size: 12.5px; margin: 12px 0 4px; color: var(--text-primary); }
+
+  .tabs { display: flex; gap: 2px; margin: 0 0 18px; border-bottom: 1px solid var(--border); }
+  .tabs button { appearance: none; border: 0; background: none; cursor: pointer; font: inherit;
+    font-size: 14px; color: var(--text-secondary); padding: 8px 14px;
+    border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tabs button:hover { color: var(--text-primary); }
+  .tabs button[aria-selected="true"] { color: var(--text-primary); font-weight: 600;
+    border-bottom-color: var(--text-primary); }
+  code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px;
+         background: var(--neutral); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div class="ctip" id="ctip"></div>
+<div class="app">
+  <div class="brand">
+    <img src="logo-128.png" alt="" width="30" height="30">
+    <h1>실시간 커뮤니티 온도</h1>
+  </div>
+
+  <div class="bar">
+    <span class="dot" id="dot"></span>
+    <span id="status">연결 중…</span>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button id="tabMain" role="tab" aria-selected="true">실시간</button>
+    <button id="tabAnalysis" role="tab" aria-selected="false">분석</button>
+    <button id="tabPosts" role="tab" aria-selected="false">글</button>
+    <button id="tabHelp" role="tab" aria-selected="false">사용법</button>
+  </div>
+
+  <div id="viewMain">
+
+  <div class="ctrls">
+    <div class="ctrl">
+      <label>종목</label>
+      <div class="seg" id="segTicker"></div>
+    </div>
+    <div class="ctrl">
+      <label>통화</label>
+      <div class="seg" id="segCur">
+        <button data-c="USD" aria-pressed="true">USD $</button>
+        <button data-c="KRW" aria-pressed="false">원화 ₩</button>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="ctrl"><span class="rate" id="rateInfo"></span></div>
+  </div>
+
+  <div class="cbar">
+    <div class="ctrl"><label>봉</label><div class="seg" id="segUnit"></div></div>
+    <div class="ctrl">
+      <label>이동평균</label>
+      <div class="mas" id="masBox">
+        <label><input type="checkbox" data-ma="20"><i class="k" style="background:var(--ma20)"></i>20선</label>
+        <label><input type="checkbox" data-ma="120"><i class="k" style="background:var(--ma120)"></i>120선</label>
+        <label><input type="checkbox" data-ma="200"><i class="k" style="background:var(--ma200)"></i>200선</label>
+      </div>
+    </div>
+  </div>
+
+  <div id="banner"></div>
+  <div class="single" id="single"></div>
+  </div><!-- /viewMain -->
+
+  <div id="viewAnalysis" hidden>
+    <iframe id="snapFrame" title="본주 × 레버리지 상관 분석" loading="lazy"></iframe>
+  </div>
+
+  <div id="viewPosts" hidden>
+    <div class="ctrls">
+      <div class="ctrl">
+        <label>종목</label>
+        <div class="seg" id="pTicker"></div>
+      </div>
+      <div class="ctrl">
+        <label>감정</label>
+        <div class="seg" id="pMood">
+          <button data-m="all" aria-pressed="true">전체</button>
+          <button data-m="fear" aria-pressed="false">공포</button>
+          <button data-m="neg" aria-pressed="false">부정</button>
+          <button data-m="pos" aria-pressed="false">긍정</button>
+        </div>
+      </div>
+      <div class="ctrl">
+        <label>정렬</label>
+        <div class="seg" id="pSort">
+          <button data-s="new" aria-pressed="true">최신</button>
+          <button data-s="likes" aria-pressed="false">좋아요</button>
+        </div>
+      </div>
+      <div class="ctrl">
+        <label for="pFrom">기간 (미 동부 거래일)</label>
+        <span class="dates"><input type="date" id="pFrom" class="fld"><span>~</span><input type="date" id="pTo" class="fld"></span>
+      </div>
+      <div class="ctrl" style="flex:1 1 200px">
+        <label for="pQ">검색</label>
+        <input type="search" id="pQ" class="fld" placeholder="그 말이 든 글만">
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="feed-head" id="pCount">불러오는 중…</div>
+      <div class="plist" id="pList"></div>
+      <div class="pmore"><button class="btn" id="pMore" hidden>더 보기</button></div>
+      <p class="pnote">수집해 둔 글입니다 — 마지막 <code>collect</code> 시점까지. 그 뒤 글은 실시간 탭에 있습니다.</p>
+    </div>
+  </div>
+
+  <div class="foot" id="viewHelp" hidden>
+    <h3>계산식</h3>
+
+    <h4>1. 감정 점수 — 글 하나</h4>
+    <p><code>lexicon.js</code> 의 사전에 걸린 단어만 셉니다. 긍정 34개·부정 34개, 각각 가중치 1~3.</p>
+    <div class="eq">글 하나의 점수 s
+
+  s = clamp( Σ(부호 × 뒤집기 × 가중치) / (걸린단어수 × 2.2) ,  −1, +1 )
+
+  부호     긍정 사전 +1 · 부정 사전 −1
+  뒤집기   단어 직전 4글자에 안 / 못 / 없 / 아니 가 있으면 −1, 아니면 +1
+  2.2      가중치 최댓값 3보다 작게 잡은 값.
+           강한 단어 하나짜리 글이 곧바로 ±1 에 붙지 않게 한다.
+
+  걸린 단어가 하나도 없으면 s = 0 (중립. "부정"이 아니다)</div>
+
+    <h4>2. 구간 감정 — 카드의 <b>감정 60분</b></h4>
+    <div class="eq">감정 = (그 창에 쓰인 글들의 s) 의 산술평균</div>
+    <p>부분 문자열로 찾습니다. 형태소 분석을 하지 않으므로 "오른"이 "오른쪽"에 걸리는 식의 오탐이 있습니다.</p>
+
+    <h4>3. 공포 글 — 세는 법</h4>
+    <p>공포어 33개(<code>window.LEX_FEAR</code>)가 <b>하나라도</b> 들어 있으면 그 글은 공포 1건입니다.
+    한 글에 "무섭무섭무섭" 이라고 써도 1건입니다. 여기엔 가중치가 없습니다 — 세는 것이지 재는 것이 아닙니다.</p>
+    <p>일부러 뺀 말: <code>계좌</code>("계좌 개설" 잡음), <code>팔았</code>(익절일 수도),
+    <code>하락</code>·<code>악재</code>(부정이지만 공포는 아님).</p>
+
+    <h4>4. 공포 비율 — 카드의 <b>공포 60분 / 15분</b> %</h4>
+    <div class="eq">비율 = 그 창의 공포 글 수 / 그 창의 전체 글 수</div>
+    <p>표본이 적으면(60분 <span id="minLive2">20</span>건, 15분 <span id="minFast2">10</span>건 미만) 비율 대신 건수만 보여줍니다.</p>
+
+    <h4>5. 공포지수 — 차트의 0~100</h4>
+    <p>비율이 아니라 <b>개수</b>로 냅니다. 1분봉은 글이 중앙값 2건이라 비율이 0% / 50% / 100% 셋뿐이고,
+    표본 문턱을 걸면 97%가 빈칸이 됩니다. 짧은 구간에서 실제 신호는 "몇 %가 공포냐"가 아니라
+    "공포 글이 몇 개 쏟아졌냐" 입니다.</p>
+    <div class="eq">k = 그 봉이 덮는 구간에 온 공포 글 수
+  μ, σ = 그 <b>종목</b> · 그 <b>미 동부 시각</b> · <b>같은 봉 길이</b>의 평소 공포 글 수 (평균, 표준편차)
+
+  z = (k − μ) / σ
+
+  <b>공포지수 = clamp( 50 + 20z , 0, 100 )</b>
+
+  50 = 평소        z = 0
+  90 = 경보        z = 2   (실시간 카드가 붉어지는 지점과 같은 문턱)
+   0 / 100         z = ∓2.5 에서 포화</div>
+
+    <h4>6. 기준선 μ, σ 를 만드는 법</h4>
+    <p><code>node build.mjs</code> 가 <code>data/{종목}.posts.json</code> 을 훑어 만듭니다.</p>
+    <div class="eq">봉 단위(1분/10분/60분)마다, 미 동부 시각 0~23 마다:
+
+  보관 기간 전체를 그 봉 길이로 쪼개고
+  각 칸의 공포 글 수를 모아 평균·표준편차를 낸다
+
+  · 글이 <b>하나도 없는 칸도 0 으로 센다</b>
+    빼면 평균이 부풀려진다 (SNDK 미 동부 10시 1분봉: 포함 0.60 · 제외 1.59)
+  · <b>주말은 뺀다</b>
+    넣으면 평일 같은 시각이 늘 높아 보인다 (0.60 → 0.45)
+  · 일봉은 시각 축이 없다. 거래일 하나가 표본 하나.
+
+  실측 예 — SNDK, 미 동부 10시 (한국 밤 11시):
+     1분봉   공포 글  0.60 ± 1.00   (표본 1,380칸)
+    10분봉   공포 글  6.01 ± 6.56   (표본   138칸)
+    60분봉   공포 글 36.04 ± 33.31  (표본    23칸)</div>
+    <p>표준편차가 평균보다 큽니다. 글은 몰려서 오기 때문에 실제 분산이 포아송(√λ)보다 큽니다 —
+    그래서 √λ 가 아니라 실측 표준편차를 씁니다.</p>
+
+    <h4>갱신 주기</h4>
+    <p>기본 5초입니다. <code>node server.mjs --poll 15</code> 처럼 바꿀 수 있습니다.
+    짧을수록 반응이 빠르지만 토스에 나가는 요청이 그만큼 늘고, 한 바퀴가 주기보다 오래 걸리면 그 회차는 건너뜁니다
+    (건너뛴 횟수는 서버 창에 찍힙니다).</p>
+
+    <h4>7. 시각 기준선이 왜 필요한가</h4>
+    <p>같은 SNDK 1분봉인데 미 동부 <b>10시 0.60건</b>, <b>14시 0.10건</b> 입니다.
+    한국 사용자가 쓰기 때문에 미 동부 10시(한국 23시)에 몰리고 미 동부 14시(한국 새벽 3시)에는 비어 있습니다.
+    시각 보정 없이 절대 개수를 보면 밤에는 늘 공포, 새벽에는 늘 평온으로 나옵니다.</p>
+    <p>종목 간에도 평소 공포 비율이 2배 가까이 다릅니다 (SNDK 5.4% ↔ MUU 7.3%).
+    그래서 절대값이 아니라 <b>자기 평소 대비 몇 표준편차</b>로 봅니다.</p>
+
+    <h4>읽을 때 조심할 것</h4>
+    <p><b>개수 기반이라 글이 몰리기만 해도 오릅니다.</b> 공포 비중이 평소여도 글이 10배 오면 지수가 오릅니다.
+    그래서 툴팁에 <code>글 / 공포</code> 를 같이 띄웁니다 — "글이 몰린 것"과 "공포 비중이 오른 것"을 구분하세요.</p>
+    <p><b>사전 채점의 한계.</b> 반어법("좋겠다 참")과 신조어는 놓칩니다. 부정어가 뒤에 오면("손절 안 했다") 놓칩니다.
+    다만 기준선을 <b>같은 채점기로</b> 계산하므로 이런 오탐은 평균에 섞여 z 에서 차감됩니다.
+    보는 건 절대 수준이 아니라 변화입니다.</p>
+    <p><b>상관은 인과가 아닙니다.</b> 공포지수가 먼저 튀었다고 그게 주가를 예고한 건 아닙니다.</p>
+
+    <h3>공포 지수를 읽는 법</h3>
+    <p><b>비율입니다.</b> 최근 60분 글 중 공포어("무섭다", "손절", "물렸다", "나락"…)가 든 <b>글의 비율</b>. 한 사람이 "무섭무섭무섭" 써도 1건으로 셉니다.</p>
+    <p><b>절대값은 의미가 없습니다.</b> 평소 비율이 종목마다 2배씩 다릅니다(SNDK 3.7% ↔ MUU 7.1%). 같은 종목도 미 동부 시간대별로 2배 차이납니다. 그래서 <b>z</b> — 그 종목, 그 시간대의 평소 대비 몇 표준편차인지 — 로 봅니다.</p>
+    <p><b>z ≥ 2 면 카드가 붉어집니다.</b> 평소 그 시간대에 이 정도로 올라가는 일이 드물다는 뜻입니다.</p>
+    <p><b>15분 창에는 z 를 안 매깁니다.</b> 표본이 1/4 이라 분산이 원래 큽니다. 같은 기준선에 대면 없는 공포가 보이게 됩니다. 대신 60분과 나란히 두었으니 <b>15분이 60분보다 높으면 지금 꺾이는 중</b>이라고 읽으세요.</p>
+
+    <h3>믿을 수 없는 경우</h3>
+    <p><b>표본 부족</b> — 60분 창에 <span id="minLive">20</span>건, 15분 창에 <span id="minFast">10</span>건 미만이면 비율 대신 건수만 보여줍니다. 12건에서 나온 "25%"는 세 명이 쓴 것뿐이라 게이지를 채울 자격이 없습니다. 거래가 없는 시간대에는 대부분 이렇습니다.</p>
+    <p>문턱을 넘겨도 비율은 흔들립니다 — 비율의 표준오차는 √(p(1−p)/n) 이라 p=5%, n=20이면 ±4.9%로 값 자체만큼 큽니다. 그래서 절대 비율이 아니라 <b>z</b> 를 보셔야 합니다. 기준선이 그 흔들림을 이미 겪어봤기 때문입니다.</p>
+    <p><b>사전 채점</b> — "손절 안 했다"처럼 부정이 뒤에 오면 놓칩니다. 다만 기준선을 같은 채점기로 계산하므로 이런 오탐은 평균에 섞여 z 에서 차감됩니다. 보는 건 절대 수준이 아니라 변화입니다.</p>
+    <p><b>기준선</b>은 <code>node build.mjs</code> 를 돌린 시점의 30일치입니다. 오래되면 다시 돌리세요.</p>
+  </div>
+
+  <p class="madeby">made by havanafrog</p>
+</div>
+
+<script>
+'use strict';
+
+const $ = id => document.getElementById(id);
+
+// ko-KR 기본 형식은 "오후 9:46:09" 라서 앞을 잘라 쓰면 "21시 4" 처럼 깨진다.
+const HM = new Intl.DateTimeFormat('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit' });
+const HMS = new Intl.DateTimeFormat('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+const fmtHM = iso => HM.format(new Date(iso));
+const MD = new Intl.DateTimeFormat('ko-KR', { month: '2-digit', day: '2-digit' });
+const fmtMD = d => MD.format(d).replace(/\.\s?$/, '').replace(/\.\s?/, '/');
+const VOLF = new Intl.NumberFormat('ko', { notation: 'compact', maximumFractionDigits: 1 });
+const fmtT = iso => HMS.format(new Date(iso));
+const pctf = v => (v === null ? '—' : (v * 100).toFixed(1) + '%');
+const sgn = v => (v >= 0 ? '+' : '') + v.toFixed(2);
+const esc = s => s.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
+
+// 선택은 새로고침해도 남는다
+const store = {
+  get(k, dflt) { try { return localStorage.getItem('live.' + k) ?? dflt; } catch { return dflt; } },
+  set(k, v) { try { localStorage.setItem('live.' + k, v); } catch { /* 사파리 프라이빗 등 */ } },
+};
+const UI = { ticker: store.get('ticker', null), cur: store.get('cur', 'USD') };
+
+let LAST = null;
+// 경보선. lexicon.js 가 유일한 출처라 서버가 스냅샷에 실어 보낸다.
+// 첫 스냅샷 전에도 차트를 그려야 해서 같은 값을 기본으로 둔다.
+let ALERT = 90;           // 마지막 스냅샷 — 통화·종목만 바꿀 때 재요청 없이 다시 그린다
+
+// 종목 시세는 전부 달러다(전부 미국 상장). 원화는 여기서만 곱한다.
+let RATE = null;
+// 그래프의 y 값. 환율이 없으면 달러 그대로 둔다 — 선이 사라지는 것보다 낫다.
+const cur = v => (UI.cur === 'KRW' && RATE ? v * RATE : v);
+
+// 90px 칸의 왼쪽 눈금은 자리가 40px 뿐이다. 원화 1,414,900 같은 건 안 들어간다.
+const SHORT = new Intl.NumberFormat('ko', { notation: 'compact', maximumFractionDigits: 1 });
+const moneyShort = v => (UI.cur === 'KRW' ? SHORT.format(v) : v.toFixed(v < 100 ? 1 : 0));
+
+const money = v => {
+  if (v === null || v === undefined) return '—';
+  if (UI.cur === 'KRW') {
+    if (!RATE) return '—';
+    const w = v * RATE;
+    return '₩' + Math.round(w).toLocaleString();
+  }
+  return '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+};
+
+function card(ticker, d, meta) {
+  const z = d.w60.z;
+  const idx = d.w60.idx ?? null;   // 옛 스냅샷엔 없을 수 있다
+  const isFear = idx !== null && idx >= meta.alert;
+  const p = d.price;
+  const chg = p && p.open ? (p.close / p.open - 1) : null;
+
+  // 게이지는 지수 그대로 0~100 이다. 눈금이 종목·시각과 무관하게 같은 뜻을 가진다.
+  // 50 자리에 평소 표시를, 경보선에 눈금을 둔다.
+  const fill = idx === null ? 0 : idx;
+  // 15분 창은 지수를 안 낸다 — 기준선이 60분 길이라 그대로 대면 값이 부풀려진다.
+  // 비율끼리 견주라고 옆에 그대로 둔다.
+  const top15 = Math.max(0.12, (d.w60.base ?? 0.05) * 3);
+  const fill15 = d.w15.fear === null ? 0 : Math.min(100, d.w15.fear / top15 * 100);
+
+  const lev = meta.leveraged.has(ticker);
+
+  return `
+  <div class="card${isFear ? ' fear' : ''}">
+    <div class="head">
+      <span class="tk">${ticker}</span>
+      <span class="nm">${d.name !== ticker ? d.name : ''}</span>
+      <span class="grow"></span>
+      ${lev ? '<span class="tag">레버리지</span>' : ''}
+      ${isFear ? `<span class="tag fear">공포 ${idx.toFixed(0)}</span>` : ''}
+    </div>
+
+    ${p ? `<div class="px">${money(p.close)}</div>
+      <div class="pxd ${chg >= 0 ? 'up' : 'down'}">${chg === null ? '' :
+        (chg >= 0 ? '▲' : '▼') + ' ' + Math.abs(chg * 100).toFixed(2) + '%'}
+        <span style="color:var(--muted)">· 고 ${money(p.high)} 저 ${money(p.low)}</span></div>`
+      : '<div class="pxd" style="color:var(--muted)">시세 없음</div>'}
+
+    <div class="rows">
+      <div class="row">
+        <span class="k">공포지수</span>
+        <span class="meter"><i style="width:${fill}%;background:${isFear ? 'var(--fear)' : 'var(--pos)'}"></i>
+          <span class="base" style="left:50%"></span>
+          <span class="base" style="left:${meta.alert}%"></span></span>
+        <span class="v">${idx === null ? '<span class="thin">—</span>' : idx.toFixed(0)}</span>
+      </div>
+      <div class="row">
+        <span class="k">공포 비율 60분</span>
+        <span class="meter"><i style="width:${fill15}%;background:var(--muted)"></i></span>
+        <span class="v">${d.w60.thin ? `<span class="thin">${d.w60.n}건</span>` : pctf(d.w60.fear)}</span>
+      </div>
+      <div class="row">
+        <span class="k">감정 60분</span>
+        <span class="meter"><i style="width:${d.w60.sentiment === null ? 0
+            : Math.abs(d.w60.sentiment) * 100}%;background:${(d.w60.sentiment ?? 0) >= 0 ? 'var(--pos)' : 'var(--neg)'}"></i></span>
+        <span class="v">${d.w60.sentiment === null ? '<span class="thin">—</span>' : sgn(d.w60.sentiment)}</span>
+      </div>
+    </div>
+
+    <div class="zline">
+      ${d.warming
+        ? `창을 채우는 중 — 지금 ${d.spanMin}분치 (60분치가 모여야 기준선과 비교할 수 있습니다)`
+        : idx === null
+          ? `${d.w60.why ?? '기준선 없음'} · 최근 60분 글 ${d.w60.n}건`
+          : `최근 60분 글 <b>${d.w60.n.toLocaleString()}건</b> 중 공포 <b>${(d.w60.fearN ?? 0).toLocaleString()}건</b>`
+            + (d.w60.fear === null ? '' : ` · ${pctf(d.w60.fear)}`)
+            + `<br><span style="color:var(--muted)">평소 이 시각엔 공포 글 `
+            + `${(d.w60.base ?? 0).toFixed(1)}건 ± ${(d.w60.baseSd ?? 0).toFixed(1)} `
+            + `(표본 ${d.w60.baseN ?? 0}일) → z ${sgn((idx - 50) / 20)}</span>`
+            + (d.w60.why ? `<br><span style="color:var(--muted)">${d.w60.why}</span>` : '')}
+    </div>
+
+    ${d.error ? `<div class="err">수집 실패: ${d.error}</div>` : ''}
+
+    <div class="charts">
+      <div class="chead"><b>가격</b><span id="cUnitLab"></span><span class="now" id="cNowP"></span></div>
+      <svg id="cPrice" viewBox="0 0 600 200" role="img" aria-label="봉 차트"></svg>
+      <svg id="cVol" viewBox="0 0 600 46" role="img" aria-label="거래량"></svg>
+      <p class="cnote"><span id="cBarNote"></span>
+        <button class="lnk" id="cReset" hidden>전체 보기</button></p>
+      <div class="chead"><b>공포지수</b><span>50 = 평소 · ${meta.alert} = 경보 · 봉과 같은 구간</span>
+        <span class="now" id="cNowF"></span></div>
+      <svg id="cFear" viewBox="0 0 600 90" role="img" aria-label="공포지수 추이"></svg>
+      <p class="cnote" id="cFearNote"></p>
+      <div class="cempty" id="cEmpty" hidden></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="feed-head">${ticker} 최근 글 · 공포어는 붉게</div>
+    <div class="feed">
+      ${d.recent.length ? d.recent.map(r => `
+        <div class="post${r.fear ? ' f' : ''}">
+          <span class="t">${fmtHM(r.at)}</span>
+          <span class="x">${esc(r.text).slice(0, 240)}</span>
+        </div>`).join('')
+        : '<div class="post"><span class="t"></span><span class="x" style="color:var(--muted)">아직 글이 없습니다</span></div>'}
+    </div>
+  </div>`;
+}
+
+// ── 실시간 그래프 ──
+// 서버가 1분에 한 점씩 쌓아 최근 3시간을 보내준다. 여기서는 다시 그리기만 한다.
+// 점을 이어 붙이지 않고 매번 통째로 다시 그린다 — 상태가 없으니 어긋날 일이 없다.
+const NS = 'http://www.w3.org/2000/svg';
+const svgEl = (t, a = {}) => {
+  const e = document.createElementNS(NS, t);
+  for (const k in a) e.setAttribute(k, a[k]);
+  return e;
+};
+const CW = 600, CH = 90, CP = { l: 40, r: 8, t: 8, b: 14 };
+
+/**
+ * @param id     svg 요소 id
+ * @param pts    [[ms, 값|null], ...] 오래된 순
+ * @param o      { color, fmt, lo, hi, lines: [{v, color, dash}] }
+ */
+function spark(id, pts, o) {
+  const svg = $(id);
+  svg.innerHTML = '';
+  const real = pts.filter(p => p[1] !== null);
+  if (real.length < 2) return false;
+
+  const t0 = pts[0][0], t1 = pts[pts.length - 1][0];
+  // byIndex: 점 사이 간격을 똑같이 벌린다. 봉 차트가 순번으로 그리므로
+  // 시각으로 그리면 휴장 구간에서 두 차트가 어긋난다.
+  const span = Math.max(1, t1 - t0);
+  const at2x = i => CP.l + (CW - CP.l - CP.r) * (pts.length <= 1 ? .5 : i / (pts.length - 1));
+  const xAt = o.byIndex
+    ? ms => at2x(pts.findIndex(p => p[0] === ms))
+    : ms => CP.l + (CW - CP.l - CP.r) * ((ms - t0) / span);
+
+  let lo = o.lo ?? Math.min(...real.map(p => p[1]));
+  let hi = o.hi ?? Math.max(...real.map(p => p[1]));
+  // 값이 한 줄로 평평하면 위아래로 벌려 준다 — 안 그러면 0 으로 나눈다
+  if (hi - lo < 1e-9) { const e = Math.abs(hi) * .01 || 1; lo -= e; hi += e; }
+  else if (o.lo === undefined) {
+    const pad = (hi - lo) * .12;
+    lo = lo >= 0 ? Math.max(0, lo - pad) : lo - pad;   // 가격에 음수는 없다
+    hi += pad;
+  }
+  const yAt = v => CP.t + (CH - CP.t - CP.b) * (1 - (v - lo) / (hi - lo));
+  YSCALE.set(id, { lo, hi, fmt: o.fmt });
+
+  for (const v of [lo, (lo + hi) / 2, hi]) {
+    svg.appendChild(svgEl('line', { class:'gl', x1:CP.l, x2:CW-CP.r, y1:yAt(v), y2:yAt(v) }));
+    const t = svgEl('text', { class:'ctk', x:CP.l-5, y:yAt(v)+3, 'text-anchor':'end' });
+    t.textContent = o.fmt(v); svg.appendChild(t);
+  }
+  for (const ln of o.lines ?? []) {
+    if (ln.v < lo || ln.v > hi) continue;
+    svg.appendChild(svgEl('line', { x1:CP.l, x2:CW-CP.r, y1:yAt(ln.v), y2:yAt(ln.v),
+      stroke: ln.color, 'stroke-width': 1, 'stroke-dasharray': ln.dash ?? '3 3', opacity: .8 }));
+  }
+
+  // 값이 없는 구간(표본 부족·창 채우는 중)은 선을 잇지 않고 끊는다
+  let d = '', pen = false;
+  pts.forEach(([ms, v], i) => {
+    if (v === null) { pen = false; return; }
+    const x = o.byIndex ? at2x(i) : xAt(ms);
+    d += `${pen ? 'L' : 'M'}${x.toFixed(1)},${yAt(v).toFixed(1)}`;
+    pen = true;
+  });
+  svg.appendChild(svgEl('path', { d, fill:'none', stroke:o.color, 'stroke-width':1.75,
+    'stroke-linejoin':'round', 'stroke-linecap':'round' }));
+
+  const last = real[real.length - 1];
+  const lastX = o.byIndex ? at2x(pts.lastIndexOf(last)) : xAt(last[0]);
+  svg.appendChild(svgEl('circle', { cx:lastX, cy:yAt(last[1]), r:3, fill:o.color }));
+
+  // 시각 눈금은 양 끝만 — 90px 짜리 칸에 더 넣으면 겹친다
+  for (const [ms, anchor, xp] of [[t0, 'start', CP.l], [t1, 'end', CW - CP.r]]) {
+    const t = svgEl('text', { class:'ctk', x: o.byIndex ? xp : xAt(ms), y:CH-3, 'text-anchor':anchor });
+    t.textContent = fmtHM(new Date(ms).toISOString()); svg.appendChild(t);
+  }
+  addCrosshair(svg, CH, CP);
+  return true;
+}
+
+// 공포지수는 봉과 같은 격자·같은 확대 구간에 그린다. 그래야 세로로 맞물린다.
+function drawFear() {
+  const svg = $('cFear'), note = $('cFearNote');
+  if (!svg || !note) return;
+  svg.innerHTML = '';
+  if (!BAR.rows.length || !BAR.fear.length) {
+    note.textContent = BAR.busy ? '' : '공포지수를 낼 자료가 없습니다.';
+    return;
+  }
+  const [a, b] = viewRange();
+  const pts = BAR.fear.slice(a, b + 1).map(r => [r[0], r[3]]);
+  spark('cFear', pts, {
+    color: 'var(--fear)', fmt: v => v.toFixed(0), lo: 0, hi: 100, byIndex: true,
+    lines: [{ v: 50, color: 'var(--muted)' }, { v: ALERT, color: 'var(--fear)' }],
+  });
+  // 현재값은 여기서 채운다 — 봉은 SSE 와 따로 오므로 paint 때는 아직 비어 있다
+  const cur = pts.filter(x => x[1] !== null).pop();
+  const now = $('cNowF');
+  if (now) now.textContent = cur ? cur[1].toFixed(0) : '—';
+
+  const seen = pts.filter(x => x[1] !== null).length;
+  const hot = pts.filter(x => x[1] !== null && x[1] >= ALERT).length;
+  note.textContent = seen
+    ? `${seen}봉에 값 · 경보 ${hot}봉`
+      + (BAR.covers ? ` · 글은 ${fmtMD(new Date(BAR.covers))} 까지 (collect 로 갱신)` : '')
+    : '이 구간에는 수집된 글이 없습니다. collect 를 돌리세요.';
+}
+
+function drawCharts(d) {
+  if (!$('cPrice')) return;                     // 글·사용법 탭이면 카드가 없다
+  paintUnitSeg();
+  // 봉은 SSE 가 아니라 별도 요청이다. 아직 없으면 여기서 한 번 당겨온다.
+  if (!BAR.rows.length && !BAR.busy && !BAR.err) loadBars();
+  else { drawBars(); drawFear(); }
+
+  const dd = d.tickers?.[UI.ticker];
+  $('cNowP').textContent = dd?.price ? money(dd.price.close) : '—';
+  const last = BAR.fear.filter(r => r[3] !== null).pop();
+  $('cNowF').textContent = last ? last[3].toFixed(0) : '—';
+  $('cEmpty').hidden = true;
+}
+
+// ── 봉 차트 ──
+// 서버가 토스에서 받아 중계한다(브라우저가 직접 부르면 403). 한 번에 최대 450봉.
+// 단위마다 담기는 기간이 다르다: 1분 7.5시간 · 10분 5일 · 60분 4주 · 일 1.5년.
+const BAR = { unit: store.get('unit', 'min:10'), ma: {}, rows: [], units: null,
+              err: null, busy: false, view: null,   // view = [첫 봉, 끝 봉] · null 이면 전체
+              fear: [], covers: null };             // fear[i] = [시각, 공포글, 전체글, 지수] — 봉과 1:1
+const MIN_BARS = 15;                   // 이보다 좁게는 못 줄인다 — 봉 몇 개만 남으면 읽을 게 없다
+for (const n of [20, 120, 200]) BAR.ma[n] = store.get('ma' + n, '') === '1';
+
+const MA_COLOR = { 20: 'var(--ma20)', 120: 'var(--ma120)', 200: 'var(--ma200)' };
+
+/** 단순이동평균. 앞의 n-1 개는 낼 수 없으니 null 로 둔다. */
+function sma(vals, n) {
+  const out = new Array(vals.length).fill(null);
+  if (vals.length < n) return out;
+  let sum = 0;
+  for (let i = 0; i < vals.length; i++) {
+    sum += vals[i];
+    if (i >= n) sum -= vals[i - n];
+    if (i >= n - 1) out[i] = sum / n;
+  }
+  return out;
+}
+
+const BW = 600, BH = 200, VH = 46, BP = { l: 46, r: 8, t: 8, b: 16 };
+
+/** 지금 보이는 구간의 [첫 봉, 끝 봉] 색인. view 가 null 이면 전체. */
+function viewRange() {
+  const n = BAR.rows.length;
+  if (!BAR.view) return [0, n - 1];
+  const a = Math.max(0, Math.min(n - 1, BAR.view[0]));
+  const b = Math.max(a, Math.min(n - 1, BAR.view[1]));
+  return [a, b];
+}
+
+function drawBars() {
+  const svg = $('cPrice'), vol = $('cVol'), note = $('cBarNote');
+  if (!svg || !vol || !note) return;      // 아직 카드가 안 그려졌다
+  svg.innerHTML = ''; vol.innerHTML = '';
+  HAIRS.length = 0;                       // svg 를 비웠으니 옛 선은 사라졌다
+  const all = BAR.rows;
+  if (BAR.err) { note.textContent = '봉을 받지 못했습니다: ' + BAR.err; return; }
+  if (all.length < 2) { note.textContent = BAR.busy ? '불러오는 중…' : '봉이 없습니다.'; return; }
+  const [a, b] = viewRange();
+  const rows = all.slice(a, b + 1);
+  if (rows.length < 2) { BAR.view = null; return drawBars(); }
+
+  // 이동평균은 항상 전체 봉으로 낸다. 보이는 구간만으로 내면 확대할 때마다
+  // 같은 날의 20선 값이 달라진다 — 그건 이동평균이 아니다.
+  const closesAll = all.map(r => cur(r[4]));
+  const mas = [20, 120, 200].filter(n => BAR.ma[n]).map(n => ({ n, v: sma(closesAll, n) }));
+
+  // 눈금 범위는 보이는 구간 기준. 심지와 그 구간에 걸린 이동평균까지 담아야 안 잘린다.
+  let lo = Infinity, hi = -Infinity;
+  for (const r of rows) { lo = Math.min(lo, cur(r[3])); hi = Math.max(hi, cur(r[2])); }
+  for (const m of mas) for (let k = a; k <= b; k++) {
+    const v = m.v[k];
+    if (v !== null) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+  }
+  const pad = (hi - lo) * .06 || Math.abs(hi) * .01 || 1;
+  const floor = lo >= 0 ? 0 : -Infinity;      // 가격에 음수는 없다
+  lo = Math.max(floor, lo - pad); hi += pad;
+  const yAt = v => BP.t + (BH - BP.t - BP.b) * (1 - (v - lo) / (hi - lo));
+  YSCALE.set('cPrice', { lo, hi, fmt: money });
+  const xAt = i => BP.l + (BW - BP.l - BP.r) * (rows.length <= 1 ? .5 : i / (rows.length - 1));
+  const bw = Math.max(1, Math.min(9, (BW - BP.l - BP.r) / rows.length - 1));
+
+  for (const v of [lo, (lo + hi) / 2, hi]) {
+    svg.appendChild(svgEl('line', { class:'gl', x1:BP.l, x2:BW-BP.r, y1:yAt(v), y2:yAt(v) }));
+    const t = svgEl('text', { class:'ctk', x:BP.l-5, y:yAt(v)+3, 'text-anchor':'end' });
+    t.textContent = moneyShort(v); svg.appendChild(t);
+  }
+
+  // 봉. 심지를 먼저 긋고 몸통으로 덮어야 얇은 봉에서도 몸통이 보인다.
+  rows.forEach((r, i) => {
+    const x = xAt(i), o = yAt(cur(r[1])), c = yAt(cur(r[4]));
+    const col = r[4] >= r[1] ? 'var(--up)' : 'var(--down)';
+    svg.appendChild(svgEl('line', { x1:x, x2:x, y1:yAt(cur(r[2])), y2:yAt(cur(r[3])),
+      stroke: col, 'stroke-width': Math.max(.6, bw * .18) }));
+    // 시가 = 종가(도지)면 높이가 0 이라 안 보인다. 최소 1px.
+    svg.appendChild(svgEl('rect', { x: x - bw/2, y: Math.min(o, c), width: bw,
+      height: Math.max(1, Math.abs(o - c)), fill: col }));
+  });
+
+  // 이동평균은 봉 위에 얹는다
+  for (const m of mas) {
+    let d = '', pen = false;
+    for (let k = a; k <= b; k++) {
+      const v = m.v[k];
+      if (v === null) { pen = false; continue; }
+      d += `${pen ? 'L' : 'M'}${xAt(k - a).toFixed(1)},${yAt(v).toFixed(1)}`;
+      pen = true;
+    }
+    if (d) svg.appendChild(svgEl('path', { d, fill:'none', stroke:MA_COLOR[m.n],
+      'stroke-width':1.4, 'stroke-linejoin':'round', 'stroke-linecap':'round' }));
+  }
+
+  // 시각 눈금은 양 끝만 — 600px 폭에 450봉이라 더 넣으면 겹친다
+  const stampAt = ms => {
+    const d = new Date(ms);
+    return BAR.unit === 'day:1' ? fmtMD(d) : fmtMD(d) + ' ' + fmtHM(d.toISOString());
+  };
+  [[0, 'start'], [rows.length - 1, 'end']].forEach(([i, anchor]) => {
+    const t = svgEl('text', { class:'ctk', x:xAt(i), y:BH-4, 'text-anchor':anchor });
+    t.textContent = stampAt(rows[i][0]); svg.appendChild(t);
+  });
+
+  // 거래량
+  const vmax = rows.reduce((m, r) => Math.max(m, r[5] ?? 0), 0);
+  if (vmax) {
+    const vy = v => 4 + (VH - 4 - 4) * (1 - v / vmax);
+    YSCALE.set('cVol', { lo: 0, hi: vmax, fmt: v => VOLF.format(Math.max(0, v)) });
+    vol.appendChild(svgEl('line', { class:'ax', x1:BP.l, x2:BW-BP.r, y1:VH-4, y2:VH-4 }));
+    rows.forEach((r, i) => {
+      if (!r[5]) return;
+      const y = vy(r[5]);
+      vol.appendChild(svgEl('rect', { x: xAt(i) - bw/2, y, width: bw,
+        height: Math.max(.8, (VH - 4) - y), fill: r[4] >= r[1] ? 'var(--up)' : 'var(--down)', opacity: .5 }));
+    });
+  }
+
+  addCrosshair(svg, BH, BP);
+  addCrosshair(vol, VH, { ...BP, t: 4, b: 4 });
+
+  const need = [20, 120, 200].filter(n => BAR.ma[n] && all.length < n);
+  const zoomed = rows.length < all.length;
+  note.textContent = (zoomed ? `${rows.length} / ${all.length}봉` : `${all.length}봉`)
+    + (vmax ? ` · 거래량 최대 ${VOLF.format(vmax)}` : '')
+    + (need.length ? ` · ${need.join('·')}선은 봉이 모자라 안 나옵니다` : '')
+    + (rows.some(r => r[6] && r[6] !== 'day') ? ' · 정규장 밖 봉 포함' : '')
+    + ' · 휠로 확대 · 끌어서 이동' + (zoomed ? ' · 더블클릭으로 전체' : '');
+  const rst = $('cReset');
+  if (rst) rst.hidden = !zoomed;
+}
+
+async function loadBars() {
+  if (!UI.ticker) return;
+  BAR.busy = true; BAR.err = null;
+  try {
+    const r = await fetch(`/api/candles?t=${encodeURIComponent(UI.ticker)}&u=${encodeURIComponent(BAR.unit)}`);
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error ?? ('HTTP ' + r.status));
+    // 늦게 온 응답이 방금 바꾼 선택을 덮어쓰지 않게 한다
+    if (j.ticker !== UI.ticker || j.unit !== BAR.unit) return;
+    BAR.rows = j.rows; BAR.units = j.units;
+  } catch (e) {
+    BAR.rows = []; BAR.err = e.message;
+  } finally {
+    BAR.busy = false;
+  }
+  paintUnitSeg();
+  drawBars();
+  loadFear();
+}
+
+// 공포지수는 봉을 받은 뒤에 부른다 — 서버가 같은 봉 격자에 맞춰 준다.
+async function loadFear() {
+  if (!UI.ticker) return;
+  const want = { t: UI.ticker, u: BAR.unit };
+  try {
+    const r = await fetch(`/api/fear?t=${encodeURIComponent(want.t)}&u=${encodeURIComponent(want.u)}`);
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error ?? ('HTTP ' + r.status));
+    if (j.ticker !== UI.ticker || j.unit !== BAR.unit) return;   // 늦게 온 응답은 버린다
+    BAR.fear = j.rows; BAR.covers = j.covers;
+  } catch {
+    BAR.fear = []; BAR.covers = null;
+  }
+  drawFear();
+}
+
+// 봉 단위 목록은 서버가 준다. 아직 못 받았으면 아는 것만 먼저 그린다 —
+// 빈 칸을 보여주고 첫 응답을 기다리면 화면이 한 번 덜컹거린다.
+const UNIT_FALLBACK = { 'min:1': { label: '1분' }, 'min:10': { label: '10분' },
+                        'min:60': { label: '60분' }, 'day:1': { label: '일' } };
+function paintUnitSeg() {
+  const u = BAR.units ?? UNIT_FALLBACK;
+  const seg = $('segUnit');
+  if (seg) seg.innerHTML = Object.entries(u).map(([k, v]) =>
+    `<button data-u="${k}" aria-pressed="${k === BAR.unit}">${v.label}</button>`).join('');
+  const lab = $('cUnitLab');
+  if (lab) lab.textContent = (u[BAR.unit]?.label ?? '') + '봉';
+  for (const inp of $('masBox')?.querySelectorAll?.('input[data-ma]') ?? []) {
+    inp.checked = !!BAR.ma[inp.dataset.ma];
+  }
+}
+
+// 탭 제목에 현재가와 등락률. 창을 여러 개 띄워 두고 곁눈질할 때 이게 전부다.
+// 값을 앞에 둔다 — 탭이 좁아지면 뒤부터 잘리기 때문이다.
+const BASE_TITLE = document.title;
+function setTitle(d) {
+  const t = UI.ticker, k = d.tickers?.[t];
+  const px = k?.price;
+  if (!t || !px) { document.title = BASE_TITLE; return; }
+  const chg = px.open ? (px.close / px.open - 1) : null;
+  const pct = chg === null ? ''
+    : ` ${chg >= 0 ? '▲' : '▼'}${Math.abs(chg * 100).toFixed(2)}%`;
+  document.title = `${money(px.close)}${pct} · ${t}`;
+}
+
+function paint(d) {
+    LAST = d;
+    RATE = d.rate?.rate ?? null;
+    const leveraged = new Set(d.pairs.map(p => p[1]).filter(Boolean));
+    ALERT = d.alert ?? ALERT;
+    const meta = { leveraged, minLive: d.minLive, alert: ALERT };
+    for (const id of ['minLive', 'minLive2']) { const e = $(id); if (e) e.textContent = d.minLive; }
+    for (const id of ['minFast', 'minFast2']) { const e = $(id); if (e) e.textContent = d.minFast; }
+
+    // 쌍 순서대로: 본주 다음 레버리지
+    const order = d.pairs.flat().filter(Boolean).filter(t => d.tickers[t]);
+    if (!order.includes(UI.ticker)) UI.ticker = order[0];
+
+      // 탭의 붉은 점도 같은 기준 — 지수가 경보선을 넘었나
+    const feary = order.filter(t => (d.tickers[t].w60.idx ?? 0) >= ALERT);
+
+    // 종목 탭 — 보고 있지 않은 종목의 공포는 점으로 알린다
+    $('segTicker').innerHTML = order.map(t =>
+      `<button data-t="${t}" aria-pressed="${t === UI.ticker}">`
+      + `${t}${feary.includes(t) ? '<span class="fdot"></span>' : ''}</button>`).join('');
+
+    $('single').innerHTML = UI.ticker ? card(UI.ticker, d.tickers[UI.ticker], meta) : '';
+    drawCharts(d);                       // innerHTML 로 svg 가 새로 생기니 매번 다시 그린다
+    paintPTicker();                      // 글 탭 종목 버튼도 같은 목록을 쓴다
+
+    setTitle(d);
+
+    $('rateInfo').textContent = d.rate
+      ? `USD/KRW ${d.rate.rate.toLocaleString()}${d.rate.baseDate ? ' · ' + d.rate.baseDate : ''}`
+      : '환율 없음';
+
+    const age = d.at ? (Date.now() - new Date(d.at).getTime()) / 1000 : null;
+    const stale = age === null || age > d.pollMs / 1000 * 3;
+    $('dot').className = 'dot' + (d.pollErrors ? ' err' : stale ? ' stale' : '');
+    $('status').textContent =
+      `${d.at ? fmtT(d.at) + ' 갱신' : '갱신 대기'} · ${d.pollMs / 1000}초마다 · `
+      + `창 ${d.windowMin}분 / ${d.fastMin}분`
+      + (d.pollErrors ? ` · 수집 실패 ${d.pollErrors}종목` : '');
+
+    $('banner').innerHTML = feary.length
+      ? `<div class="note warn"><b>공포 신호 ${feary.length}건</b> — ${feary.join(', ')} 가 `
+        + `공포지수 ${ALERT} 이상입니다`
+        + (feary.includes(UI.ticker) ? '' : ' (지금 보고 있는 종목은 아닙니다)')
+        + `. 상관은 인과가 아닙니다 — 이게 주가를 예고한다는 근거는 없습니다.</div>`
+      : '';
+}
+
+// ── 글 탭 ──
+// 수집해 둔 data/{티커}.posts.json 을 서버가 걸러서 50건씩 준다.
+// 브라우저로 통째로 내려받지 않는 이유: SNDK 하나가 13.8MB 다.
+const P = { mood: 'all', sort: 'new', q: '', from: '', to: '', page: 0, rows: [], seen: null };
+let pTimer = null;
+
+// 검색어를 강조한다. esc() 를 먼저 걸고 나서 자르므로 태그가 깨지지 않는다.
+const reEsc = t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function hl(escaped, term) {
+  if (!term) return escaped;
+  return escaped.replace(new RegExp('(' + reEsc(esc(term)) + ')', 'ig'), '<mark>$1</mark>');
+}
+
+async function loadPosts(reset) {
+  if (reset) { P.page = 0; P.rows = []; }
+  const qs = new URLSearchParams({
+    t: UI.ticker || '', mood: P.mood, sort: P.sort,
+    q: P.q, from: P.from, to: P.to, page: String(P.page),
+  });
+  if (!P.rows.length) $('pCount').textContent = '불러오는 중…';
+  let d;
+  try {
+    const r = await fetch('/api/posts?' + qs);
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    d = await r.json();
+  } catch (e) {
+    $('pCount').textContent = '불러오지 못했습니다 (' + e.message + ') — 서버가 떠 있는지 확인하세요';
+    return;
+  }
+  P.seen = d;
+  P.rows = P.rows.concat(d.rows);
+  paintPosts();
+}
+
+function paintPosts() {
+  const d = P.seen; if (!d) return;
+  const filtered = d.matched !== d.total;
+  $('pCount').innerHTML =
+    `<b>${d.ticker}</b> · ${d.matched.toLocaleString()}건`
+    + (filtered ? ` <span style="color:var(--muted);font-weight:400">/ 전체 ${d.total.toLocaleString()}건</span>` : '')
+    + (d.matched ? ` · 공포 ${d.fear.toLocaleString()}건 (${(d.fear / d.matched * 100).toFixed(1)}%)` : '')
+    + (d.total ? '' : ' — 아직 수집한 글이 없습니다. collect 를 먼저 돌리세요.');
+
+  $('pList').innerHTML = P.rows.length
+    ? P.rows.map(r => `
+      <div class="pitem${r.f ? ' f' : ''}">
+        <div class="ph">
+          <span>${r.d}</span><span>${fmtHM(r.at)}</span>
+          <span class="ps ${r.s > 0 ? 'p' : r.s < 0 ? 'n' : ''}">${sgn(r.s)}</span>
+          ${r.f ? '<span class="pf">공포</span>' : ''}
+          ${r.likes ? `<span>\u2665 ${r.likes.toLocaleString()}</span>` : ''}
+        </div>
+        <div class="ptxt">${hl(esc(r.text), P.q)}</div>
+      </div>`).join('')
+    : '<div class="pitem"><div class="ptxt" style="color:var(--muted)">조건에 맞는 글이 없습니다</div></div>';
+
+  $('pMore').hidden = P.page + 1 >= d.pages;
+  $('pMore').textContent = `더 보기 (${P.rows.length.toLocaleString()} / ${d.matched.toLocaleString()})`;
+}
+
+// 종목 버튼은 실시간 탭과 같은 선택을 쓴다 — 탭을 옮겨도 보던 종목이 유지된다
+function paintPTicker() {
+  const order = LAST ? LAST.pairs.flat().filter(Boolean).filter(t => LAST.tickers[t]) : [];
+  $('pTicker').innerHTML = order.map(t =>
+    `<button data-t="${t}" aria-pressed="${t === UI.ticker}">${t}</button>`).join('');
+}
+
+let pOpened = false;
+function openPosts() {
+  paintPTicker();
+  if (pOpened) return;
+  pOpened = true;
+  loadPosts(true);
+}
+
+const segPick = (host, attr, set) => $(host).onclick = ev => {
+  const b = ev.target.closest('button'); if (!b) return;
+  [...$(host).children].forEach(c => c.setAttribute('aria-pressed', String(c === b)));
+  set(b.dataset[attr]);
+  loadPosts(true);
+};
+segPick('pMood', 'm', v => { P.mood = v; });
+segPick('pSort', 's', v => { P.sort = v; });
+segPick('pTicker', 't', v => { UI.ticker = v; store.set('ticker', v); if (LAST) paint(LAST); });
+
+$('pFrom').onchange = e => { P.from = e.target.value; loadPosts(true); };
+$('pTo').onchange   = e => { P.to   = e.target.value; loadPosts(true); };
+// 한 글자마다 서버를 때리면 10만 건을 그만큼 훑는다. 멈춘 뒤에 보낸다.
+$('pQ').oninput = e => {
+  P.q = e.target.value;
+  clearTimeout(pTimer);
+  pTimer = setTimeout(() => loadPosts(true), 250);
+};
+$('pMore').onclick = () => { P.page++; loadPosts(false); };
+
+// ── 크로스헤어 · 툴팁 ──
+// 세로선은 어느 봉인지, 가로선은 그 자리의 값이 얼마인지 알려준다.
+// 세 차트(가격·거래량·공포)가 같은 봉 격자를 쓰므로 세로선은 셋 다 같이 움직인다.
+const HAIRS = [];                      // 다시 그릴 때마다 갈아엎는다
+
+function addCrosshair(svg, H, pad) {
+  const vx = svgEl('line', { class: 'xh', y1: pad.t, y2: H - pad.b });
+  const hy = svgEl('line', { class: 'xh', x1: pad.l, x2: BW - pad.r });
+  svg.appendChild(vx); svg.appendChild(hy);
+  // 가로선 오른쪽 끝의 값 딱지
+  const bg = svgEl('rect', { class: 'xlabbg', rx: 3, width: 0, height: 12, opacity: 0 });
+  const tx = svgEl('text', { class: 'xlab', opacity: 0 });
+  svg.appendChild(bg); svg.appendChild(tx);
+  HAIRS.push({ svg, H, pad, vx, hy, bg, tx });
+}
+
+function hideHairs() {
+  for (const h of HAIRS) {
+    h.vx.style.opacity = 0; h.hy.style.opacity = 0;
+    h.bg.setAttribute('opacity', 0); h.tx.setAttribute('opacity', 0);
+  }
+  const t = $('ctip'); if (t) t.style.opacity = 0;
+}
+
+/** 이 차트의 y 좌표 → 사람이 읽는 값. 차트마다 눈금이 달라 저장해 둔다. */
+const YSCALE = new Map();              // svg id → { lo, hi, fmt }
+
+function moveHairs(ev) {
+  if (!BAR.rows.length || !HAIRS.length) return hideHairs();
+  const src = ev.target.ownerSVGElement || ev.target;
+  const r = src.getBoundingClientRect();
+  const [a, b] = viewRange();
+  const span = b - a;
+  const sx = (ev.clientX - r.left) / r.width * BW;
+  if (sx < BP.l - 6 || sx > BW - BP.r + 6) return hideHairs();
+  const i = a + Math.round(Math.max(0, Math.min(1,
+    (sx - BP.l) / (BW - BP.l - BP.r))) * span);
+  const x = BP.l + (BW - BP.l - BP.r) * (span ? (i - a) / span : .5);
+
+  for (const h of HAIRS) {
+    h.vx.setAttribute('x1', x); h.vx.setAttribute('x2', x);
+    h.vx.style.opacity = 1;
+    // 가로선은 커서가 얹힌 차트에만 — 다른 칸은 눈금이 달라 뜻이 없다
+    if (h.svg !== src) { h.hy.style.opacity = 0;
+      h.bg.setAttribute('opacity', 0); h.tx.setAttribute('opacity', 0); continue; }
+    const sy = (ev.clientY - r.top) / r.height * h.H;
+    const sc = YSCALE.get(h.svg.id);
+    if (!sc || sy < h.pad.t || sy > h.H - h.pad.b) {
+      h.hy.style.opacity = 0; h.bg.setAttribute('opacity', 0); h.tx.setAttribute('opacity', 0);
+      continue;
+    }
+    h.hy.setAttribute('y1', sy); h.hy.setAttribute('y2', sy); h.hy.style.opacity = 1;
+    const frac = 1 - (sy - h.pad.t) / (h.H - h.pad.t - h.pad.b);
+    const label = sc.fmt(sc.lo + (sc.hi - sc.lo) * frac);
+    h.tx.textContent = label;
+    const w = label.length * 5.4 + 8;
+    h.bg.setAttribute('x', BW - h.pad.r - w); h.bg.setAttribute('y', sy - 6);
+    h.bg.setAttribute('width', w); h.bg.setAttribute('opacity', .92);
+    h.tx.setAttribute('x', BW - h.pad.r - w + 4); h.tx.setAttribute('y', sy + 3);
+    h.tx.setAttribute('opacity', 1);
+  }
+  showTip(i, ev.clientX, ev.clientY);
+}
+
+function showTip(i, cx, cy) {
+  const tip = $('ctip'); if (!tip) return;
+  const r = BAR.rows[i]; if (!r) return;
+  const f = BAR.fear[i];
+  const chg = r[1] ? (r[4] / r[1] - 1) : 0;
+  const col = r[4] >= r[1] ? 'var(--up)' : 'var(--down)';
+  const row = (k, v, c) =>
+    `<div class="r"><span>${k}</span><b${c ? ` style="color:${c}"` : ''}>${v}</b></div>`;
+  tip.innerHTML =
+    `<div class="d">${fmtMD(new Date(r[0]))}`
+      + (BAR.unit === 'day:1' ? '' : ' ' + fmtHM(new Date(r[0]).toISOString()))
+      + `</div>`
+    + row('시가', money(r[1]))
+    + row('고가', money(r[2]))
+    + row('저가', money(r[3]))
+    + row('종가', money(r[4]), col)
+    + row('등락', (chg >= 0 ? '+' : '') + (chg * 100).toFixed(2) + '%', col)
+    + row('거래량', (r[5] ?? 0).toLocaleString())
+    + '<div class="sep"></div>'
+    + row('공포지수', f && f[3] !== null ? f[3].toFixed(0) : '—',
+          f && f[3] !== null && f[3] >= ALERT ? 'var(--fear)' : '')
+    + row('글 / 공포', f ? `${f[2].toLocaleString()} / ${f[1].toLocaleString()}` : '—');
+  tip.style.opacity = 1;
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  let x = cx + 16, y = cy - h - 12;
+  if (x + w > innerWidth - 8) x = cx - w - 16;
+  if (y < 8) y = cy + 18;
+  tip.style.left = x + 'px'; tip.style.top = y + 'px';
+}
+
+$('single').addEventListener('pointermove', ev => {
+  if (!inChart(ev)) return hideHairs();
+  if (drag) return;                    // 끌고 있을 땐 십자선이 방해된다
+  moveHairs(ev);
+});
+$('single').addEventListener('pointerleave', hideHairs);
+
+// ── 봉 확대·이동 ──
+// 차트는 card() 안에 있어 매 스냅샷마다 새로 만들어진다. 개별 요소에 붙이면
+// 15초마다 배선이 날아간다. 안 바뀌는 부모(#single)에 한 번만 걸고 위임한다.
+const inChart = ev => {
+  const t = ev.target;
+  const svg = t.ownerSVGElement || t;
+  return svg && (svg.id === 'cPrice' || svg.id === 'cVol' || svg.id === 'cFear');
+};
+
+/** 화면 x 좌표 → 봉 색인 */
+function barAt(ev) {
+  const svg = ev.target.ownerSVGElement || ev.target;
+  const r = svg.getBoundingClientRect();
+  const [a, b] = viewRange();
+  const frac = (( (ev.clientX - r.left) / r.width * BW) - BP.l) / (BW - BP.l - BP.r);
+  return a + Math.round(Math.max(0, Math.min(1, frac)) * (b - a));
+}
+
+$('single').addEventListener('wheel', ev => {
+  if (!inChart(ev) || BAR.rows.length < 2) return;
+  ev.preventDefault();                 // 차트 위에서는 페이지가 안 굴러가야 한다
+  const n = BAR.rows.length;
+  const [a, b] = viewRange();
+  const span = b - a + 1;
+  const anchor = barAt(ev);
+  let next = Math.round(span * (ev.deltaY > 0 ? 1.3 : 1 / 1.3));
+  next = Math.max(MIN_BARS, Math.min(n, next));
+  if (next >= n) { BAR.view = null; drawBars(); return drawFear(); }
+  // 커서가 가리키던 봉이 제자리에 남도록 시작점을 옮긴다
+  let from = Math.round(anchor - (anchor - a) * (next / span));
+  from = Math.max(0, Math.min(n - next, from));
+  BAR.view = [from, from + next - 1];
+  drawBars(); drawFear();
+}, { passive: false });
+
+let drag = null;
+$('single').addEventListener('pointerdown', ev => {
+  if (!inChart(ev) || !BAR.view) return;   // 전체를 보고 있으면 밀 데가 없다
+  ev.preventDefault();                     // 안 막으면 축 글자가 선택되어 같이 끌린다
+  const svg = ev.target.ownerSVGElement || ev.target;
+  const [a, b] = viewRange();
+  drag = { x: ev.clientX, a, span: b - a + 1, w: svg.getBoundingClientRect().width, svg };
+  // 커서가 차트 밖으로 나가도 이동이 끊기지 않는다
+  try { svg.setPointerCapture(ev.pointerId); } catch { /* 캡처 못 해도 동작은 한다 */ }
+  svg.classList.add('grabbing');
+});
+addEventListener('pointermove', ev => {
+  if (!drag) return;
+  const n = BAR.rows.length;
+  // 끈 픽셀을 봉 개수로 바꾼다. 오른쪽으로 끌면 과거로 간다.
+  const perBar = (drag.w * (BW - BP.l - BP.r) / BW) / drag.span;
+  const shift = Math.round((drag.x - ev.clientX) / perBar);
+  const from = Math.max(0, Math.min(n - drag.span, drag.a + shift));
+  if (BAR.view && from === BAR.view[0]) return;
+  BAR.view = [from, from + drag.span - 1];
+  drawBars(); drawFear();
+});
+const endDrag = () => {
+  if (!drag) return;
+  drag.svg?.classList.remove('grabbing');
+  drag = null;
+};
+addEventListener('pointerup', endDrag);
+addEventListener('pointercancel', endDrag);
+$('single').addEventListener('dblclick', ev => {
+  if (!inChart(ev)) return;
+  BAR.view = null;
+  drawBars(); drawFear();
+});
+
+// ── 분석 탭 ──
+// index.html 을 그대로 끼워넣는다. 848줄을 옮겨 붙이면 전역 이름과 DOM id 가
+// 여기저기서 부딪힌다($, UI, RATE, money, banner…). iframe 이면 그 문제가 없고,
+// index.html 이 서버 없이 더블클릭으로도 열리던 성질도 그대로 남는다.
+// 값은 열 때 한 번만 받는다 — 스냅샷이라 실시간으로 바뀌지 않는다.
+let snapLoaded = false;
+function openAnalysis() {
+  if (snapLoaded) return;
+  snapLoaded = true;
+  $('snapFrame').src = 'index.html?embed=1';
+}
+// 자식이 자기 높이를 알려준다. 스크롤바가 두 개 생기는 걸 막는다.
+addEventListener('message', ev => {
+  if (ev.source !== $('snapFrame')?.contentWindow) return;   // 남이 보낸 건 무시
+  if (ev.data?.type !== 'snapshot-height') return;
+  const h = Number(ev.data.h);
+  if (Number.isFinite(h) && h > 0) $('snapFrame').style.height = h + 'px';
+});
+
+// ── 봉 차트 컨트롤 ──
+$('segUnit').onclick = ev => {
+  const b = ev.target.closest('button'); if (!b) return;
+  BAR.unit = b.dataset.u; store.set('unit', BAR.unit);
+  BAR.rows = []; BAR.err = null; BAR.view = null;   // 단위가 바뀌면 이전 봉도 확대도 뜻이 없다
+  paintUnitSeg(); BAR.fear = []; drawBars(); drawFear(); loadBars();
+};
+$('single').addEventListener('click', ev => {
+  if (ev.target?.id !== 'cReset') return;
+  BAR.view = null; drawBars(); drawFear();
+});
+$('masBox').onchange = ev => {
+  const i = ev.target; if (!i.dataset.ma) return;
+  BAR.ma[i.dataset.ma] = i.checked;
+  store.set('ma' + i.dataset.ma, i.checked ? '1' : '');
+  drawBars();                          // 다시 받을 필요 없다 — 종가만 있으면 낸다
+};
+paintUnitSeg();                        // 첫 스냅샷이 오기 전에도 버튼은 보여야 한다
+
+// ── 컨트롤 ──
+// 값만 바꾸고 마지막 스냅샷으로 다시 그린다. 서버에 되묻지 않는다.
+$('segTicker').onclick = ev => {
+  const b = ev.target.closest('button'); if (!b) return;
+  UI.ticker = b.dataset.t; store.set('ticker', UI.ticker);
+  if (LAST) paint(LAST);
+  paintPTicker();
+  if (pOpened) loadPosts(true);          // 글 탭도 같은 종목을 보게 맞춘다
+  BAR.rows = []; BAR.err = null; BAR.view = null; BAR.fear = []; loadBars();
+};
+$('segCur').onclick = ev => {
+  const b = ev.target.closest('button'); if (!b) return;
+  UI.cur = b.dataset.c; store.set('cur', UI.cur);
+  drawBars();
+  [...$('segCur').children].forEach(c => c.setAttribute('aria-pressed', String(c === b)));
+  if (LAST) paint(LAST);
+};
+[...$('segCur').children].forEach(c => c.setAttribute('aria-pressed', String(c.dataset.c === UI.cur)));
+
+// 서버가 폴링을 마칠 때만 밀어준다. 브라우저가 되묻지 않으니 지연이 폴링 주기만 남는다.
+// 끊기면 EventSource 가 알아서 다시 붙는다 — 재연결 코드를 쓰지 않는 이유다.
+const es = new EventSource('/api/stream');
+es.onmessage = e => { try { paint(JSON.parse(e.data)); } catch (err) { console.error(err); } };
+es.onerror = () => {
+  $('dot').className = 'dot err';
+  $('status').textContent = '서버 연결이 끊겼습니다 — node server.mjs 가 떠 있는지 확인하세요 (자동으로 다시 붙습니다)';
+};
+
+// ── 탭 ── 사용법은 같은 페이지에 두고 따로 연다. 서버 라우트가 늘지 않는다.
+(function tabs() {
+  const view = { main: $('viewMain'), analysis: $('viewAnalysis'),
+                 posts: $('viewPosts'), help: $('viewHelp') };
+  const btn  = { main: $('tabMain'),  analysis: $('tabAnalysis'),
+                 posts: $('tabPosts'),  help: $('tabHelp')  };
+  const show = name => {
+    for (const k in view) {
+      view[k].hidden = k !== name;
+      btn[k].setAttribute('aria-selected', String(k === name));
+    }
+    if (name === 'posts') openPosts();
+    if (name === 'analysis') openAnalysis();
+  };
+  const fromHash = () => (view[location.hash.slice(1)] ? location.hash.slice(1) : 'main');
+  btn.main.onclick     = () => { location.hash = '';         show('main');     };
+  btn.analysis.onclick = () => { location.hash = 'analysis'; show('analysis'); };
+  btn.posts.onclick    = () => { location.hash = 'posts';    show('posts');    };
+  btn.help.onclick     = () => { location.hash = 'help';     show('help');     };
+  addEventListener('hashchange', () => show(fromHash()));
+  show(fromHash());
+})();
+</script>
+</body>
+</html>
