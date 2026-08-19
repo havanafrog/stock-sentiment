@@ -33,6 +33,7 @@
     --fear-bg: #ffeeee; --fear-ink: #bc1b2a; --fear-bd: rgba(240, 68, 82, .35);
     --up: #f04452; --down: #3182f6;    /* 한국 시세 관례: 빨강 상승 */
     --ma20: #f5a623; --ma120: #7a5af8; --ma200: #00a29a;
+    --sig: #7a5af8; --rsi: #00a29a;
     --warn-bg: #fff4e6; --warn-ink: #9a5b00; --warn-bd: rgba(245, 166, 35, .35);
     --ok-bg: #eaf5ec;   --ok-ink: #1a6b2a;   --ok-bd: rgba(26, 107, 42, .30);
     --radius: 9px;              /* 버튼·입력 (실측) */
@@ -55,6 +56,7 @@
     --fear-bg: #2e1517; --fear-ink: #feafb4; --fear-bd: rgba(246, 101, 112, .35);
       --up: #f66570; --down: #64a8ff;
       --ma20: #f5b74d; --ma120: #9b82ff; --ma200: #3fc4bb;
+      --sig: #9b82ff; --rsi: #3fc4bb;
       --warn-bg: #2a2110; --warn-ink: #f5c97a; --warn-bd: rgba(245, 166, 35, .30);
       --ok-bg: #12210f;   --ok-ink: #9ad79a;   --ok-bd: rgba(26, 107, 42, .30);
     --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
@@ -75,6 +77,7 @@
     --fear-bg: #2e1517; --fear-ink: #feafb4; --fear-bd: rgba(246, 101, 112, .35);
     --up: #f66570; --down: #64a8ff;
     --ma20: #f5b74d; --ma120: #9b82ff; --ma200: #3fc4bb;
+    --sig: #9b82ff; --rsi: #3fc4bb;
     --warn-bg: #2a2110; --warn-ink: #f5c97a; --warn-bd: rgba(245, 166, 35, .30);
     --ok-bg: #12210f;   --ok-ink: #9ad79a;   --ok-bd: rgba(26, 107, 42, .30);
     --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
@@ -205,6 +208,10 @@
     white-space: pre-wrap; }
   .pitem.f .ptxt { color: var(--fear-ink); }
   .ptxt mark { background: var(--accent-wash); color: inherit; border-radius: 3px; padding: 0 1px; }
+  .pitem .pimg { margin: 6px 0 0; }
+  .pitem .pimg img { max-width: 100%; max-height: 220px; border-radius: var(--radius);
+    display: block; cursor: zoom-in; background: var(--neutral); }
+  .pitem .pimg img.big { max-height: none; cursor: zoom-out; }
   .pmore { display: flex; justify-content: center; padding-top: 14px; }
   .pnote { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
   .rate { font-size: 11.5px; color: var(--muted); }
@@ -249,9 +256,14 @@
 
   .feed { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border);
           max-height: 420px; overflow-y: auto; display: grid; gap: 9px; }
-  .feed-head { font-size: 12.5px; font-weight: 620; }
-  .post { font-size: 12px; line-height: 1.45; display: grid; grid-template-columns: 40px 1fr; gap: 8px; }
-  .post .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .feed-head { font-size: 13.5px; font-weight: 620; }
+  /* 오른쪽 흐름은 실제로 읽는 곳이라 본문보다 크게 잡는다 (12 → 14.4px) */
+  .post { font-size: 14.4px; line-height: 1.5; display: grid; grid-template-columns: 46px 1fr; gap: 9px; }
+  .post .pimg { grid-column: 2; margin: 4px 0 2px; }
+  .post .pimg img { max-width: 100%; max-height: 180px; border-radius: var(--radius);
+    display: block; cursor: zoom-in; background: var(--neutral); }
+  .post .pimg img.big { max-height: none; cursor: zoom-out; }
+  .post .t { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12.5px; padding-top: 1px; }
   .post .x { color: var(--text-secondary); overflow-wrap: anywhere; }
   .post.f .x { color: var(--fear-ink); font-weight: 500; }
   :root:where(:not([data-theme="dark"])) .card:not(.fear) .post.f .x { color: var(--fear-ink); }
@@ -263,6 +275,23 @@
   .foot h3 { font-size: 14px; color: var(--text-primary); margin: 14px 0 6px; }
   .foot h3:first-child { margin-top: 0; }
   .foot p { margin: 0 0 8px; }
+
+  /* 종목 관리 */
+  .tkadd { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px 12px; margin: 10px 0 6px; }
+  .tkadd .fld { width: 130px; }
+  .tkchk { font-size: 12px; min-height: 17px; margin: 2px 0 8px; }
+  .tkchk.ok { color: var(--ok-ink); }
+  .tkchk.no { color: var(--fear-ink); }
+  .tklist { margin: 10px 0 0; border-top: 1px solid var(--hairline); }
+  .tkrow { display: flex; align-items: center; gap: 10px; padding: 9px 0;
+    border-bottom: 1px solid var(--hairline); font-size: 12.5px; }
+  .tkrow b { font-weight: 700; }
+  .tkrow .grow { flex: 1 1 auto; }
+  .tkrow .st { font-size: 11.5px; color: var(--muted); }
+  .tkrow .st.warm { color: var(--fear-ink); }
+  .tkdel { border: 0; background: none; color: var(--muted); cursor: pointer;
+    font: inherit; font-size: 11.5px; text-decoration: underline; text-underline-offset: 2px; padding: 2px 4px; }
+  .tkdel:hover { color: var(--neg); }
 
   /* 계산식 */
   .eq { background: var(--neutral); border-radius: var(--radius); padding: 11px 13px;
@@ -331,6 +360,13 @@
         <label><input type="checkbox" data-ma="200"><i class="k" style="background:var(--ma200)"></i>200선</label>
       </div>
     </div>
+    <div class="ctrl">
+      <label>보조지표</label>
+      <div class="mas" id="indBox">
+        <label><input type="checkbox" data-ind="macd"><i class="k" style="background:var(--sig)"></i>MACD</label>
+        <label><input type="checkbox" data-ind="rsi"><i class="k" style="background:var(--rsi)"></i>RSI</label>
+      </div>
+    </div>
   </div>
 
   <div id="banner"></div>
@@ -382,6 +418,23 @@
   </div>
 
   <div class="foot" id="viewHelp" hidden>
+    <h3>종목 관리</h3>
+    <p>티커를 넣으면 토스에서 이름을 확인한 뒤 목록에 넣습니다.
+    <b>현재가·봉 차트는 바로</b> 나오고, <b>공포지수는 기준선이 모여야</b> 나옵니다 — 30일치 글을 받는 데 40~60분입니다.
+    다른 종목 기준선을 빌려 쓸 수 없습니다. 평소 공포율이 종목마다 2배 가까이 다릅니다.</p>
+
+    <div class="tkadd">
+      <div class="ctrl"><label for="tkBase">티커</label>
+        <input id="tkBase" class="fld" placeholder="TSLA" autocapitalize="characters" spellcheck="false"></div>
+      <div class="ctrl"><label for="tkLev">레버리지 (선택)</label>
+        <input id="tkLev" class="fld" placeholder="없으면 비움" autocapitalize="characters" spellcheck="false"></div>
+      <div class="ctrl"><label>&nbsp;</label><button class="btn" id="tkCheck">확인</button></div>
+      <div class="ctrl"><label>&nbsp;</label><button class="btn" id="tkAdd" disabled>추가</button></div>
+    </div>
+    <div class="tkchk" id="tkMsg"></div>
+    <div class="tklist" id="tkList"></div>
+    <p class="cnote" id="tkNote"></p>
+
     <h3>계산식</h3>
 
     <h4>1. 감정 점수 — 글 하나</h4>
@@ -445,6 +498,29 @@
     60분봉   공포 글 36.04 ± 33.31  (표본    23칸)</div>
     <p>표준편차가 평균보다 큽니다. 글은 몰려서 오기 때문에 실제 분산이 포아송(√λ)보다 큽니다 —
     그래서 √λ 가 아니라 실측 표준편차를 씁니다.</p>
+
+    <h4>창 길이는 봉을 따라갑니다</h4>
+    <p>카드의 <b>공포지수·공포 비율·감정</b>은 지금 고른 봉 길이만큼의 창을 봅니다 —
+    1분봉이면 최근 1분, 10분봉이면 10분, 60분봉이면 60분. 그래서 카드의 공포지수가
+    아래 차트의 <b>마지막 봉과 같은 숫자</b>입니다. 창을 따로 잡으면 한 화면에 다른 숫자가 두 개 뜹니다.</p>
+    <p>일봉은 60분으로 물러납니다. 서버가 최근 60분치 글만 메모리에 들고 있어서 하루 창을 만들 수 없습니다.</p>
+    <p>짧은 창에서는 <b>비율과 감정이 자주 비어</b> 건수만 나옵니다 — 1분에 글이 중앙값 2건이라 비율이 세 값뿐입니다.
+    공포지수는 개수 기반이라 그 구간에서도 나옵니다.</p>
+
+    <h4>보조지표</h4>
+    <p>가격과 눈금이 전혀 달라 같은 칸에 겹치지 않고 아래에 따로 놓습니다. 계산은 항상 전체 봉으로 하고
+    그리기만 잘라냅니다 — 확대할 때마다 값이 달라지면 지표가 아닙니다.</p>
+    <div class="eq">MACD(12, 26, 9)
+
+  MACD 선  = EMA12(종가) − EMA26(종가)
+  시그널   = EMA9(MACD 선)
+  히스토   = MACD 선 − 시그널      (0 위 빨강 · 아래 파랑)
+
+RSI(14) — Wilder 평활
+
+  RS  = 14봉 평균 상승폭 / 14봉 평균 하락폭
+  RSI = 100 − 100 / (1 + RS)        0~100 · 30/70 선</div>
+    <p>둘 다 <b>가격만</b> 씁니다. 커뮤니티 글과는 무관합니다.</p>
 
     <h4>갱신 주기</h4>
     <p>기본 5초입니다. <code>node server.mjs --poll 15</code> 처럼 바꿀 수 있습니다.
@@ -530,9 +606,16 @@ const money = v => {
   return '$' + v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
+// 보고 있는 봉에 맞는 창을 고른다. 그래야 카드의 공포지수가 차트 마지막 봉과 같아진다.
+// 일봉은 서버가 60분치만 들고 있어서 60분으로 물러난다.
+const UNIT_KEY = { 'min:1': '1', 'min:10': '10', 'min:60': '60', 'day:1': '60' };
+const winLabel = mins => (mins >= 60 ? `${mins / 60}시간` : `${mins}분`);
+
 function card(ticker, d, meta) {
-  const z = d.w60.z;
-  const idx = d.w60.idx ?? null;   // 옛 스냅샷엔 없을 수 있다
+  const wk = UNIT_KEY[BAR.unit] ?? '60';
+  const w = d.win?.[wk] ?? d.w60;              // 옛 스냅샷이면 60분으로
+  const fellBack = BAR.unit === 'day:1';
+  const idx = w.idx ?? null;
   const isFear = idx !== null && idx >= meta.alert;
   const p = d.price;
   const chg = p && p.open ? (p.close / p.open - 1) : null;
@@ -540,10 +623,10 @@ function card(ticker, d, meta) {
   // 게이지는 지수 그대로 0~100 이다. 눈금이 종목·시각과 무관하게 같은 뜻을 가진다.
   // 50 자리에 평소 표시를, 경보선에 눈금을 둔다.
   const fill = idx === null ? 0 : idx;
-  // 15분 창은 지수를 안 낸다 — 기준선이 60분 길이라 그대로 대면 값이 부풀려진다.
-  // 비율끼리 견주라고 옆에 그대로 둔다.
-  const top15 = Math.max(0.12, (d.w60.base ?? 0.05) * 3);
-  const fill15 = d.w15.fear === null ? 0 : Math.min(100, d.w15.fear / top15 * 100);
+  // 비율 게이지는 지수와 눈금이 다르다. 평소 비율의 3배를 상한으로 편다.
+  const topR = Math.max(0.12, (d.w60.fear ?? 0.05) * 3);
+  const fillR = w.fear === null ? 0 : Math.min(100, w.fear / topR * 100);
+  const fillS = w.sentiment === null ? 0 : Math.abs(w.sentiment) * 100;
 
   const lev = meta.leveraged.has(ticker);
 
@@ -572,29 +655,27 @@ function card(ticker, d, meta) {
         <span class="v">${idx === null ? '<span class="thin">—</span>' : idx.toFixed(0)}</span>
       </div>
       <div class="row">
-        <span class="k">공포 비율 60분</span>
-        <span class="meter"><i style="width:${fill15}%;background:var(--muted)"></i></span>
-        <span class="v">${d.w60.thin ? `<span class="thin">${d.w60.n}건</span>` : pctf(d.w60.fear)}</span>
+        <span class="k">공포 비율</span>
+        <span class="meter"><i style="width:${fillR}%;background:var(--muted)"></i></span>
+        <span class="v">${w.thin ? `<span class="thin">${w.n}건</span>` : pctf(w.fear)}</span>
       </div>
       <div class="row">
-        <span class="k">감정 60분</span>
-        <span class="meter"><i style="width:${d.w60.sentiment === null ? 0
-            : Math.abs(d.w60.sentiment) * 100}%;background:${(d.w60.sentiment ?? 0) >= 0 ? 'var(--pos)' : 'var(--neg)'}"></i></span>
-        <span class="v">${d.w60.sentiment === null ? '<span class="thin">—</span>' : sgn(d.w60.sentiment)}</span>
+        <span class="k">감정</span>
+        <span class="meter"><i style="width:${fillS}%;background:${(w.sentiment ?? 0) >= 0 ? 'var(--pos)' : 'var(--neg)'}"></i></span>
+        <span class="v">${w.sentiment === null ? '<span class="thin">—</span>' : sgn(w.sentiment)}</span>
       </div>
     </div>
 
     <div class="zline">
-      ${d.warming
-        ? `창을 채우는 중 — 지금 ${d.spanMin}분치 (60분치가 모여야 기준선과 비교할 수 있습니다)`
-        : idx === null
-          ? `${d.w60.why ?? '기준선 없음'} · 최근 60분 글 ${d.w60.n}건`
-          : `최근 60분 글 <b>${d.w60.n.toLocaleString()}건</b> 중 공포 <b>${(d.w60.fearN ?? 0).toLocaleString()}건</b>`
-            + (d.w60.fear === null ? '' : ` · ${pctf(d.w60.fear)}`)
-            + `<br><span style="color:var(--muted)">평소 이 시각엔 공포 글 `
-            + `${(d.w60.base ?? 0).toFixed(1)}건 ± ${(d.w60.baseSd ?? 0).toFixed(1)} `
-            + `(표본 ${d.w60.baseN ?? 0}일) → z ${sgn((idx - 50) / 20)}</span>`
-            + (d.w60.why ? `<br><span style="color:var(--muted)">${d.w60.why}</span>` : '')}
+      ${idx === null
+        ? `${w.why ?? '기준선 없음'} · 최근 ${winLabel(w.mins ?? 60)} 글 ${w.n}건`
+        : `최근 <b>${winLabel(w.mins ?? 60)}</b> 글 <b>${w.n.toLocaleString()}건</b> 중 공포 <b>${(w.fearN ?? 0).toLocaleString()}건</b>`
+          + (w.fear === null ? '' : ` · ${pctf(w.fear)}`)
+          + `<br><span style="color:var(--muted)">평소 이 시각 이 길이엔 공포 글 `
+          + `${(w.base ?? 0).toFixed(1)}건 ± ${(w.baseSd ?? 0).toFixed(1)} `
+          + `(표본 ${w.baseN ?? 0})  →  z ${sgn((idx - 50) / 20)}`
+          + (fellBack ? ' · 일봉은 60분 창으로 봅니다' : '')
+          + '</span>'}
     </div>
 
     ${d.error ? `<div class="err">수집 실패: ${d.error}</div>` : ''}
@@ -603,6 +684,10 @@ function card(ticker, d, meta) {
       <div class="chead"><b>가격</b><span id="cUnitLab"></span><span class="now" id="cNowP"></span></div>
       <svg id="cPrice" viewBox="0 0 600 200" role="img" aria-label="봉 차트"></svg>
       <svg id="cVol" viewBox="0 0 600 46" role="img" aria-label="거래량"></svg>
+      <div class="chead" id="hMacd" hidden><b>MACD</b><span>12 / 26 / 9</span><span class="now" id="cNowM"></span></div>
+      <svg id="cMacd" viewBox="0 0 600 80" role="img" aria-label="MACD" hidden></svg>
+      <div class="chead" id="hRsi" hidden><b>RSI</b><span>14 · 30 / 70</span><span class="now" id="cNowR"></span></div>
+      <svg id="cRsi" viewBox="0 0 600 80" role="img" aria-label="RSI" hidden></svg>
       <p class="cnote"><span id="cBarNote"></span>
         <button class="lnk" id="cReset" hidden>전체 보기</button></p>
       <div class="chead"><b>공포지수</b><span>50 = 평소 · ${meta.alert} = 경보 · 봉과 같은 구간</span>
@@ -620,6 +705,7 @@ function card(ticker, d, meta) {
         <div class="post${r.fear ? ' f' : ''}">
           <span class="t">${fmtHM(r.at)}</span>
           <span class="x">${esc(r.text).slice(0, 240)}</span>
+          ${r.img ? `<span class="pimg"><img src="${esc(r.img)}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>` : ''}
         </div>`).join('')
         : '<div class="post"><span class="t"></span><span class="x" style="color:var(--muted)">아직 글이 없습니다</span></div>'}
     </div>
@@ -754,6 +840,8 @@ const BAR = { unit: store.get('unit', 'min:10'), ma: {}, rows: [], units: null,
               fear: [], covers: null };             // fear[i] = [시각, 공포글, 전체글, 지수] — 봉과 1:1
 const MIN_BARS = 15;                   // 이보다 좁게는 못 줄인다 — 봉 몇 개만 남으면 읽을 게 없다
 for (const n of [20, 120, 200]) BAR.ma[n] = store.get('ma' + n, '') === '1';
+BAR.ind = {};
+for (const k of ['macd', 'rsi']) BAR.ind[k] = store.get('ind' + k, '') === '1';
 
 const MA_COLOR = { 20: 'var(--ma20)', 120: 'var(--ma120)', 200: 'var(--ma200)' };
 
@@ -770,7 +858,55 @@ function sma(vals, n) {
   return out;
 }
 
-const BW = 600, BH = 200, VH = 46, BP = { l: 46, r: 8, t: 8, b: 16 };
+const BW = 600, BH = 200, VH = 46, IH = 80, BP = { l: 46, r: 8, t: 8, b: 16 };
+const IP = { l: 46, r: 8, t: 8, b: 12 };
+
+/** 지수이동평균. 앞의 n-1 개는 seed 를 못 만들어 null 이다. */
+function ema(vals, n) {
+  const out = new Array(vals.length).fill(null);
+  if (vals.length < n) return out;
+  const k = 2 / (n + 1);
+  let acc = 0;
+  for (let i = 0; i < n; i++) acc += vals[i];
+  let prev = acc / n;                    // 첫 값은 단순평균으로 씨를 뿌린다
+  out[n - 1] = prev;
+  for (let i = n; i < vals.length; i++) { prev = vals[i] * k + prev * (1 - k); out[i] = prev; }
+  return out;
+}
+
+/** MACD(12,26,9). 반환은 전부 원본과 같은 길이, 못 내는 자리는 null. */
+function macd(closes, fast = 12, slow = 26, sig = 9) {
+  const f = ema(closes, fast), sl = ema(closes, slow);
+  const line = closes.map((_, i) => (f[i] === null || sl[i] === null ? null : f[i] - sl[i]));
+  // 시그널은 MACD 선의 EMA 다. null 구간을 건너뛰고 이어서 계산해야 한다.
+  const solid = line.filter(v => v !== null);
+  const sigSolid = ema(solid, sig);
+  const signal = new Array(line.length).fill(null);
+  let j = 0;
+  for (let i = 0; i < line.length; i++) if (line[i] !== null) signal[i] = sigSolid[j++];
+  const hist = line.map((v, i) => (v === null || signal[i] === null ? null : v - signal[i]));
+  return { line, signal, hist };
+}
+
+/** RSI(14) — Wilder 평활. 0~100. */
+function rsi(closes, n = 14) {
+  const out = new Array(closes.length).fill(null);
+  if (closes.length <= n) return out;
+  let up = 0, dn = 0;
+  for (let i = 1; i <= n; i++) {
+    const d = closes[i] - closes[i - 1];
+    if (d >= 0) up += d; else dn -= d;
+  }
+  up /= n; dn /= n;
+  out[n] = dn === 0 ? 100 : 100 - 100 / (1 + up / dn);
+  for (let i = n + 1; i < closes.length; i++) {
+    const d = closes[i] - closes[i - 1];
+    up = (up * (n - 1) + Math.max(0, d)) / n;
+    dn = (dn * (n - 1) + Math.max(0, -d)) / n;
+    out[i] = dn === 0 ? 100 : 100 - 100 / (1 + up / dn);
+  }
+  return out;
+}
 
 /** 지금 보이는 구간의 [첫 봉, 끝 봉] 색인. view 가 null 이면 전체. */
 function viewRange() {
@@ -870,6 +1006,22 @@ function drawBars() {
   addCrosshair(svg, BH, BP);
   addCrosshair(vol, VH, { ...BP, t: 4, b: 4 });
 
+  // 보조지표. 계산은 전체 봉으로, 그리기만 보이는 구간으로.
+  const m = macd(closesAll);
+  drawInd('cMacd', 'hMacd', m.line, a, b, {
+    key: 'macd', nowId: 'cNowM', hist: m.hist,
+    fmt: v => (Math.abs(v) >= 100 ? v.toFixed(0) : v.toFixed(2)),
+    guides: [{ v: 0, color: 'var(--muted)', dash: '2 3' }],
+    lines: [{ v: m.line, color: 'var(--fear)', w: 1.5 }, { v: m.signal, color: 'var(--sig)' }],
+  });
+  const r14 = rsi(closesAll);
+  drawInd('cRsi', 'hRsi', r14, a, b, {
+    key: 'rsi', nowId: 'cNowR', lo: 0, hi: 100,
+    fmt: v => v.toFixed(0),
+    guides: [{ v: 30, color: 'var(--down)' }, { v: 70, color: 'var(--up)' }],
+    lines: [{ v: r14, color: 'var(--rsi)', w: 1.5 }],
+  });
+
   const need = [20, 120, 200].filter(n => BAR.ma[n] && all.length < n);
   const zoomed = rows.length < all.length;
   note.textContent = (zoomed ? `${rows.length} / ${all.length}봉` : `${all.length}봉`)
@@ -930,6 +1082,9 @@ function paintUnitSeg() {
   if (lab) lab.textContent = (u[BAR.unit]?.label ?? '') + '봉';
   for (const inp of $('masBox')?.querySelectorAll?.('input[data-ma]') ?? []) {
     inp.checked = !!BAR.ma[inp.dataset.ma];
+  }
+  for (const inp of $('indBox')?.querySelectorAll?.('input[data-ind]') ?? []) {
+    inp.checked = !!BAR.ind[inp.dataset.ind];
   }
 }
 
@@ -1046,6 +1201,7 @@ function paintPosts() {
           ${r.likes ? `<span>\u2665 ${r.likes.toLocaleString()}</span>` : ''}
         </div>
         <div class="ptxt">${hl(esc(r.text), P.q)}</div>
+        ${r.img ? `<div class="pimg"><img src="${esc(r.img)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>` : ''}
       </div>`).join('')
     : '<div class="pitem"><div class="ptxt" style="color:var(--muted)">조건에 맞는 글이 없습니다</div></div>';
 
@@ -1087,6 +1243,70 @@ $('pQ').oninput = e => {
   pTimer = setTimeout(() => loadPosts(true), 250);
 };
 $('pMore').onclick = () => { P.page++; loadPosts(false); };
+
+// ── 보조지표 ──
+// 가격과 눈금이 전혀 다르므로 같은 칸에 겹치지 않고 아래에 따로 놓는다.
+// 계산은 항상 전체 봉으로 하고 그리기만 잘라낸다 — 이동평균과 같은 이유다.
+function drawInd(id, headId, rows, a, b, opt) {
+  const svg = $(id), head = $(headId);
+  if (!svg || !head) return;
+  svg.innerHTML = '';
+  const on = !!BAR.ind[opt.key];
+  svg.hidden = head.hidden = !on;
+  if (!on) return;
+
+  const seen = rows.slice(a, b + 1).filter(v => v !== null);
+  if (seen.length < 2) {
+    const t = svgEl('text', { class: 'ctk', x: IP.l, y: IH / 2 });
+    t.textContent = '봉이 모자랍니다'; svg.appendChild(t);
+    return;
+  }
+  let lo = opt.lo ?? Math.min(...seen), hi = opt.hi ?? Math.max(...seen);
+  if (hi - lo < 1e-9) { const e = Math.abs(hi) * .01 || 1; lo -= e; hi += e; }
+  else if (opt.lo === undefined) { const pad = (hi - lo) * .15; lo -= pad; hi += pad; }
+  const yAt = v => IP.t + (IH - IP.t - IP.b) * (1 - (v - lo) / (hi - lo));
+  const span = b - a;
+  const xAt = i => IP.l + (BW - IP.l - IP.r) * (span ? i / span : .5);
+  YSCALE.set(id, { lo, hi, fmt: opt.fmt });
+
+  for (const g of opt.guides ?? []) {
+    if (g.v < lo || g.v > hi) continue;
+    svg.appendChild(svgEl('line', { x1: IP.l, x2: BW - IP.r, y1: yAt(g.v), y2: yAt(g.v),
+      stroke: g.color, 'stroke-width': 1, 'stroke-dasharray': g.dash ?? '3 3', opacity: .7 }));
+    const t = svgEl('text', { class: 'ctk', x: IP.l - 5, y: yAt(g.v) + 3, 'text-anchor': 'end' });
+    t.textContent = opt.fmt(g.v); svg.appendChild(t);
+  }
+
+  // 히스토그램 먼저 (있으면), 선은 그 위에
+  if (opt.hist) {
+    const bw = Math.max(1, Math.min(7, (BW - IP.l - IP.r) / (span + 1) - 1));
+    const zero = yAt(0);
+    for (let k = a; k <= b; k++) {
+      const v = opt.hist[k];
+      if (v === null || v === undefined) continue;
+      const y = yAt(v);
+      svg.appendChild(svgEl('rect', { x: xAt(k - a) - bw / 2, y: Math.min(y, zero),
+        width: bw, height: Math.max(.8, Math.abs(y - zero)),
+        fill: v >= 0 ? 'var(--up)' : 'var(--down)', opacity: .45 }));
+    }
+  }
+  for (const ln of opt.lines) {
+    let d = '', pen = false;
+    for (let k = a; k <= b; k++) {
+      const v = ln.v[k];
+      if (v === null || v === undefined) { pen = false; continue; }
+      d += `${pen ? 'L' : 'M'}${xAt(k - a).toFixed(1)},${yAt(v).toFixed(1)}`;
+      pen = true;
+    }
+    if (d) svg.appendChild(svgEl('path', { d, fill: 'none', stroke: ln.color,
+      'stroke-width': ln.w ?? 1.4, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+  }
+  addCrosshair(svg, IH, IP);
+
+  const last = opt.lines[0].v.slice(a, b + 1).filter(v => v !== null && v !== undefined).pop();
+  const now = $(opt.nowId);
+  if (now) now.textContent = last === undefined ? '—' : opt.fmt(last);
+}
 
 // ── 크로스헤어 · 툴팁 ──
 // 세로선은 어느 봉인지, 가로선은 그 자리의 값이 얼마인지 알려준다.
@@ -1195,7 +1415,7 @@ $('single').addEventListener('pointerleave', hideHairs);
 const inChart = ev => {
   const t = ev.target;
   const svg = t.ownerSVGElement || t;
-  return svg && (svg.id === 'cPrice' || svg.id === 'cVol' || svg.id === 'cFear');
+  return svg && ['cPrice', 'cVol', 'cFear', 'cMacd', 'cRsi'].includes(svg.id);
 };
 
 /** 화면 x 좌표 → 봉 색인 */
@@ -1284,11 +1504,18 @@ $('segUnit').onclick = ev => {
   BAR.unit = b.dataset.u; store.set('unit', BAR.unit);
   BAR.rows = []; BAR.err = null; BAR.view = null;   // 단위가 바뀌면 이전 봉도 확대도 뜻이 없다
   paintUnitSeg(); BAR.fear = []; drawBars(); drawFear(); loadBars();
+  if (LAST) paint(LAST);                            // 카드 창도 봉 단위를 따라간다
 };
 $('single').addEventListener('click', ev => {
   if (ev.target?.id !== 'cReset') return;
   BAR.view = null; drawBars(); drawFear();
 });
+$('indBox').onchange = ev => {
+  const i = ev.target; if (!i.dataset.ind) return;
+  BAR.ind[i.dataset.ind] = i.checked;
+  store.set('ind' + i.dataset.ind, i.checked ? '1' : '');
+  drawBars();                          // 종가만 있으면 낸다 — 다시 받을 필요 없다
+};
 $('masBox').onchange = ev => {
   const i = ev.target; if (!i.dataset.ma) return;
   BAR.ma[i.dataset.ma] = i.checked;
@@ -1325,6 +1552,115 @@ es.onerror = () => {
   $('status').textContent = '서버 연결이 끊겼습니다 — node server.mjs 가 떠 있는지 확인하세요 (자동으로 다시 붙습니다)';
 };
 
+// 사진은 기본을 작게 두고 누르면 편다. 안 그러면 흐름이 사진으로만 채워진다.
+addEventListener('click', ev => {
+  const img = ev.target;
+  if (img?.tagName !== 'IMG' || !img.closest('.pimg')) return;
+  img.classList.toggle('big');
+});
+
+// ── 종목 관리 ──
+// 목록은 서버가 data/tickers.json 에 들고 있다. 여기서는 읽고 고치기만 한다.
+let tkOk = null;                       // 확인을 통과한 조합. 이게 있어야 추가가 열린다
+
+async function tkFetch(url, opt) {
+  const r = await fetch(url, opt);
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error ?? ('HTTP ' + r.status));
+  return j;
+}
+
+function tkSay(msg, cls) {
+  const e = $('tkMsg'); if (!e) return;
+  e.textContent = msg; e.className = 'tkchk' + (cls ? ' ' + cls : '');
+}
+
+async function tkCheck() {
+  const base = ($('tkBase').value || '').trim().toUpperCase();
+  const lev  = ($('tkLev').value  || '').trim().toUpperCase();
+  tkOk = null;
+  $('tkAdd').disabled = true;
+  if (!base) return tkSay('티커를 넣으세요.', 'no');
+  tkSay('확인 중…');
+  try {
+    const a = await tkFetch('/api/tickers/resolve', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ symbol: base }) });
+    let msg = `${a.symbol} ${a.name}`;
+    if (lev) {
+      const b = await tkFetch('/api/tickers/resolve', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: lev }) });
+      msg += `  ·  레버리지 ${b.symbol} ${b.name}`;
+    }
+    tkSay('✓ ' + msg, 'ok');
+    tkOk = { base, lev: lev || null };
+    $('tkAdd').disabled = false;
+  } catch (e) { tkSay('✗ ' + e.message, 'no'); }
+}
+
+async function tkAdd() {
+  if (!tkOk) return;
+  $('tkAdd').disabled = true;
+  tkSay('추가하는 중…');
+  try {
+    await tkFetch('/api/tickers', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(tkOk) });
+    tkSay('✓ 추가했습니다. 글 수집을 시작합니다 — 40~60분 뒤에 공포지수가 나옵니다.', 'ok');
+    $('tkBase').value = ''; $('tkLev').value = '';
+    tkOk = null;
+    tkLoad();
+  } catch (e) { tkSay('✗ ' + e.message, 'no'); $('tkAdd').disabled = false; }
+}
+
+async function tkDel(base) {
+  if (!confirm(`${base} 을 목록에서 뺍니다.\n\n모아둔 글은 그대로 남습니다 — 다시 추가하면 수집 없이 바로 돌아옵니다.`)) return;
+  try { await tkFetch('/api/tickers/' + encodeURIComponent(base), { method: 'DELETE' }); tkLoad(); }
+  catch (e) { tkSay('✗ ' + e.message, 'no'); }
+}
+
+function tkRender(d) {
+  $('tkList').innerHTML = d.rows.map(r => {
+    const who = r.names.map(n => {
+      const job = n.job;
+      const st = job
+        ? `<span class="st warm">${job.phase}${job.pages ? ` ${job.pages}페이지 ${job.posts.toLocaleString()}건` : ''}</span>`
+        : n.baseline ? '' : '<span class="st warm">기준선 없음</span>';
+      return `<b>${n.t}</b> <span class="st">${n.name ?? ''}</span> ${st}`;
+    }).join(' <span class="st">·</span> ');
+    return `<div class="tkrow">${who}<span class="grow"></span>`
+      + `<button class="tkdel" data-del="${r.base}">삭제</button></div>`;
+  }).join('');
+
+  // 종목이 늘면 한 바퀴가 길어진다. 주기를 넘기면 회차를 건너뛴다.
+  const note = $('tkNote');
+  note.textContent = `${d.count}개 종목 · 폴링 ${d.pollMs / 1000}초`
+    + (d.lastPollMs !== null ? ` · 한 바퀴 ${d.lastPollMs}ms` : '')
+    + (d.crowded ? ' · 주기에 근접했습니다. 종목을 더 넣으려면 --poll 로 주기를 늘리세요.' : '');
+  note.style.color = d.crowded ? 'var(--fear-ink)' : '';
+}
+
+let tkTimer = null;
+async function tkLoad() {
+  try {
+    const d = await tkFetch('/api/tickers');
+    tkRender(d);
+    // 수집이 도는 동안만 다시 물어본다. 평소엔 물어볼 이유가 없다.
+    const busy = d.rows.some(r => r.names.some(n => n.job));
+    clearTimeout(tkTimer);
+    if (busy) tkTimer = setTimeout(tkLoad, 5000);
+  } catch (e) { tkSay('목록을 못 읽었습니다: ' + e.message, 'no'); }
+}
+
+$('tkCheck').onclick = tkCheck;
+$('tkAdd').onclick = tkAdd;
+$('tkList').onclick = ev => { const b = ev.target?.dataset?.del; if (b) tkDel(b); };
+for (const id of ['tkBase', 'tkLev']) {
+  $(id).oninput = () => { tkOk = null; $('tkAdd').disabled = true; tkSay(''); };
+  $(id).onkeydown = ev => { if (ev.key === 'Enter') tkCheck(); };
+}
+
 // ── 탭 ── 사용법은 같은 페이지에 두고 따로 연다. 서버 라우트가 늘지 않는다.
 (function tabs() {
   const view = { main: $('viewMain'), analysis: $('viewAnalysis'),
@@ -1338,6 +1674,7 @@ es.onerror = () => {
     }
     if (name === 'posts') openPosts();
     if (name === 'analysis') openAnalysis();
+    if (name === 'help') tkLoad();
   };
   const fromHash = () => (view[location.hash.slice(1)] ? location.hash.slice(1) : 'main');
   btn.main.onclick     = () => { location.hash = '';         show('main');     };

@@ -39,6 +39,7 @@ global.document = {
   createElementNS: () => makeNode(),
 };
 global.addEventListener = () => {};
+global.confirm = () => true;
 global.location = { hash: '' };
 global.clearTimeout = () => {};
 global.setTimeout = () => 0;
@@ -61,7 +62,8 @@ export function run() {
   document.title = '실시간 커뮤니티 온도';
   const wrapped = CODE + `
 ;globalThis.__L = { spark, drawCharts, paint, card, UI, get LAST(){return LAST}, money, moneyShort, cur,
-  sma, drawBars, drawFear, paintUnitSeg, viewRange, BAR, MIN_BARS, YSCALE, HAIRS, setTitle, get ALERT(){return ALERT} };`;
+  sma, drawBars, drawFear, paintUnitSeg, viewRange, BAR, MIN_BARS, YSCALE, HAIRS, setTitle,
+  tkRender, ema, macd, rsi, drawInd, get ALERT(){return ALERT} };`;
   (0, eval)(wrapped);
   return { L: globalThis.__L, node };
 }

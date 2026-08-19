@@ -26,7 +26,18 @@ import { join, dirname, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { resolveStock, fetchLatest, fetchPrice, fetchRate, fetchBars, UNITS, MAX_COUNT, et, sleep } from './toss.mjs';
-import { TICKERS, PAIRS } from './tickers.mjs';
+import { loadPairs, savePairs, flatten, okSymbol, TICKERS_FILE } from './tickers.mjs';
+import { spawn } from 'node:child_process';
+
+// 목록은 화면에서 바뀔 수 있다. 모듈 상수로 잡아두면 추가해도 서버가 모른다.
+// 한 요청 안에서는 같은 값을 봐야 하므로 캐시하고, 바꿀 때만 갈아엎는다.
+let PAIRS = loadPairs();
+let TICKERS = flatten(PAIRS);
+function refreshTickers() {
+  PAIRS = loadPairs();
+  TICKERS = flatten(PAIRS);
+  return TICKERS;
+}
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const argv = process.argv.slice(2);
@@ -44,6 +55,14 @@ const MAX_PAGES = 6;         // 평상시 폴링 상한(66건). 폭주 구간 �
 const WARMUP_PAGES = 60;     // 기동 직후 60분 창을 한 번에 채울 때의 상한(660건)
 const MIN_LIVE = 20;         // 60분 창에 이만큼은 있어야 비율을 말할 수 있다
 const MIN_FAST = 10;         // 15분 창의 최소치. 창이 1/4 이라 기준도 낮다
+
+// 봉 단위 → 창 길이(분) · 그 봉의 계수 기준선.
+// 창을 봉 길이에 맞추면 카드의 공포지수가 차트 마지막 봉과 같은 숫자가 된다.
+// 창을 따로 잡으면 같은 화면에 다른 숫자가 두 개 뜬다.
+//
+// 일봉은 여기 없다. 폴러가 60분치만 들고 있어서 하루 창을 못 만든다.
+// 일봉을 보고 있으면 화면이 '60' 으로 물러난다.
+const UNIT_WIN = { 1: 1, 10: 10, 60: 60 };
 const SAMPLE_MS = 60_000;    // 계열에 점을 찍는 간격. 폴링(15초)마다 찍으면 4배로 두꺼워진다
 const SERIES_KEEP = 1440;    // 종목당 보관 점수 = 24시간
 const SERIES_SEND = 180;     // SSE 로 내보내는 점수 = 최근 3시간
@@ -150,7 +169,7 @@ function loadPosts(ticker) {
     try {
       // 채점은 읽을 때 한 번만 한다. 요청마다 다시 하면 페이지 넘길 때마다 0.5초씩 든다.
       rows = JSON.parse(readFileSync(f, 'utf8')).map(p => ({
-        id: p.id, at: p.at, text: p.text, likes: p.likes ?? 0,
+        id: p.id, at: p.at, text: p.text, likes: p.likes ?? 0, img: p.img ?? null,
         s: +score(p.text).toFixed(3), f: hasFear(p.text), d: et(p.at).date,
       }));
       rows.reverse();                     // 파일은 오래된 순 — 최신을 앞으로
@@ -244,10 +263,89 @@ function selftest() {
   ok('50건씩 끊는다', p2.pages === 3 && p2.rows.length === 20, `${p2.pages} ${p2.rows.length}`);
   ok('세 번째 쪽은 101번째부터', p2.rows[0].id === 100);
 
+
+  // 종목 목록 — 잘못된 값이 파일로 들어와도 앱이 멈추면 안 된다
+  ok('영숫자 티커는 통과', okSymbol('TSLA') && okSymbol('BRK.B') && okSymbol('SNDK'));
+  ok('경로 문자는 거부', !okSymbol('../etc') && !okSymbol('a/b') && !okSymbol('a b'));
+  ok('소문자는 거부 (대문자로 정규화한 뒤에 검사한다)', !okSymbol('tsla'));
+  ok('빈 값·긴 값 거부', !okSymbol('') && !okSymbol('ABCDEFGHIJKLM'));
+
   console.log(`\n${n}개 점검 통과\n`);
 }
 
 if (argv.includes('--selftest')) { console.log('\n자체 점검\n'); selftest(); process.exit(0); }
+
+// ── 종목 관리 ────────────────────────────────────────────────
+// 새 종목은 목록에 넣는 즉시 폴링이 시작된다. 현재가·봉·글 흐름은 바로 나온다.
+// 공포지수만 기준선이 필요해서 수집이 끝날 때까지 비어 있다 — 40~60분.
+// 다른 종목 기준선을 빌려 쓸 수는 없다. 평소 공포율이 종목마다 2배 가까이 다르다.
+const JOBS = new Map();            // 티커 → { phase, pages, posts, startedAt, error }
+
+async function addTicker(base, lev) {
+  base = String(base ?? "").toUpperCase();
+  lev = lev ? String(lev).toUpperCase() : null;
+  if (!okSymbol(base)) throw new Error(`티커 형식이 잘못됐습니다: ${base}`);
+  if (lev && !okSymbol(lev)) throw new Error(`티커 형식이 잘못됐습니다: ${lev}`);
+  const now = loadPairs();
+  const have = new Set(flatten(now));
+  if (have.has(base)) throw new Error(`${base} 는 이미 목록에 있습니다.`);
+  if (lev && have.has(lev)) throw new Error(`${lev} 는 이미 목록에 있습니다.`);
+
+  // 토스가 아는 종목인지 먼저 확인한다. 없는 티커를 넣으면 폴링이 계속 실패한다.
+  const meta = { base: await resolveStock(base) };
+  if (lev) meta.lev = await resolveStock(lev);
+
+  savePairs([...now, [base, lev]]);
+  refreshTickers();
+  for (const t of [base, lev].filter(Boolean)) {
+    const m = t === base ? meta.base : meta.lev;
+    LIVE.set(t, { code: m.code, name: m.name, posts: new Map(), price: null, error: null });
+  }
+  collectInBackground([base, lev].filter(Boolean));
+  return meta;
+}
+
+function removeTicker(base) {
+  const now = loadPairs();
+  const row = now.find(([b]) => b === base);
+  if (!row) throw new Error(`${base} 는 목록에 없습니다.`);
+  if (now.length === 1) throw new Error("마지막 종목은 지울 수 없습니다.");
+  savePairs(now.filter(([b]) => b !== base));
+  refreshTickers();
+  for (const t of row.filter(Boolean)) { LIVE.delete(t); SERIES.delete(t); JOBS.delete(t); }
+  // 글 아카이브(data/*.posts.json)는 남긴다. 27.7MB 를 실수로 날리면 다시 40~60분이다.
+  return row;
+}
+
+/** 수집 → 빌드를 뒤에서 돌린다. 서버는 그동안 계속 응답한다. */
+function collectInBackground(list) {
+  for (const t of list) JOBS.set(t, { phase: "수집 대기", pages: 0, posts: 0, startedAt: Date.now() });
+  // 자식 힙을 묶어 둔다. 이 기계가 1GB 라 서버까지 같이 죽으면 안 된다.
+  const node = process.execPath;
+  const opts = { cwd: HERE, env: { ...process.env, NODE_OPTIONS: "--max-old-space-size=256" } };
+
+  const fetcher = spawn(node, ["fetch-comments.mjs", ...list, "--days", "30"], opts);
+  const mark = (o) => { for (const t of list) JOBS.set(t, { ...(JOBS.get(t) ?? {}), ...o }); };
+  mark({ phase: "글 수집 중" });
+
+  let buf = "";
+  fetcher.stdout.on("data", d => {
+    buf = (buf + d).slice(-400);
+    const m = /(\d+)페이지 · (\d+)건/.exec(buf.split("\r").pop() ?? "");
+    if (m) mark({ pages: +m[1], posts: +m[2] });
+  });
+  fetcher.on("close", code => {
+    if (code !== 0) return mark({ phase: "실패", error: `수집이 코드 ${code} 로 끝났습니다` });
+    mark({ phase: "기준선 계산 중" });
+    const builder = spawn(node, ["build.mjs", "--days", "30"], opts);
+    builder.on("close", c2 => {
+      if (c2 !== 0) return mark({ phase: "실패", error: `빌드가 코드 ${c2} 로 끝났습니다` });
+      SNAPSHOT = loadBaselines();          // 새 기준선을 즉시 물린다
+      CACHE = { ticker: null, rows: null, stamp: 0 };
+      for (const t of list) JOBS.delete(t);
+    });
+  });
+}
 
 // ── 봉 차트 ──────────────────────────────────────────────────
 // 브라우저가 토스를 직접 부르면 403 이라 여기서 대신 부른다.
@@ -353,9 +451,10 @@ function saveSeries() {
 function sample(snap) {
   const now = Date.now();
   for (const t of TICKERS) {
+    const d = snap.tickers[t];
+    if (!d) continue;                          // 방금 지운 종목
     const arr = SERIES.get(t) ?? [];
     if (arr.length && now - arr[arr.length - 1][0] < SAMPLE_MS) continue;
-    const d = snap.tickers[t];
     // 창을 채우는 중이거나 표본이 모자라면 값을 지어내지 않는다 — null 이면 선이 끊긴다
     const fear = d.w60.thin || d.warming ? null : d.w60.fear;
     const idx = d.w60.z === null ? null : Math.max(0, Math.min(100, 50 + 20 * d.w60.z));
@@ -370,7 +469,7 @@ function sample(snap) {
 // ── 상태 ─────────────────────────────────────────────────────
 /** 티커 → { code, name, posts: Map(id→post), price, priceAt, error } */
 const LIVE = new Map();
-let lastPoll = null, pollErrors = 0;
+let lastPoll = null, pollErrors = 0, lastPollDur = null;
 let RATE = null;                 // { rate, baseDate } — USD→KRW
 
 const minutesAgo = iso => (Date.now() - new Date(iso).getTime()) / 60000;
@@ -418,8 +517,9 @@ async function pollAll(warmup = false) {
   // 환율은 하루 한 번 고시되니 실패해도 직전 값을 그대로 쓴다
   try { RATE = await fetchRate(); } catch (e) { if (!RATE) console.warn('\n환율 실패:', e.message); }
 
-  for (const ticker of TICKERS) {
+  for (const ticker of refreshTickers()) {      // 목록이 바뀌었을 수 있다
     const st = LIVE.get(ticker);
+    if (!st) continue;                          // 방금 지운 종목
     try {
       await pollTicker(ticker, warmup);
       st.price = await fetchPrice(st.code);
@@ -431,6 +531,7 @@ async function pollAll(warmup = false) {
     await sleep(60);
   }
   lastPoll = new Date().toISOString();
+  lastPollDur = Date.now() - t0;
   pollErrors = errs;
   broadcast();
   const total = TICKERS.reduce((a, t) => a + LIVE.get(t).posts.size, 0);
@@ -492,18 +593,39 @@ function snapshot() {
   const out = {};
   for (const ticker of TICKERS) {
     const st = LIVE.get(ticker);
+    if (!st) continue;                        // 방금 지운 종목
     const posts = [...st.posts.values()].sort((a, b) => (a.at < b.at ? 1 : -1));
     const w60 = windowStats(posts, WINDOW_MIN, MIN_LIVE);
     const w15 = windowStats(posts, FAST_MIN, MIN_FAST);
 
     // 창이 실제로 몇 분치나 찼는가. 기동 직후에는 60분치가 아직 없을 수 있는데,
     // 그 상태로 60분 기준선에 대면 글이 적어 보여 z 가 낮게 나온다.
+    // 봉 단위별로 같은 계산을 돌린다. 최소 표본은 창 길이에 비례해 잡는다 —
+    // 1분 창에 20건을 요구하면 늘 미달이고, 60분 창에 2건을 요구하면 너무 헐겁다.
+    const win = {};
+    for (const [k, mins] of Object.entries(UNIT_WIN)) {
+      const floor = Math.max(3, Math.round(MIN_LIVE * mins / WINDOW_MIN));
+      const w = windowStats(posts, mins, floor);
+      const fearN = posts.filter(p => p.fear && minutesAgo(p.at) <= mins).length;
+      const bl = SNAPSHOT?.[ticker]?.baseline?.counts?.[`min:${k}`];
+      const hour = Math.floor(et(new Date().toISOString()).min / 60);
+      const b = bl?.hourly?.[hour];
+      win[k] = { ...w, fearN, minN: floor, mins,
+        idx: b && b.sd ? +intensity(fearN, b).toFixed(1) : null,
+        base: b?.mean ?? null, baseSd: b?.sd ?? null, baseN: b?.n ?? null,
+        why: b ? null : (bl ? '이 시간대 기준선이 없습니다' : '기준선 없음') };
+    }
+
     const oldest = posts.length ? minutesAgo(posts[posts.length - 1].at) : 0;
     const warming = oldest < WINDOW_MIN * 0.8;
     const z60 = warming ? { z: null, why: '창을 채우는 중' } : fearZ(ticker, w60.fear, w60.n);
     // 공포지수는 개수로 낸다. 표본 문턱이 없다 — 0건도 뜻이 있는 값이다.
     const fearN = posts.filter(p => p.fear && minutesAgo(p.at) <= WINDOW_MIN).length;
     const i60 = warming ? { idx: null, why: '창을 채우는 중' } : fearIdx(ticker, fearN);
+    // 60분 창이 아직 안 찼어도 1분·10분 창은 벌써 찼을 수 있다.
+    if (warming) for (const k of Object.keys(win)) {
+      if (UNIT_WIN[k] > oldest) { win[k].idx = null; win[k].why = '창을 채우는 중'; }
+    }
 
     out[ticker] = {
       name: st.name,
@@ -512,8 +634,9 @@ function snapshot() {
       spanMin: Math.round(oldest),
       warming,
       w60: { ...w60, ...z60, fearN, ...i60 },
+      win,                                   // 봉 단위별 창 — 화면이 골라 쓴다
       w15,
-      recent: posts.slice(0, 12).map(p => ({ at: p.at, text: p.text, fear: p.fear, score: p.score })),
+      recent: posts.slice(0, 12).map(p => ({ at: p.at, text: p.text, fear: p.fear, score: p.score, img: p.img ?? null })),
     };
   }
   // 보관은 24시간이지만 내보내는 건 최근 3시간뿐이다. 전부 실으면 15초마다 수백 KB 가 나간다.
@@ -540,6 +663,24 @@ function broadcast() {
 }
 
 // ── 정적 서빙 ────────────────────────────────────────────────
+function sendJSON(res, code, obj) {
+  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+  res.end(JSON.stringify(obj));
+}
+
+/** 본문을 JSON 으로. 64KB 를 넘으면 끊는다 — 이 API 로 큰 걸 보낼 일이 없다. */
+function readBody(req) {
+  return new Promise((ok, no) => {
+    let b = '';
+    req.on('data', d => {
+      b += d;
+      if (b.length > 65536) { no(new Error('본문이 너무 큽니다.')); req.destroy(); }
+    });
+    req.on('end', () => { try { ok(b ? JSON.parse(b) : {}); } catch { no(new Error('JSON 형식이 아닙니다.')); } });
+    req.on('error', no);
+  });
+}
+
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
@@ -626,6 +767,55 @@ createServer((req, res) => {
     clients.add(res);
     req.on('close', () => clients.delete(res));
     return;
+  }
+
+  // ── 종목 관리 ──
+  if (path === '/api/tickers' && req.method === 'GET') {
+    const rows = loadPairs().map(([base, lev]) => ({
+      base, lev,
+      names: [base, lev].filter(Boolean).map(t => ({
+        t, name: LIVE.get(t)?.name ?? null,
+        // 기준선이 있어야 공포지수가 나온다. 없으면 수집이 아직 안 끝난 것.
+        baseline: !!SNAPSHOT?.[t]?.baseline?.counts?.['min:60'],
+        job: JOBS.get(t) ?? null,
+      })),
+    }));
+    const n = flatten(loadPairs()).length;
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify({
+      rows, count: n, pollMs: POLL_MS,
+      // 한 바퀴가 주기를 넘기면 회차를 건너뛴다. 미리 알려준다.
+      lastPollMs: lastPollDur,
+      crowded: lastPollDur !== null && lastPollDur > POLL_MS * 0.7,
+    }));
+  }
+
+  if (path === '/api/tickers/resolve' && req.method === 'POST') {
+    return readBody(req).then(async b => {
+      const sym = String(b.symbol ?? '').trim().toUpperCase();
+      if (!okSymbol(sym)) return sendJSON(res, 400, { error: '티커는 영숫자 1~12자입니다.' });
+      try {
+        const m = await resolveStock(sym);
+        sendJSON(res, 200, { symbol: sym, name: m.name, code: m.code });
+      } catch {
+        sendJSON(res, 404, { error: `토스에서 ${sym} 을 찾지 못했습니다.` });
+      }
+    }).catch(e => sendJSON(res, 400, { error: e.message }));
+  }
+
+  if (path === '/api/tickers' && req.method === 'POST') {
+    return readBody(req).then(async b => {
+      try {
+        const meta = await addTicker(b.base, b.lev);
+        sendJSON(res, 200, { ok: true, meta });
+      } catch (e) { sendJSON(res, 400, { error: e.message }); }
+    }).catch(e => sendJSON(res, 400, { error: e.message }));
+  }
+
+  if (path.startsWith('/api/tickers/') && req.method === 'DELETE') {
+    const base = decodeURIComponent(path.slice('/api/tickers/'.length)).toUpperCase();
+    try { removeTicker(base); return sendJSON(res, 200, { ok: true }); }
+    catch (e) { return sendJSON(res, 400, { error: e.message }); }
   }
 
   if (path === '/api/candles') {       // 봉 차트 (토스 프록시 + 캐시)
