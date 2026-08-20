@@ -626,7 +626,10 @@ function card(ticker, d, meta) {
   // 비율 게이지는 지수와 눈금이 다르다. 평소 비율의 3배를 상한으로 편다.
   const topR = Math.max(0.12, (d.w60.fear ?? 0.05) * 3);
   const fillR = w.fear === null ? 0 : Math.min(100, w.fear / topR * 100);
-  const fillS = w.sentiment === null ? 0 : Math.abs(w.sentiment) * 100;
+  // 곡소리도 공포와 같은 0~100 눈금이라 게이지가 그대로 비교된다.
+  const wail = w.wail ?? null;
+  const fillW = wail === null ? 0 : wail;
+  const isWail = wail !== null && wail >= meta.alert;
 
   const lev = meta.leveraged.has(ticker);
 
@@ -660,9 +663,11 @@ function card(ticker, d, meta) {
         <span class="v">${w.thin ? `<span class="thin">${w.n}건</span>` : pctf(w.fear)}</span>
       </div>
       <div class="row">
-        <span class="k">감정</span>
-        <span class="meter"><i style="width:${fillS}%;background:${(w.sentiment ?? 0) >= 0 ? 'var(--pos)' : 'var(--neg)'}"></i></span>
-        <span class="v">${w.sentiment === null ? '<span class="thin">—</span>' : sgn(w.sentiment)}</span>
+        <span class="k">곡소리 지수</span>
+        <span class="meter"><i style="width:${fillW}%;background:${isWail ? 'var(--neg)' : 'var(--muted)'}"></i>
+          <span class="base" style="left:50%"></span>
+          <span class="base" style="left:${meta.alert}%"></span></span>
+        <span class="v">${wail === null ? '<span class="thin">—</span>' : wail.toFixed(0)}</span>
       </div>
     </div>
 
@@ -675,7 +680,10 @@ function card(ticker, d, meta) {
           + `${(w.base ?? 0).toFixed(1)}건 ± ${(w.baseSd ?? 0).toFixed(1)} `
           + `(표본 ${w.baseN ?? 0})  →  z ${sgn((idx - 50) / 20)}`
           + (fellBack ? ' · 일봉은 60분 창으로 봅니다' : '')
-          + '</span>'}
+          + '</span>'
+          + (wail === null ? ''
+             : `<br><span style="color:var(--muted)">곡소리 <b>${(w.wailN ?? 0).toLocaleString()}건</b>`
+               + ` (평소 ${(w.wailBase ?? 0).toFixed(1)} ± ${(w.wailSd ?? 0).toFixed(1)}) → 지수 ${wail.toFixed(0)}</span>`)}
     </div>
 
     ${d.error ? `<div class="err">수집 실패: ${d.error}</div>` : ''}
@@ -690,7 +698,9 @@ function card(ticker, d, meta) {
       <svg id="cRsi" viewBox="0 0 600 80" role="img" aria-label="RSI" hidden></svg>
       <p class="cnote"><span id="cBarNote"></span>
         <button class="lnk" id="cReset" hidden>전체 보기</button></p>
-      <div class="chead"><b>공포지수</b><span>50 = 평소 · ${meta.alert} = 경보 · 봉과 같은 구간</span>
+      <div class="chead"><b>공포 · 곡소리</b>
+        <span><i class="k" style="background:var(--fear)"></i>공포
+        <i class="k" style="background:var(--neg);margin-left:8px"></i>곡소리 · 50 = 평소 · ${meta.alert} = 경보</span>
         <span class="now" id="cNowF"></span></div>
       <svg id="cFear" viewBox="0 0 600 90" role="img" aria-label="공포지수 추이"></svg>
       <p class="cnote" id="cFearNote"></p>
@@ -777,6 +787,20 @@ function spark(id, pts, o) {
   svg.appendChild(svgEl('path', { d, fill:'none', stroke:o.color, 'stroke-width':1.75,
     'stroke-linejoin':'round', 'stroke-linecap':'round' }));
 
+  // 덧선 — 같은 격자에 하나 더 겹친다
+  for (const ex of o.extra ?? []) {
+    let d2 = '', pen2 = false;
+    ex.pts.forEach(([ms, v], i) => {
+      if (v === null || v === undefined) { pen2 = false; return; }
+      const x = o.byIndex ? at2x(i) : xAt(ms);
+      d2 += `${pen2 ? 'L' : 'M'}${x.toFixed(1)},${yAt(v).toFixed(1)}`;
+      pen2 = true;
+    });
+    if (d2) svg.appendChild(svgEl('path', { d: d2, fill: 'none', stroke: ex.color,
+      'stroke-width': ex.w ?? 1.2, opacity: ex.opacity ?? 1,
+      'stroke-linejoin': 'round', 'stroke-linecap': 'round' }));
+  }
+
   const last = real[real.length - 1];
   const lastX = o.byIndex ? at2x(pts.lastIndexOf(last)) : xAt(last[0]);
   svg.appendChild(svgEl('circle', { cx:lastX, cy:yAt(last[1]), r:3, fill:o.color }));
@@ -801,14 +825,19 @@ function drawFear() {
   }
   const [a, b] = viewRange();
   const pts = BAR.fear.slice(a, b + 1).map(r => [r[0], r[3]]);
+  // 곡소리는 부정 전부라 공포보다 넓고 잘 움직인다. 같은 칸에 겹쳐 둔다 —
+  // 눈금이 0~100 으로 같아서 겹쳐도 뜻이 어긋나지 않는다.
+  const wpts = BAR.fear.slice(a, b + 1).map(r => [r[0], r[5] ?? null]);
   spark('cFear', pts, {
     color: 'var(--fear)', fmt: v => v.toFixed(0), lo: 0, hi: 100, byIndex: true,
     lines: [{ v: 50, color: 'var(--muted)' }, { v: ALERT, color: 'var(--fear)' }],
+    extra: [{ pts: wpts, color: 'var(--neg)', w: 1.2, opacity: .75 }],
   });
   // 현재값은 여기서 채운다 — 봉은 SSE 와 따로 오므로 paint 때는 아직 비어 있다
   const cur = pts.filter(x => x[1] !== null).pop();
+  const wcur = wpts.filter(x => x[1] !== null).pop();
   const now = $('cNowF');
-  if (now) now.textContent = cur ? cur[1].toFixed(0) : '—';
+  if (now) now.textContent = (cur ? cur[1].toFixed(0) : '—') + ' / ' + (wcur ? wcur[1].toFixed(0) : '—');
 
   const seen = pts.filter(x => x[1] !== null).length;
   const hot = pts.filter(x => x[1] !== null && x[1] >= ALERT).length;
@@ -1393,7 +1422,9 @@ function showTip(i, cx, cy) {
     + '<div class="sep"></div>'
     + row('공포지수', f && f[3] !== null ? f[3].toFixed(0) : '—',
           f && f[3] !== null && f[3] >= ALERT ? 'var(--fear)' : '')
-    + row('글 / 공포', f ? `${f[2].toLocaleString()} / ${f[1].toLocaleString()}` : '—');
+    + row('곡소리 지수', f && f[5] !== null && f[5] !== undefined ? f[5].toFixed(0) : '—',
+          f && f[5] >= ALERT ? 'var(--neg)' : '')
+    + row('글 / 공포 / 곡소리', f ? `${f[2].toLocaleString()} / ${f[1].toLocaleString()} / ${(f[4] ?? 0).toLocaleString()}` : '—');
   tip.style.opacity = 1;
   const w = tip.offsetWidth, h = tip.offsetHeight;
   let x = cx + 16, y = cy - h - 12;
