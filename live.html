@@ -365,6 +365,7 @@
       <div class="mas" id="indBox">
         <label><input type="checkbox" data-ind="macd"><i class="k" style="background:var(--sig)"></i>MACD</label>
         <label><input type="checkbox" data-ind="rsi"><i class="k" style="background:var(--rsi)"></i>RSI</label>
+        <label><input type="checkbox" data-ind="wm"><i class="k" style="background:var(--neg)"></i>곡소리 MACD</label>
       </div>
     </div>
   </div>
@@ -419,15 +420,14 @@
 
   <div class="foot" id="viewHelp" hidden>
     <h3>종목 관리</h3>
-    <p>티커를 넣으면 토스에서 이름을 확인한 뒤 목록에 넣습니다.
+    <p>티커를 넣으면 토스에서 이름을 확인한 뒤 목록에 넣습니다. 종목마다 따로 봅니다.
     <b>현재가·봉 차트는 바로</b> 나오고, <b>공포지수는 기준선이 모여야</b> 나옵니다 — 30일치 글을 받는 데 40~60분입니다.
     다른 종목 기준선을 빌려 쓸 수 없습니다. 평소 공포율이 종목마다 2배 가까이 다릅니다.</p>
 
     <div class="tkadd">
       <div class="ctrl"><label for="tkBase">티커</label>
         <input id="tkBase" class="fld" placeholder="TSLA" autocapitalize="characters" spellcheck="false"></div>
-      <div class="ctrl"><label for="tkLev">레버리지 (선택)</label>
-        <input id="tkLev" class="fld" placeholder="없으면 비움" autocapitalize="characters" spellcheck="false"></div>
+
       <div class="ctrl"><label>&nbsp;</label><button class="btn" id="tkCheck">확인</button></div>
       <div class="ctrl"><label>&nbsp;</label><button class="btn" id="tkAdd" disabled>추가</button></div>
     </div>
@@ -615,8 +615,7 @@ function card(ticker, d, meta) {
   const wk = UNIT_KEY[BAR.unit] ?? '60';
   const w = d.win?.[wk] ?? d.w60;              // 옛 스냅샷이면 60분으로
   const fellBack = BAR.unit === 'day:1';
-  const idx = w.idx ?? null;
-  const isFear = idx !== null && idx >= meta.alert;
+  const idx = w.idx ?? null;                   // 공포는 계산은 남기되 화면엔 안 쓴다
   const p = d.price;
   const chg = p && p.open ? (p.close / p.open - 1) : null;
 
@@ -624,14 +623,15 @@ function card(ticker, d, meta) {
   // 50 자리에 평소 표시를, 경보선에 눈금을 둔다.
   const fill = idx === null ? 0 : idx;
   // 비율 게이지는 지수와 눈금이 다르다. 평소 비율의 3배를 상한으로 편다.
-  const topR = Math.max(0.12, (d.w60.fear ?? 0.05) * 3);
-  const fillR = w.fear === null ? 0 : Math.min(100, w.fear / topR * 100);
+  // 평소 곡소리 비율의 3배를 상한으로 편다
+  const wr = (w.wailN ?? 0) / Math.max(1, w.n);
+  const fillR = Math.min(100, wr / 0.45 * 100);
   // 곡소리도 공포와 같은 0~100 눈금이라 게이지가 그대로 비교된다.
   const wail = w.wail ?? null;
   const fillW = wail === null ? 0 : wail;
   const isWail = wail !== null && wail >= meta.alert;
+  const isFear = isWail;                       // 카드가 붉어지는 기준 = 곡소리
 
-  const lev = meta.leveraged.has(ticker);
 
   return `
   <div class="card${isFear ? ' fear' : ''}">
@@ -639,8 +639,7 @@ function card(ticker, d, meta) {
       <span class="tk">${ticker}</span>
       <span class="nm">${d.name !== ticker ? d.name : ''}</span>
       <span class="grow"></span>
-      ${lev ? '<span class="tag">레버리지</span>' : ''}
-      ${isFear ? `<span class="tag fear">공포 ${idx.toFixed(0)}</span>` : ''}
+      ${isWail ? `<span class="tag fear">곡소리 ${wail.toFixed(0)}</span>` : ''}
     </div>
 
     ${p ? `<div class="px">${money(p.close)}</div>
@@ -651,39 +650,28 @@ function card(ticker, d, meta) {
 
     <div class="rows">
       <div class="row">
-        <span class="k">공포지수</span>
-        <span class="meter"><i style="width:${fill}%;background:${isFear ? 'var(--fear)' : 'var(--pos)'}"></i>
-          <span class="base" style="left:50%"></span>
-          <span class="base" style="left:${meta.alert}%"></span></span>
-        <span class="v">${idx === null ? '<span class="thin">—</span>' : idx.toFixed(0)}</span>
-      </div>
-      <div class="row">
-        <span class="k">공포 비율</span>
-        <span class="meter"><i style="width:${fillR}%;background:var(--muted)"></i></span>
-        <span class="v">${w.thin ? `<span class="thin">${w.n}건</span>` : pctf(w.fear)}</span>
-      </div>
-      <div class="row">
         <span class="k">곡소리 지수</span>
-        <span class="meter"><i style="width:${fillW}%;background:${isWail ? 'var(--neg)' : 'var(--muted)'}"></i>
+        <span class="meter"><i style="width:${fillW}%;background:${isWail ? 'var(--neg)' : 'var(--pos)'}"></i>
           <span class="base" style="left:50%"></span>
           <span class="base" style="left:${meta.alert}%"></span></span>
         <span class="v">${wail === null ? '<span class="thin">—</span>' : wail.toFixed(0)}</span>
       </div>
+      <div class="row">
+        <span class="k">곡소리 비율</span>
+        <span class="meter"><i style="width:${fillR}%;background:var(--muted)"></i></span>
+        <span class="v">${w.n < 5 ? `<span class="thin">${w.n}건</span>`
+          : pctf((w.wailN ?? 0) / Math.max(1, w.n))}</span>
+      </div>
     </div>
 
     <div class="zline">
-      ${idx === null
+      ${wail === null
         ? `${w.why ?? '기준선 없음'} · 최근 ${winLabel(w.mins ?? 60)} 글 ${w.n}건`
-        : `최근 <b>${winLabel(w.mins ?? 60)}</b> 글 <b>${w.n.toLocaleString()}건</b> 중 공포 <b>${(w.fearN ?? 0).toLocaleString()}건</b>`
-          + (w.fear === null ? '' : ` · ${pctf(w.fear)}`)
-          + `<br><span style="color:var(--muted)">평소 이 시각 이 길이엔 공포 글 `
-          + `${(w.base ?? 0).toFixed(1)}건 ± ${(w.baseSd ?? 0).toFixed(1)} `
-          + `(표본 ${w.baseN ?? 0})  →  z ${sgn((idx - 50) / 20)}`
+        : `최근 <b>${winLabel(w.mins ?? 60)}</b> 글 <b>${w.n.toLocaleString()}건</b> 중 곡소리 <b>${(w.wailN ?? 0).toLocaleString()}건</b>`
+          + `<br><span style="color:var(--muted)">평소 이 시각 이 길이엔 곡소리 글 `
+          + `${(w.wailBase ?? 0).toFixed(1)}건 ± ${(w.wailSd ?? 0).toFixed(1)}  →  z ${sgn((wail - 50) / 20)}`
           + (fellBack ? ' · 일봉은 60분 창으로 봅니다' : '')
-          + '</span>'
-          + (wail === null ? ''
-             : `<br><span style="color:var(--muted)">곡소리 <b>${(w.wailN ?? 0).toLocaleString()}건</b>`
-               + ` (평소 ${(w.wailBase ?? 0).toFixed(1)} ± ${(w.wailSd ?? 0).toFixed(1)}) → 지수 ${wail.toFixed(0)}</span>`)}
+          + '</span>'}
     </div>
 
     ${d.error ? `<div class="err">수집 실패: ${d.error}</div>` : ''}
@@ -698,12 +686,13 @@ function card(ticker, d, meta) {
       <svg id="cRsi" viewBox="0 0 600 80" role="img" aria-label="RSI" hidden></svg>
       <p class="cnote"><span id="cBarNote"></span>
         <button class="lnk" id="cReset" hidden>전체 보기</button></p>
-      <div class="chead"><b>공포 · 곡소리</b>
-        <span><i class="k" style="background:var(--fear)"></i>공포
-        <i class="k" style="background:var(--neg);margin-left:8px"></i>곡소리 · 50 = 평소 · ${meta.alert} = 경보</span>
+      <div class="chead"><b>곡소리 지수</b><span>50 = 평소 · ${meta.alert} = 경보 · 봉과 같은 구간</span>
         <span class="now" id="cNowF"></span></div>
-      <svg id="cFear" viewBox="0 0 600 90" role="img" aria-label="공포지수 추이"></svg>
+      <svg id="cFear" viewBox="0 0 600 90" role="img" aria-label="곡소리 지수 추이"></svg>
       <p class="cnote" id="cFearNote"></p>
+      <div class="chead" id="hWm" hidden><b>곡소리 MACD</b><span>12 / 26 / 9 · 0선 돌파 = 흐름 전환</span>
+        <span class="now" id="cNowW"></span></div>
+      <svg id="cWm" viewBox="0 0 600 80" role="img" aria-label="곡소리 MACD" hidden></svg>
       <div class="cempty" id="cEmpty" hidden></div>
     </div>
   </div>
@@ -824,20 +813,35 @@ function drawFear() {
     return;
   }
   const [a, b] = viewRange();
-  const pts = BAR.fear.slice(a, b + 1).map(r => [r[0], r[3]]);
-  // 곡소리는 부정 전부라 공포보다 넓고 잘 움직인다. 같은 칸에 겹쳐 둔다 —
-  // 눈금이 0~100 으로 같아서 겹쳐도 뜻이 어긋나지 않는다.
-  const wpts = BAR.fear.slice(a, b + 1).map(r => [r[0], r[5] ?? null]);
+  // 공포는 계산은 남아 있지만 화면에선 뺐다 — 곡소리 하나로 읽는다.
+  const pts = BAR.fear.slice(a, b + 1).map(r => [r[0], r[5] ?? null]);
   spark('cFear', pts, {
-    color: 'var(--fear)', fmt: v => v.toFixed(0), lo: 0, hi: 100, byIndex: true,
-    lines: [{ v: 50, color: 'var(--muted)' }, { v: ALERT, color: 'var(--fear)' }],
-    extra: [{ pts: wpts, color: 'var(--neg)', w: 1.2, opacity: .75 }],
+    color: 'var(--neg)', fmt: v => v.toFixed(0), lo: 0, hi: 100, byIndex: true,
+    lines: [{ v: 50, color: 'var(--muted)' }, { v: ALERT, color: 'var(--neg)' }],
+  });
+
+  // 곡소리 MACD — 지수 자체에 MACD 를 건다.
+  // 가격 MACD 가 "가격 흐름이 꺾였나" 를 보듯, 이건 "곡소리 흐름이 꺾였나" 를 본다.
+  // 빈 구간(글이 없어 지수가 null)은 이전 값으로 이어 붙인다 — EMA 는 구멍을 못 넘는다.
+  const wSeries = [];
+  let prev = null;
+  for (const r of BAR.fear) {
+    const v = r[5] ?? null;
+    if (v !== null) prev = v;
+    wSeries.push(prev);
+  }
+  const solid = wSeries.map(v => (v === null ? 50 : v));   // 앞머리 빈 곳은 평소치로
+  const wm = macd(solid);
+  drawInd('cWm', 'hWm', wm.line, a, b, {
+    key: 'wm', nowId: 'cNowW', hist: wm.hist,
+    fmt: v => v.toFixed(1),
+    guides: [{ v: 0, color: 'var(--muted)', dash: '2 3' }],
+    lines: [{ v: wm.line, color: 'var(--neg)', w: 1.5 }, { v: wm.signal, color: 'var(--sig)' }],
   });
   // 현재값은 여기서 채운다 — 봉은 SSE 와 따로 오므로 paint 때는 아직 비어 있다
   const cur = pts.filter(x => x[1] !== null).pop();
-  const wcur = wpts.filter(x => x[1] !== null).pop();
   const now = $('cNowF');
-  if (now) now.textContent = (cur ? cur[1].toFixed(0) : '—') + ' / ' + (wcur ? wcur[1].toFixed(0) : '—');
+  if (now) now.textContent = cur ? cur[1].toFixed(0) : '—';
 
   const seen = pts.filter(x => x[1] !== null).length;
   const hot = pts.filter(x => x[1] !== null && x[1] >= ALERT).length;
@@ -870,7 +874,7 @@ const BAR = { unit: store.get('unit', 'min:10'), ma: {}, rows: [], units: null,
 const MIN_BARS = 15;                   // 이보다 좁게는 못 줄인다 — 봉 몇 개만 남으면 읽을 게 없다
 for (const n of [20, 120, 200]) BAR.ma[n] = store.get('ma' + n, '') === '1';
 BAR.ind = {};
-for (const k of ['macd', 'rsi']) BAR.ind[k] = store.get('ind' + k, '') === '1';
+for (const k of ['macd', 'rsi', 'wm']) BAR.ind[k] = store.get('ind' + k, '') === '1';
 
 const MA_COLOR = { 20: 'var(--ma20)', 120: 'var(--ma120)', 200: 'var(--ma200)' };
 
@@ -1133,14 +1137,13 @@ function setTitle(d) {
 function paint(d) {
     LAST = d;
     RATE = d.rate?.rate ?? null;
-    const leveraged = new Set(d.pairs.map(p => p[1]).filter(Boolean));
     ALERT = d.alert ?? ALERT;
-    const meta = { leveraged, minLive: d.minLive, alert: ALERT };
+    const meta = { minLive: d.minLive, alert: ALERT };
     for (const id of ['minLive', 'minLive2']) { const e = $(id); if (e) e.textContent = d.minLive; }
     for (const id of ['minFast', 'minFast2']) { const e = $(id); if (e) e.textContent = d.minFast; }
 
     // 쌍 순서대로: 본주 다음 레버리지
-    const order = d.pairs.flat().filter(Boolean).filter(t => d.tickers[t]);
+    const order = (d.list ?? []).filter(t => d.tickers[t]);
     if (!order.includes(UI.ticker)) UI.ticker = order[0];
 
       // 탭의 붉은 점도 같은 기준 — 지수가 경보선을 넘었나
@@ -1240,7 +1243,7 @@ function paintPosts() {
 
 // 종목 버튼은 실시간 탭과 같은 선택을 쓴다 — 탭을 옮겨도 보던 종목이 유지된다
 function paintPTicker() {
-  const order = LAST ? LAST.pairs.flat().filter(Boolean).filter(t => LAST.tickers[t]) : [];
+  const order = LAST ? (LAST.list ?? []).filter(t => LAST.tickers[t]) : [];
   $('pTicker').innerHTML = order.map(t =>
     `<button data-t="${t}" aria-pressed="${t === UI.ticker}">${t}</button>`).join('');
 }
@@ -1420,11 +1423,9 @@ function showTip(i, cx, cy) {
     + row('등락', (chg >= 0 ? '+' : '') + (chg * 100).toFixed(2) + '%', col)
     + row('거래량', (r[5] ?? 0).toLocaleString())
     + '<div class="sep"></div>'
-    + row('공포지수', f && f[3] !== null ? f[3].toFixed(0) : '—',
-          f && f[3] !== null && f[3] >= ALERT ? 'var(--fear)' : '')
     + row('곡소리 지수', f && f[5] !== null && f[5] !== undefined ? f[5].toFixed(0) : '—',
           f && f[5] >= ALERT ? 'var(--neg)' : '')
-    + row('글 / 공포 / 곡소리', f ? `${f[2].toLocaleString()} / ${f[1].toLocaleString()} / ${(f[4] ?? 0).toLocaleString()}` : '—');
+    + row('글 / 곡소리', f ? `${f[2].toLocaleString()} / ${(f[4] ?? 0).toLocaleString()}` : '—');
   tip.style.opacity = 1;
   const w = tip.offsetWidth, h = tip.offsetHeight;
   let x = cx + 16, y = cy - h - 12;
@@ -1446,7 +1447,7 @@ $('single').addEventListener('pointerleave', hideHairs);
 const inChart = ev => {
   const t = ev.target;
   const svg = t.ownerSVGElement || t;
-  return svg && ['cPrice', 'cVol', 'cFear', 'cMacd', 'cRsi'].includes(svg.id);
+  return svg && ['cPrice', 'cVol', 'cFear', 'cMacd', 'cRsi', 'cWm'].includes(svg.id);
 };
 
 /** 화면 x 좌표 → 봉 색인 */
@@ -1608,7 +1609,6 @@ function tkSay(msg, cls) {
 
 async function tkCheck() {
   const base = ($('tkBase').value || '').trim().toUpperCase();
-  const lev  = ($('tkLev').value  || '').trim().toUpperCase();
   tkOk = null;
   $('tkAdd').disabled = true;
   if (!base) return tkSay('티커를 넣으세요.', 'no');
@@ -1617,15 +1617,8 @@ async function tkCheck() {
     const a = await tkFetch('/api/tickers/resolve', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ symbol: base }) });
-    let msg = `${a.symbol} ${a.name}`;
-    if (lev) {
-      const b = await tkFetch('/api/tickers/resolve', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ symbol: lev }) });
-      msg += `  ·  레버리지 ${b.symbol} ${b.name}`;
-    }
-    tkSay('✓ ' + msg, 'ok');
-    tkOk = { base, lev: lev || null };
+    tkSay(`✓ ${a.symbol} ${a.name}`, 'ok');
+    tkOk = { symbol: base };
     $('tkAdd').disabled = false;
   } catch (e) { tkSay('✗ ' + e.message, 'no'); }
 }
@@ -1639,7 +1632,7 @@ async function tkAdd() {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(tkOk) });
     tkSay('✓ 추가했습니다. 글 수집을 시작합니다 — 40~60분 뒤에 공포지수가 나옵니다.', 'ok');
-    $('tkBase').value = ''; $('tkLev').value = '';
+    $('tkBase').value = '';
     tkOk = null;
     tkLoad();
   } catch (e) { tkSay('✗ ' + e.message, 'no'); $('tkAdd').disabled = false; }
@@ -1653,15 +1646,11 @@ async function tkDel(base) {
 
 function tkRender(d) {
   $('tkList').innerHTML = d.rows.map(r => {
-    const who = r.names.map(n => {
-      const job = n.job;
-      const st = job
-        ? `<span class="st warm">${job.phase}${job.pages ? ` ${job.pages}페이지 ${job.posts.toLocaleString()}건` : ''}</span>`
-        : n.baseline ? '' : '<span class="st warm">기준선 없음</span>';
-      return `<b>${n.t}</b> <span class="st">${n.name ?? ''}</span> ${st}`;
-    }).join(' <span class="st">·</span> ');
-    return `<div class="tkrow">${who}<span class="grow"></span>`
-      + `<button class="tkdel" data-del="${r.base}">삭제</button></div>`;
+    const st = r.job
+      ? `<span class="st warm">${r.job.phase}${r.job.pages ? ` ${r.job.pages}페이지 ${r.job.posts.toLocaleString()}건` : ''}</span>`
+      : r.baseline ? '' : '<span class="st warm">기준선 없음</span>';
+    return `<div class="tkrow"><b>${r.t}</b> <span class="st">${r.name ?? ''}</span> ${st}`
+      + `<span class="grow"></span><button class="tkdel" data-del="${r.t}">삭제</button></div>`;
   }).join('');
 
   // 종목이 늘면 한 바퀴가 길어진다. 주기를 넘기면 회차를 건너뛴다.
@@ -1678,7 +1667,7 @@ async function tkLoad() {
     const d = await tkFetch('/api/tickers');
     tkRender(d);
     // 수집이 도는 동안만 다시 물어본다. 평소엔 물어볼 이유가 없다.
-    const busy = d.rows.some(r => r.names.some(n => n.job));
+    const busy = d.rows.some(r => r.job);
     clearTimeout(tkTimer);
     if (busy) tkTimer = setTimeout(tkLoad, 5000);
   } catch (e) { tkSay('목록을 못 읽었습니다: ' + e.message, 'no'); }
@@ -1687,7 +1676,7 @@ async function tkLoad() {
 $('tkCheck').onclick = tkCheck;
 $('tkAdd').onclick = tkAdd;
 $('tkList').onclick = ev => { const b = ev.target?.dataset?.del; if (b) tkDel(b); };
-for (const id of ['tkBase', 'tkLev']) {
+for (const id of ['tkBase']) {
   $(id).oninput = () => { tkOk = null; $('tkAdd').disabled = true; tkSay(''); };
   $(id).onkeydown = ev => { if (ev.key === 'Enter') tkCheck(); };
 }

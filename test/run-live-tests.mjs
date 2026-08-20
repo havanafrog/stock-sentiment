@@ -99,10 +99,10 @@ console.log('\n── F. paint 전체 ──');
   // 공포지수는 이제 SSE 계열이 아니라 /api/fear 가 봉 격자에 맞춰 준다.
   L.BAR.rows = Array.from({ length: 5 }, (_, i) =>
     [at(i), 100, 110, 90, 100 + i, 10, 'day']);
-  L.BAR.fear = L.BAR.rows.map((r, i) => [r[0], i, i * 10, 40 + i * 10]);
+  L.BAR.fear = L.BAR.rows.map((r, i) => [r[0], i, i * 10, 40 + i * 10, i, 40 + i * 10]);
   L.paint({
     at: new Date(T0).toISOString(), pollMs: 15000, windowMin: 60, fastMin: 15,
-    minLive: 20, minFast: 10, pairs: [['SNDK', null]], pollErrors: 0, rate: null,
+    minLive: 20, minFast: 10, list: ['SNDK'], pollErrors: 0, rate: null,
     alert: 90, sampleMs: 60000, series: {},
     tickers: { SNDK: {
       name: '샌디스크', price: { close: 104 }, error: null, spanMin: 60, warming: false,
@@ -111,15 +111,15 @@ console.log('\n── F. paint 전체 ──');
       recent: [],
     } },
   });
-  ok('공포지수 선을 그렸다', (pathOf('cFear', node) ?? '').startsWith('M'));
+  ok('곡소리 지수 선을 그렸다', (pathOf('cFear', node) ?? '').startsWith('M'));
   ok('현재 공포지수를 띄운다', node('cNowF').textContent === '80', node('cNowF').textContent);
   ok('현재가를 띄운다', node('cNowP').textContent === '$104.00', node('cNowP').textContent);
 
   // 글이 없는 구간은 지수가 null 이라 선이 끊겨야 한다
   const r2 = run();
   r2.L.BAR.rows = Array.from({ length: 6 }, (_, i) => [at(i), 100, 110, 90, 100, 10, 'day']);
-  r2.L.BAR.fear = [[at(0), 1, 10, 40], [at(1), 2, 20, 60], [at(2), 0, 0, null],
-                   [at(3), 0, 0, null], [at(4), 3, 30, 70], [at(5), 4, 40, 80]];
+  r2.L.BAR.fear = [[at(0), 1, 10, 40, 1, 40], [at(1), 2, 20, 60, 2, 60], [at(2), 0, 0, null, 0, null],
+                   [at(3), 0, 0, null, 0, null], [at(4), 3, 30, 70, 3, 70], [at(5), 4, 40, 80, 4, 80]];
   r2.L.drawFear();
   const d = pathOf('cFear', r2.node);
   ok('값 없는 구간에서 끊긴다', (d.match(/M/g) || []).length === 2, d);
@@ -241,7 +241,7 @@ console.log('\n── H. 크로스헤어 ──');
 {
   const { L, node } = run();
   L.BAR.rows = Array.from({ length: 20 }, (_, i) => [at(i), 100, 110, 90, 100 + i, 50, 'day']);
-  L.BAR.fear = L.BAR.rows.map((r, i) => [r[0], i, i * 5, 50]);
+  L.BAR.fear = L.BAR.rows.map((r, i) => [r[0], i, i * 5, 50, i, 50]);
   L.BAR.err = null;
   L.drawBars();
 
@@ -266,7 +266,7 @@ console.log('\n── I. 탭 제목 ──');
   const { L } = run();
   const snap = (price, ticker, rate) => ({
     at: new Date(T0).toISOString(), pollMs: 5000, windowMin: 60, fastMin: 15,
-    minLive: 20, minFast: 10, pairs: [[ticker, null]], pollErrors: 0, rate: rate ?? null,
+    minLive: 20, minFast: 10, list: [ticker], pollErrors: 0, rate: rate ?? null,
     alert: 90, sampleMs: 60000, series: {},
     tickers: { [ticker]: { name: ticker, price, error: null, spanMin: 60, warming: false,
       w60: { n: 1, fear: 0, fearN: 0, sentiment: 0, idx: 50, thin: false },
@@ -304,29 +304,25 @@ console.log('\n── I. 탭 제목 ──');
 console.log('\n── J. 종목 관리 ──');
 {
   const { L, node } = run();
-  const row = (base, lev, opt = {}) => ({
-    base, lev,
-    names: [base, lev].filter(Boolean).map(t => ({
-      t, name: t + '이름', baseline: opt.baseline ?? true, job: opt.job ?? null })),
-  });
+  const row = (t, opt = {}) => ({ t, name: t + '이름', baseline: opt.baseline ?? true, job: opt.job ?? null });
 
-  L.tkRender({ rows: [row('SNDK', 'SNXX'), row('KORU', null)],
+  L.tkRender({ rows: [row('SNDK'), row('KORU')],
                count: 3, pollMs: 5000, lastPollMs: 650, crowded: false });
   const html = node('tkList').innerHTML;
   ok('종목마다 한 줄', (html.match(/tkrow/g) || []).length === 2);
-  ok('레버리지도 같이 보인다', html.includes('SNXX'));
-  ok('삭제 버튼에 본주가 붙는다', html.includes('data-del="KORU"'));
+  ok('종목 이름도 보인다', html.includes('KORU이름'));
+  ok('삭제 버튼에 종목이 붙는다', html.includes('data-del="KORU"'));
   ok('기준선 있으면 경고 없음', !html.includes('기준선 없음'));
   ok('폴링 상태를 적는다', /3개 종목 · 폴링 5초 · 한 바퀴 650ms/.test(node('tkNote').textContent),
      node('tkNote').textContent);
 
   // 갓 추가한 종목 — 기준선이 아직 없다
-  L.tkRender({ rows: [row('TSLA', null, { baseline: false })],
+  L.tkRender({ rows: [row('TSLA', { baseline: false })],
                count: 1, pollMs: 5000, lastPollMs: 200, crowded: false });
   ok('기준선 없으면 그렇다고 적는다', node('tkList').innerHTML.includes('기준선 없음'));
 
   // 수집이 도는 중
-  L.tkRender({ rows: [row('TSLA', null, { baseline: false,
+  L.tkRender({ rows: [row('TSLA', { baseline: false,
                  job: { phase: '글 수집 중', pages: 120, posts: 1320 } })],
                count: 1, pollMs: 5000, lastPollMs: 200, crowded: false });
   const busy = node('tkList').innerHTML;
@@ -334,7 +330,7 @@ console.log('\n── J. 종목 관리 ──');
   ok('진행 수치를 적는다', busy.includes('120페이지') && busy.includes('1,320건'), busy.slice(0, 160));
 
   // 종목이 많아 한 바퀴가 주기에 근접
-  L.tkRender({ rows: [row('A', null)], count: 20, pollMs: 5000, lastPollMs: 4200, crowded: true });
+  L.tkRender({ rows: [row('A')], count: 20, pollMs: 5000, lastPollMs: 4200, crowded: true });
   ok('혼잡하면 경고한다', /주기에 근접/.test(node('tkNote').textContent), node('tkNote').textContent);
   ok('경고는 색으로도 표시', node('tkNote').style.color === 'var(--fear-ink)');
 }
