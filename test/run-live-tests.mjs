@@ -401,5 +401,38 @@ console.log('\n── K. 보조지표 ──');
   r2.L.drawBars();
   ok('봉이 모자라면 그렇다고 적는다', r2.node('cRsi').children.some(c => /모자/.test(c.textContent ?? '')));
 }
+// ── L. 좁은 화면 ──
+// 폰에서 600 폭을 320px 에 밀어 넣으면 9px 눈금이 5px 로 읽힌다.
+// viewBox 를 좁혀 글자를 제 크기로 되돌리는지 본다.
+{
+  const { L, node } = run();
+  L.BAR.rows = Array.from({ length: 60 }, (_, i) => [at(i), 100, 110, 90, 105, 10, 'day']);
+  L.BAR.fear = [];
+  L.BAR.err = null;
+
+  ok('넓은 화면에선 바꿀 게 없다', L.fitCharts() === false);
+
+  global.innerWidth = 390;
+  ok('좁아지면 다시 잡는다', L.fitCharts() === true);
+  ok('폰 viewBox 는 380 폭', node('cPrice')._attrs.viewBox === '0 0 380 250');
+  ok('거래량 칸도 같이 바뀐다', node('cVol')._attrs.viewBox === '0 0 380 52');
+  ok('곡소리 칸도 같이 바뀐다', node('cFear')._attrs.viewBox === '0 0 380 112');
+  ok('폭이 그대로면 안 바뀌었다고 답한다', L.fitCharts() === false);
+  // 다시 그리면 card() 가 문서 값을 되씌운다 — drawBars 가 다시 잡아야 한다.
+  node('cPrice')._attrs.viewBox = '0 0 600 200';
+  L.drawBars();
+  ok('다시 그려도 폰 치수를 지킨다', node('cPrice')._attrs.viewBox === '0 0 380 250');
+
+  L.drawBars();
+  const xs = node('cPrice').children
+    .filter(c => c._attrs.width !== undefined && c._attrs.x !== undefined)
+    .map(c => Number(c._attrs.x));
+  ok('봉이 380 폭 안에 들어온다', xs.length > 0 && Math.max(...xs) < 380, String(Math.max(...xs)));
+
+  global.innerWidth = 1280;
+  ok('넓어지면 되돌아온다', L.fitCharts() === true
+    && node('cPrice')._attrs.viewBox === '0 0 600 200');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

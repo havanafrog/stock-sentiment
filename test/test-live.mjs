@@ -39,6 +39,8 @@ global.document = {
   createElementNS: () => makeNode(),
 };
 global.addEventListener = () => {};
+// 데스크톱 폭으로 둔다. 좁은 폭 동작은 fitCharts 를 직접 불러 확인한다.
+global.innerWidth = 1280;
 global.confirm = () => true;
 global.location = { hash: '' };
 global.clearTimeout = () => {};
@@ -63,7 +65,7 @@ export function run() {
   const wrapped = CODE + `
 ;globalThis.__L = { spark, drawCharts, paint, card, UI, get LAST(){return LAST}, money, moneyShort, cur,
   sma, drawBars, drawFear, paintUnitSeg, viewRange, BAR, MIN_BARS, YSCALE, HAIRS, setTitle,
-  tkRender, ema, macd, rsi, drawInd, get ALERT(){return ALERT} };`;
+  tkRender, ema, macd, rsi, drawInd, fitCharts, get ALERT(){return ALERT} };`;
   (0, eval)(wrapped);
   return { L: globalThis.__L, node };
 }
