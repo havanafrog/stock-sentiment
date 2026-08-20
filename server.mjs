@@ -127,6 +127,7 @@ const LEX = loadLexicon();
 const score = t => LEX.scoreWith(t, LEX.LEX_DEFAULT);
 const intensity = (n, base) => LEX.fearIntensity(n, base);
 const hasFear = t => LEX.hasFear(t);
+const isWail = t => LEX.isWail(t);
 
 // ── 기준선 (data.js 에서) ────────────────────────────────────
 function loadBaselines() {
@@ -170,7 +171,7 @@ function loadPosts(ticker) {
       // 채점은 읽을 때 한 번만 한다. 요청마다 다시 하면 페이지 넘길 때마다 0.5초씩 든다.
       rows = JSON.parse(readFileSync(f, 'utf8')).map(p => ({
         id: p.id, at: p.at, text: p.text, likes: p.likes ?? 0, img: p.img ?? null,
-        s: +score(p.text).toFixed(3), f: hasFear(p.text), d: et(p.at).date,
+        s: +score(p.text).toFixed(3), f: hasFear(p.text), g: isWail(p.text), d: et(p.at).date,
       }));
       rows.reverse();                     // 파일은 오래된 순 — 최신을 앞으로
     } catch (e) {
@@ -375,6 +376,7 @@ const ET_HOUR = new Intl.DateTimeFormat('en-CA', {
 function fearSeries(ticker, unit, bars) {
   const rows = loadPosts(ticker);
   const bl = SNAPSHOT?.[ticker]?.baseline?.counts?.[unit];
+  const wbl = SNAPSHOT?.[ticker]?.baseline?.wailCounts?.[unit];
   const out = [];
   if (!bars.length) return { rows: out, covers: null };
 
@@ -399,17 +401,21 @@ function fearSeries(ticker, unit, bars) {
     const at = bars[i][0];
     const from = Math.max(i ? bars[i - 1][0] : -Infinity, at - step);
     while (j < stamps.length && stamps[j] <= from) j++;
-    let n = 0, f = 0;
+    let n = 0, f = 0, g = 0;
     let k = j;
-    while (k < stamps.length && stamps[k] <= at) { n++; if (asc[k].f) f++; k++; }
+    while (k < stamps.length && stamps[k] <= at) { n++; if (asc[k].f) f++; if (asc[k].g) g++; k++; }
     j = k;
-    const b = bl?.hourly?.[+ET_HOUR.format(new Date(at))] ?? bl?.overall ?? null;
-    out.push([at, f, n, b ? +intensity(f, b).toFixed(1) : null]);
+    const h = +ET_HOUR.format(new Date(at));
+    const b = bl?.hourly?.[h] ?? bl?.overall ?? null;
+    const bw = wbl?.hourly?.[h] ?? wbl?.overall ?? null;
+    // [시각, 공포글, 전체글, 공포지수, 곡소리글, 곡소리지수]
+    out.push([at, f, n, b ? +intensity(f, b).toFixed(1) : null,
+              g, bw ? +intensity(g, bw).toFixed(1) : null]);
   }
 
   // 글 보관은 마지막 수집 시점까지다. 그 뒤 봉은 값이 아니라 공백이어야 한다.
   const last = stamps.length ? stamps[stamps.length - 1] : null;
-  if (last !== null) for (const r of out) if (r[0] > last + step) { r[1] = 0; r[2] = 0; r[3] = null; }
+  if (last !== null) for (const r of out) if (r[0] > last + step) { r[1] = 0; r[2] = 0; r[3] = null; r[4] = 0; r[5] = null; }
 
   return { rows: out, covers: last, unit, hasBaseline: !!bl };
 }
@@ -493,7 +499,7 @@ async function pollTicker(ticker, warmup = false) {
     for (const p of posts) {
       if (minutesAgo(p.at) > WINDOW_MIN) { tooOld = true; continue; }
       if (st.posts.has(p.id)) { hitKnown = true; continue; }
-      st.posts.set(p.id, { ...p, score: score(p.text), fear: hasFear(p.text) });
+      st.posts.set(p.id, { ...p, score: score(p.text), fear: hasFear(p.text), wail: isWail(p.text) });
       added++;
     }
     pages++;
@@ -607,12 +613,17 @@ function snapshot() {
       const floor = Math.max(3, Math.round(MIN_LIVE * mins / WINDOW_MIN));
       const w = windowStats(posts, mins, floor);
       const fearN = posts.filter(p => p.fear && minutesAgo(p.at) <= mins).length;
-      const bl = SNAPSHOT?.[ticker]?.baseline?.counts?.[`min:${k}`];
+      const wailN = posts.filter(p => p.wail && minutesAgo(p.at) <= mins).length;
       const hour = Math.floor(et(new Date().toISOString()).min / 60);
+      const bl = SNAPSHOT?.[ticker]?.baseline?.counts?.[`min:${k}`];
+      const wl = SNAPSHOT?.[ticker]?.baseline?.wailCounts?.[`min:${k}`];
       const b = bl?.hourly?.[hour];
-      win[k] = { ...w, fearN, minN: floor, mins,
+      const bw = wl?.hourly?.[hour];
+      win[k] = { ...w, fearN, wailN, minN: floor, mins,
         idx: b && b.sd ? +intensity(fearN, b).toFixed(1) : null,
         base: b?.mean ?? null, baseSd: b?.sd ?? null, baseN: b?.n ?? null,
+        wail: bw && bw.sd ? +intensity(wailN, bw).toFixed(1) : null,
+        wailBase: bw?.mean ?? null, wailSd: bw?.sd ?? null,
         why: b ? null : (bl ? '이 시간대 기준선이 없습니다' : '기준선 없음') };
     }
 

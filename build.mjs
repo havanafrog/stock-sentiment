@@ -175,9 +175,9 @@ function hourMap(from, to) {
  * 봉 단위별 · ET 시각별 "그 구간에 오는 공포 글 수" 분포.
  * 일봉은 시각 축이 없으므로 거래일 하나를 표본으로 삼는다.
  */
-export function countBaseline(posts, hasFear) {
+export function countBaseline(posts, isHit) {
   if (!posts.length) return null;
-  const stamps = posts.map(p => ({ ms: Date.parse(p.at), f: hasFear(p.text) }))
+  const stamps = posts.map(p => ({ ms: Date.parse(p.at), f: isHit(p.text) }))
     .filter(p => Number.isFinite(p.ms))
     .sort((a, b) => a.ms - b.ms);
   if (!stamps.length) return null;
@@ -216,7 +216,7 @@ export function countBaseline(posts, hasFear) {
 
 // ── 자체 점검 (네트워크 없음) ────────────────────────────────
 function selftest() {
-  const { LEX_DEFAULT, scoreWith, hasFear, fearIndex, fearIntensity, FEAR_ALERT } = loadLexicon();
+  const { LEX_DEFAULT, scoreWith, hasFear, isWail, fearIndex, fearIntensity, FEAR_ALERT } = loadLexicon();
   const s = t => scoreWith(t, LEX_DEFAULT);
   let n = 0;
   const ok = (label, cond, extra = '') => {
@@ -360,7 +360,7 @@ try {
   if (argv.includes('--selftest')) { console.log('\n자체 점검\n'); selftest(); process.exit(0); }
   if (!Number.isFinite(DAYS) || DAYS < 2) throw new Error('--days 는 2 이상이어야 합니다.');
 
-  const { LEX_DEFAULT, scoreWith, hasFear } = loadLexicon();
+  const { LEX_DEFAULT, scoreWith, hasFear, isWail } = loadLexicon();
   const score = t => scoreWith(t, LEX_DEFAULT);
 
   console.log(`\n빌드 · ${TICKERS.join(' ')} · 최근 ${DAYS} 거래일\n`);
@@ -404,6 +404,8 @@ try {
     const baseline = fearBaseline(posts, hasFear);
     baseline.daily = dailyBaseline(days);
     baseline.counts = countBaseline(posts, hasFear);   // 봉 단위별 계수 기준선
+    // 곡소리는 공포보다 넓다(부정 전부). 기준선도 따로 있어야 z 가 맞는다.
+    baseline.wailCounts = countBaseline(posts, isWail);
     tickers[ticker] = { name, code, days, baseline };
     const withSent = days.filter(d => d.posts > 0).length;
     const bl = baseline;

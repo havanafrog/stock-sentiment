@@ -168,3 +168,18 @@ window.fearIntensity = function (count, base) {
   const z = (count - base.mean) / base.sd;
   return Math.max(0, Math.min(100, 50 + 20 * z));
 };
+
+// ── 곡소리 ──────────────────────────────────────────────────
+// 감정 평균은 잘 안 움직인다. 22만 건에서 실측 ±0.05 안쪽이라
+// 게이지로 만들면 늘 가운데 붙어 있다. 평균이 아니라 개수로 센다.
+//
+// 곡소리 = 그 글이 부정이냐. 공포와 다르다 —
+//   공포:   "무섭다·손절·물렸" 처럼 겁먹은 말
+//   곡소리: 겁이 아니어도 나쁘게 말하는 것 전부 (욕·조롱·하락·자조)
+// 그래서 공포지수보다 넓고 잘 움직인다.
+window.isWail = function (text) {
+  return window.scoreWith(text, window.LEX_DEFAULT) < 0;
+};
+
+// 곡소리 지수. 공포지수와 같은 수식·같은 눈금이라 나란히 읽힌다.
+window.wailIndex = window.fearIntensity;
