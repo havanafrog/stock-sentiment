@@ -1,0 +1,14 @@
+.git
+.gitignore
+data
+work
+docs
+test
+tools
+node_modules
+*.md
+logo.png
+logo-256.png
+.access-key
+Dockerfile
+docker-compose.yml

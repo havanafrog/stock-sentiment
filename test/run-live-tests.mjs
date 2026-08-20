@@ -434,5 +434,58 @@ console.log('\n── K. 보조지표 ──');
     && node('cPrice')._attrs.viewBox === '0 0 600 200');
 }
 
+// ── M. 매수/매도 압력 (MFI) ──
+// 체결강도는 장중 누적값 하나뿐이라 봉마다 못 본다. MFI 가 그 자리를 메운다.
+{
+  const { L, node } = run();
+  const bar = (i, tp, vol) => [at(i), tp, tp, tp, tp, vol, 'day'];
+
+  ok('봉이 모자라면 전부 null', L.mfi([bar(0, 10, 1), bar(1, 11, 1)]).every(v => v === null));
+
+  // 15봉 내내 오르기만 하면 매도 쪽 흐름이 0 → 100
+  const up = Array.from({ length: 20 }, (_, i) => bar(i, 100 + i, 1000));
+  const mu = L.mfi(up);
+  ok('앞 14봉은 값이 없다', mu.slice(0, 14).every(v => v === null));
+  ok('내리 오르면 100', mu[14] === 100 && mu[19] === 100);
+
+  // 내리기만 하면 0
+  const dn = Array.from({ length: 20 }, (_, i) => bar(i, 100 - i, 1000));
+  ok('내리 내리면 0', L.mfi(dn)[19] === 0);
+
+  // 값이 그대로면 어느 쪽도 아니다 → 50
+  const flat = Array.from({ length: 20 }, (_, i) => bar(i, 100, 1000));
+  ok('제자리면 50', L.mfi(flat)[19] === 50);
+
+  // 창 밖으로 나간 봉은 빠져야 한다: 앞은 오르고 뒤는 내리면 100 에서 떨어진다
+  const mix = [...Array.from({ length: 15 }, (_, i) => bar(i, 100 + i, 1000)),
+               ...Array.from({ length: 15 }, (_, i) => bar(15 + i, 114 - i, 1000))];
+  const mm = L.mfi(mix);
+  ok('오르다 내리면 100 에서 내려온다', mm[14] === 100 && mm[29] < 20, `${mm[14]} → ${mm[29]}`);
+  ok('0~100 을 벗어나지 않는다', mm.filter(v => v !== null).every(v => v >= 0 && v <= 100));
+
+  // 거래량이 크면 그 봉이 더 무겁다
+  const heavyUp = [...Array.from({ length: 15 }, (_, i) => bar(i, 100, 1)),
+                   bar(15, 101, 1_000_000), bar(16, 100.5, 1)];
+  ok('거래량이 큰 봉이 더 무겁다', L.mfi(heavyUp)[16] > 50);
+
+  // 켜고 끄기
+  L.BAR.rows = Array.from({ length: 60 }, (_, i) => [at(i), 100, 110, 90, 100 + (i % 7), 1000, 'day']);
+  L.BAR.fear = []; L.BAR.err = null;
+  L.BAR.ind.mfi = false;
+  L.drawBars();
+  ok('꺼져 있으면 압력 칸 숨김', node('cMfi').hidden === true);
+  L.BAR.ind.mfi = true;
+  L.drawBars();
+  ok('켜면 압력 칸이 보인다', node('cMfi').hidden === false);
+  // CSS 는 자바스크립트 속성이 아니라 문서의 hidden 을 본다.
+  ok('켜면 문서에서도 hidden 이 빠진다', node('cMfi').hasAttribute('hidden') === false);
+  L.BAR.ind.mfi = false; L.drawBars();
+  ok('끄면 문서에 hidden 이 붙는다', node('cMfi').hasAttribute('hidden') === true);
+  L.BAR.ind.mfi = true; L.drawBars();
+  ok('압력은 선 하나', node('cMfi').children.filter(c => c._attrs.d !== undefined).length === 1);
+  ok('눈금은 0~100 고정', L.YSCALE.get('cMfi').lo === 0 && L.YSCALE.get('cMfi').hi === 100);
+  ok('20 · 50 · 80 선', node('cMfi').children.filter(c => c._attrs['stroke-dasharray']).length >= 3);
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

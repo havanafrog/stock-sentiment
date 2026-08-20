@@ -1,0 +1,30 @@
+services:
+  stock:
+    build: .
+    # 이미지를 직접 받아 쓸 거면 build 대신:
+    # image: ghcr.io/havanafrog/stock-sentiment:latest
+    restart: unless-stopped
+
+    # 127.0.0.1 에만 연다. 앞에 Caddy 나 nginx 를 두고 TLS 를 붙인다 —
+    # 접근키는 링크를 아는 사람만 막을 뿐, 평문은 그대로 흐른다.
+    ports:
+      - "127.0.0.1:8731:8731"
+
+    volumes:
+      - stock-data:/data          # 글 원본 · 기준선 · 종목 목록 · 접근키
+
+    environment:
+      TZ: Asia/Seoul
+
+    # 오라클 Always Free 급(1GB)에서도 돌게. 수집 자식이 붙는 순간이 제일 무겁다.
+    mem_limit: 700m
+    memswap_limit: 1500m
+
+    # 자식 프로세스(fetch-comments·build)를 띄우므로 좀비가 남지 않게 init 을 쓴다
+    init: true
+
+    # 봉·글 폴링 주기(초)와 메모리에 올릴 날짜 수
+    command: ["--poll", "5", "--load-days", "5"]
+
+volumes:
+  stock-data:

@@ -21,6 +21,7 @@
  */
 
 import { createServer } from 'node:http';
+import { DATA_DIR, dataPath, BASELINE_FILE, BASELINE_FALLBACK, ensureDataDir } from './paths.mjs';
 import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -80,7 +81,7 @@ const SERIES_SAVE = 20;      // 이만큼 새 점이 쌓이면 디스크에 쓴�
 // 키는 .access-key 에 남겨 재시작해도 링크가 안 죽는다. 지우면 새로 발급된다.
 // 첫 요청에 ?k=... 가 맞으면 쿠키를 심어, 이후 data.js·SSE 요청은 파라미터 없이 통과한다.
 function loadKey() {
-  const p = join(HERE, '.access-key');
+  const p = dataPath('.access-key');
   if (existsSync(p)) {
     const k = readFileSync(p, 'utf8').trim();
     if (k.length >= 16) return k;
@@ -89,6 +90,7 @@ function loadKey() {
   writeFileSync(p, k + '\n');
   return k;
 }
+ensureDataDir();          // 볼륨이 비어 있어도 첫 실행이 되어야 한다
 const KEY = loadKey();
 
 // 길이가 다르면 timingSafeEqual 이 던지므로 먼저 거른다
@@ -135,7 +137,8 @@ const isWail = t => LEX.isWail(t);
 
 // ── 기준선 (data.js 에서) ────────────────────────────────────
 function loadBaselines() {
-  const p = join(HERE, 'data.js');
+  // 볼륨에 새로 만든 게 있으면 그걸, 없으면 이미지에 딸려 온 것을 쓴다
+  const p = existsSync(BASELINE_FILE) ? BASELINE_FILE : BASELINE_FALLBACK;
   if (!existsSync(p)) return null;
   const w = {};
   try {
@@ -159,7 +162,7 @@ if (!SNAPSHOT) {
 //
 // 여기 나오는 글은 마지막 수집(fetch-comments.mjs) 시점까지다. 그 뒤 글은
 // 실시간 탭에 있다. 두 탭이 보는 데이터가 다르다.
-const POSTS_DIR = join(HERE, 'data');
+const POSTS_DIR = DATA_DIR;
 const PAGE_SIZE = 50;
 let CACHE = { ticker: null, rows: null, stamp: 0 };
 
@@ -425,7 +428,7 @@ function fearSeries(ticker, unit, bars) {
 //
 // 파일에 남기는 이유: 서버를 다시 켤 때마다 선이 빈 화면부터 시작하면,
 // 3시간을 기다려야 뭔가 보인다. 재시작이 잦은 개발 중에는 특히 그렇다.
-const SERIES_FILE = join(HERE, 'data', 'series.json');
+const SERIES_FILE = dataPath('series.json');
 const SERIES = new Map();          // 티커 → [[ms, fear, idx, price], ...] 오래된 순
 let sinceSave = 0;
 
@@ -763,6 +766,14 @@ setInterval(() => {
 }, POLL_MS);
 
 createServer((req, res) => {
+  // 살아 있는지만 답한다. 키 앞에 둔다 — 컨테이너 헬스체크는 키를 모른다.
+  // 종목도 글도 안 알려주므로 열려 있어도 새는 게 없다.
+  if (req.url.split('?')[0] === '/api/health') {
+    const alive = LIVE.size > 0 && [...LIVE.values()].some(v => v.price);
+    res.writeHead(alive ? 200 : 503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify({ ok: alive, upSec: Math.round(process.uptime()) }));
+  }
+
   if (!authed(req, res)) return;              // 키 없으면 전부 404 — 있는지조차 안 알려준다
 
   const path = req.url.split('?')[0];
