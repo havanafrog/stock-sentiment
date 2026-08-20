@@ -22,7 +22,7 @@
 
 import { createServer } from 'node:http';
 import { DATA_DIR, dataPath, BASELINE_FILE, BASELINE_FALLBACK, ensureDataDir } from './paths.mjs';
-import { readFileSync, writeFileSync, existsSync, statSync } from 'node:fs';
+import { readFileSync, writeFileSync, appendFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
@@ -163,32 +163,88 @@ if (!SNAPSHOT) {
 // 여기 나오는 글은 마지막 수집(fetch-comments.mjs) 시점까지다. 그 뒤 글은
 // 실시간 탭에 있다. 두 탭이 보는 데이터가 다르다.
 const POSTS_DIR = DATA_DIR;
+
+// 실시간으로 받은 글을 어디엔가 남겨야 한다. 안 그러면 재시작에 사라지고,
+// 차트의 곡소리 선은 마지막으로 collect 를 돌린 시각에서 멈춘다.
+//
+// 본 파일(SNDK 는 13MB)을 5초마다 다시 쓸 수는 없다. 옆에 한 줄씩 붙이는
+// 파일을 두고, 읽을 때 둘을 합친다. collect 가 돌면 본 파일로 흡수된다.
+const livePath = t => join(POSTS_DIR, `${t}.live.jsonl`);
+
+/** 새로 본 글을 줄 단위로 붙인다. 중복은 읽을 때 id 로 거른다. */
+function appendLive(ticker, posts) {
+  if (!posts.length) return;
+  const lines = posts.map(p => JSON.stringify({
+    id: p.id, at: p.at, text: p.text, likes: p.likes ?? 0, img: p.img ?? null,
+  })).join("\n") + "\n";
+  try {
+    appendFileSync(livePath(ticker), lines);
+  } catch (e) {
+    console.warn(`\n  ${ticker}.live.jsonl 에 못 붙였습니다: ${e.message}`);
+  }
+}
+
+/** 한 줄씩 읽는다. 깨진 줄은 버린다 — 붙이는 중에 죽으면 마지막 줄이 잘린다. */
+function readLive(ticker) {
+  const f = livePath(ticker);
+  if (!existsSync(f)) return [];
+  const out = [];
+  for (const line of readFileSync(f, "utf8").split("\n")) {
+    if (!line) continue;
+    try { out.push(JSON.parse(line)); } catch { /* 잘린 줄 */ }
+  }
+  return out;
+}
+
+/**
+ * 오래된 줄을 떨어낸다. 어차피 로딩할 때 잘리는 글이라 파일에 둘 이유가 없다.
+ * 시작할 때 한 번만 — 돌아가는 중에 줄이면 그 사이 붙은 줄을 잃는다.
+ */
+function trimLive(ticker) {
+  const f = livePath(ticker);
+  if (!existsSync(f)) return;
+  const cut = Date.now() - LOAD_DAYS * 86_400_000;
+  const keep = readLive(ticker).filter(p => Date.parse(p.at) >= cut);
+  try {
+    writeFileSync(f, keep.map(p => JSON.stringify(p)).join("\n") + (keep.length ? "\n" : ""));
+  } catch { /* 못 줄여도 도는 데는 지장 없다 */ }
+}
 const PAGE_SIZE = 50;
 let CACHE = { ticker: null, rows: null, stamp: 0 };
 
 function loadPosts(ticker) {
   const f = join(POSTS_DIR, `${ticker}.posts.json`);
+  const lf = livePath(ticker);
   // collect 는 서버가 떠 있는 채로 돈다. 파일이 바뀌었으면 다시 읽어야
-  // 방금 받은 글이 화면에 나온다.
-  const stamp = existsSync(f) ? statSync(f).mtimeMs : 0;
+  // 방금 받은 글이 화면에 나온다. 실시간으로 붙는 쪽도 같이 본다.
+  const stamp = (existsSync(f) ? statSync(f).mtimeMs : 0)
+    + ':' + (existsSync(lf) ? statSync(lf).mtimeMs : 0);
   if (CACHE.ticker === ticker && CACHE.stamp === stamp) return CACHE.rows;
-  let rows = [];
+
+  // 자르는 게 먼저다. 채점 전에 걸러야 안 쓸 글을 채점하지 않는다.
+  const cut = Date.now() - LOAD_DAYS * 86_400_000;
+  let raw = [];
   if (existsSync(f)) {
     try {
-      // 자르는 게 먼저다. 채점 전에 걸러야 안 쓸 글을 채점하지 않는다.
-      // 채점은 읽을 때 한 번만 한다. 요청마다 다시 하면 페이지 넘길 때마다 0.5초씩 든다.
-      const cut = Date.now() - LOAD_DAYS * 86_400_000;
-      rows = JSON.parse(readFileSync(f, 'utf8'))
-        .filter(p => Date.parse(p.at) >= cut)
-        .map(p => ({
-          id: p.id, at: p.at, text: p.text, likes: p.likes ?? 0, img: p.img ?? null,
-          s: +score(p.text).toFixed(3), f: hasFear(p.text), g: isWail(p.text), d: et(p.at).date,
-        }));
-      rows.reverse();                     // 파일은 오래된 순 — 최신을 앞으로
+      raw = JSON.parse(readFileSync(f, 'utf8')).filter(p => Date.parse(p.at) >= cut);
     } catch (e) {
       console.warn(`  ${ticker}.posts.json 을 읽지 못했습니다: ${e.message}`);
     }
   }
+  // 실시간으로 붙은 글. 재시작하면 이미 붙은 걸 또 붙이므로 id 로 거른다.
+  const seen = new Set(raw.map(p => p.id));
+  for (const p of readLive(ticker)) {
+    if (seen.has(p.id) || Date.parse(p.at) < cut) continue;
+    seen.add(p.id);
+    raw.push(p);
+  }
+  raw.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));   // 최신을 앞으로
+
+  // 채점은 읽을 때 한 번만 한다. 요청마다 다시 하면 페이지 넘길 때마다 0.5초씩 든다.
+  const rows = raw.map(p => ({
+    id: p.id, at: p.at, text: p.text, likes: p.likes ?? 0, img: p.img ?? null,
+    s: +score(p.text).toFixed(3), f: hasFear(p.text), g: isWail(p.text), d: et(p.at).date,
+  }));
   CACHE = { ticker, rows, stamp };
   return rows;
 }
@@ -492,6 +548,7 @@ async function pollTicker(ticker, warmup = false) {
   const st = LIVE.get(ticker);
   const cap = warmup ? WARMUP_PAGES : MAX_PAGES;
   let cursor = null, pages = 0, added = 0;
+  const fresh = [];                          // 이번에 처음 본 글. 폴링 한 번에 몰아서 붙인다.
 
   while (pages < cap) {
     const { posts, key, hasNext } = await fetchLatest(st.code, cursor);
@@ -502,6 +559,7 @@ async function pollTicker(ticker, warmup = false) {
       if (minutesAgo(p.at) > WINDOW_MIN) { tooOld = true; continue; }
       if (st.posts.has(p.id)) { hitKnown = true; continue; }
       st.posts.set(p.id, { ...p, score: score(p.text), fear: hasFear(p.text), wail: isWail(p.text) });
+      fresh.push(p);
       added++;
     }
     pages++;
@@ -512,6 +570,9 @@ async function pollTicker(ticker, warmup = false) {
     cursor = key;
     await sleep(80);
   }
+
+  // 메모리의 창은 좁다(WINDOW_MIN). 디스크에는 남겨야 차트가 이어진다.
+  appendLive(ticker, fresh);
 
   // 창 밖 정리
   for (const [id, p] of st.posts) if (minutesAgo(p.at) > WINDOW_MIN) st.posts.delete(id);
@@ -748,6 +809,10 @@ for (const sig of ['SIGINT', 'SIGTERM']) {
 }
 
 console.log(`\n  창 ${WINDOW_MIN}분 채우는 중… (종목당 최대 ${WARMUP_PAGES}페이지, 1~2분)`);
+// 로딩 창 밖으로 나간 줄은 파일에 둘 이유가 없다. 시작할 때 한 번만 —
+// 돌아가는 중에 줄이면 그 사이 붙은 줄을 잃는다.
+for (const t of TICKERS) trimLive(t);
+
 await pollAll(true);
 // 앞선 폴링이 아직 안 끝났으면 건너뛴다. 겹치면 같은 글을 두 번 받고,
 // 느린 구간에서 요청이 눈덩이처럼 쌓인다.

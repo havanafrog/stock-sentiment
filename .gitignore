@@ -20,3 +20,4 @@ logo-256.png
 .claude/settings.local.json
 node_modules/
 work/
+data/*.live.jsonl
