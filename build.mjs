@@ -16,7 +16,7 @@ import { writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveStock, fetchCandles, fetchRate, et } from './toss.mjs';
-import { PAIRS, TICKERS } from './tickers.mjs';
+import { TICKERS } from './tickers.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DATA = join(HERE, 'data');
@@ -420,7 +420,7 @@ try {
   let rate = null;
   try { rate = await fetchRate(); } catch (e) { console.warn(`  환율을 받지 못했습니다: ${e.message}`); }
 
-  const out = { builtAt: new Date().toISOString(), days: DAYS, pairs: PAIRS, rate, tickers };
+  const out = { builtAt: new Date().toISOString(), days: DAYS, list: TICKERS, rate, tickers };
   writeFileSync(join(HERE, 'data.js'),
     `// 자동 생성 — build.mjs\nwindow.STOCK_DATA = ${JSON.stringify(out)};\n`);
 
@@ -428,7 +428,7 @@ try {
   console.log(`
   data.js 생성 완료
     기간   ${any[0].date} ~ ${any[any.length - 1].date}
-    종목   ${TICKERS.length}개 · 쌍 ${PAIRS.length}개
+    종목   ${TICKERS.length}개
 `);
   if (missing.length) {
     console.log(`  게시글이 없는 종목: ${missing.join(', ')}`);

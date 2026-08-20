@@ -204,7 +204,7 @@
   <!-- 필터 -->
   <div class="card ctrls">
     <div class="ctrl">
-      <label>종목 쌍</label>
+      <label>종목</label>
       <div class="seg" id="segPair"></div>
     </div>
     <div class="ctrl">
@@ -282,7 +282,8 @@ if (!D) {
   [...app.children].forEach(c => { if (!c.matches('h1,.sub,#banner')) c.style.display = 'none'; });
 }
 
-const PAIRS = D ? D.pairs : [];
+// 짝(본주/레버리지)은 없앴다. 종목마다 따로 본다.
+const LIST = D ? (D.list ?? Object.keys(D.tickers)) : [];
 const TK = D ? D.tickers : {};
 
 // ══════════════════════════════════════════════════════════════
@@ -305,8 +306,8 @@ const axisMoney = v => (UI.cur === 'KRW' ? AXIS_KRW.format(v) : v.toFixed(v < 10
 // 공포지수 경보선. lexicon.js 가 유일한 출처다 — 여기서 90 을 다시 쓰면 갈린다.
 const ALERT = window.FEAR_ALERT;
 
-const pairTickers = () => PAIRS[UI.pair].filter(Boolean);   // [본주] 또는 [본주, 레버리지]
-const isLev = t => PAIRS[UI.pair][1] === t;
+// 한 번에 한 종목만 본다.
+const pairTickers = () => [LIST[UI.pair] ?? LIST[0]].filter(Boolean);
 
 // ══════════════════════════════════════════════════════════════
 // 3. 파이프라인 — 종목 → 일별 행
@@ -343,56 +344,6 @@ function buildRows(ticker) {
 }
 
 // ── 통계 ──
-function pearson(a, b) {
-  const n = Math.min(a.length, b.length);
-  if (n < 3) return NaN;
-  let ma = 0, mb = 0, sa = 0, sb = 0;
-  for (let i = 0; i < n; i++) {
-    ma += a[i]; mb += b[i];
-    sa = Math.max(sa, Math.abs(a[i])); sb = Math.max(sb, Math.abs(b[i]));
-  }
-  ma /= n; mb /= n;
-  let num = 0, da = 0, db = 0;
-  for (let i = 0; i < n; i++) { const x = a[i]-ma, y = b[i]-mb; num += x*y; da += x*x; db += y*y; }
-  // 상수 계열은 상관이 정의되지 않는다. `=== 0` 으로만 막으면 안 된다 —
-  // 값이 모두 같아도 평균이 부동소수점 오차만큼 어긋나 da 가 1e-32 처럼 남고,
-  // 그러면 의미 없는 r = ±1.00 이 나와서 화면에 "완벽한 상관"으로 뜬다.
-  const eps = 1e-9;
-  if (da <= n * (eps * (sa || 1)) ** 2 || db <= n * (eps * (sb || 1)) ** 2) return NaN;
-  return num / Math.sqrt(da * db);
-}
-
-/**
- * 감정(sRows[i]) vs 수익률(pRows[i+lag]).
- * sRows 와 pRows 는 서로 다른 종목일 수 있다 — 그게 이 대시보드의 요점이다.
- * 가중 모드면 게시글 수를 반복 횟수로 근사한다.
- */
-function corrAtLag(sRows, pRows, lag) {
-  const s = [], r = [];
-  for (let i = 1; i < sRows.length; i++) {
-    const j = i + lag;
-    if (j < 1 || j >= pRows.length) continue;
-    if (!sRows[i].usable) continue;
-    const reps = UI.weighted ? Math.min(20, Math.max(1, Math.round(sRows[i].posts / 5))) : 1;
-    for (let k = 0; k < reps; k++) { s.push(sRows[i].sentiment); r.push(pRows[j].ret); }
-  }
-  return pearson(s, r);
-}
-
-const LAGS = [-4,-3,-2,-1,0,1,2,3,4];
-
-/** 볼 조합: 레버리지가 있으면 4개, 없으면 1개 */
-function series() {
-  const [base, lev] = PAIRS[UI.pair];
-  if (!lev) return [{ s: base, p: base }];
-  return [
-    { s: lev,  p: lev  },
-    { s: lev,  p: base },
-    { s: base, p: base },
-    { s: base, p: lev  },
-  ];
-}
-
 // ══════════════════════════════════════════════════════════════
 // 4. 렌더
 // ══════════════════════════════════════════════════════════════
@@ -403,8 +354,6 @@ const pct = v => (v * 100 >= 0 ? '+' : '') + (v * 100).toFixed(2) + '%';
 
 let ROWS = {};        // { 티커: rows[] }
 let DATES = [];       // 축 공유용
-let CELLS = [];       // [{ s, p, lag, r }]
-let BEST = null, NOISE = 0, BEST_REAL = false;
 
 
 function render() {
@@ -414,22 +363,10 @@ function render() {
   for (const t of pairTickers()) ROWS[t] = buildRows(t);
   DATES = ROWS[pairTickers()[0]].map(r => r.date);
 
-  // 잡음 문턱은 실제로 상관에 들어간 날 수로 잡는다
-  const usableCount = Math.max(...pairTickers().map(t => ROWS[t].filter(r => r.usable).length));
-  NOISE = 2 / Math.sqrt(Math.max(4, usableCount || DATES.length));
-
-  CELLS = [];
-  for (const { s, p } of series()) {
-    for (const lag of LAGS) CELLS.push({ s, p, lag, r: corrAtLag(ROWS[s], ROWS[p], lag) });
-  }
-  const valid = CELLS.filter(c => !isNaN(c.r));
-  BEST = valid.length ? valid.reduce((a, b) => Math.abs(b.r) > Math.abs(a.r) ? b : a) : null;
-  BEST_REAL = !!BEST && Math.abs(BEST.r) > NOISE;
-
   renderHeader();
   renderTable();
   // 요약·종목 패널·교차 시차 행렬은 화면에서 뺐다. 실시간 탭의 봉·공포 차트가
-  // 같은 걸 더 잘 보여준다. 계산(pearson·corrAtLag)은 CSV 와 점검이 쓰므로 남긴다.
+  // 같은 걸 더 잘 보여준다. 짝을 없애면서 상관 계산도 뜻이 사라져 지웠다.
 }
 
 // ETF 는 name 이 티커와 같게 오는 경우가 많다 ("SNXX SNXX" 로 겹쳐 보이지 않게)
@@ -466,7 +403,8 @@ function renderTable() {
 
   const tb = document.querySelector('#tbl tbody');
   tb.innerHTML = '';
-  DATES.forEach((date, i) => {
+  // 최신이 위로. 사람이 표를 열면 오늘부터 본다.
+  DATES.map((date, i) => [date, i]).reverse().forEach(([date, i]) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `<td>${date}</td>` + ts.map(t => {
       const r = ROWS[t][i];
@@ -563,14 +501,13 @@ $('howto').innerHTML = `
 감정이 주가를 예측한 게 아닙니다. 이 구분이 이 대시보드에서 가장 중요합니다.</p>
 <p><b>장중 글만</b> 을 켜보세요. 정규장(09:30~16:00 ET) 중 글만 남깁니다.
 마감 후 글은 그날 종가에 영향을 줄 수 없으므로, 껐을 때만 보이는 상관은 예측이 아니라 반응입니다.</p>
-<p><b>조합을 ${LAGS.length * 4}개 훑습니다.</b> 그중 하나쯤은 우연히 커집니다. 회색 칸 안이면 발견이 아닙니다.</p>
 <p><b>옵션을 바꿔가며 확인하세요.</b> 최소 게시글 수를 올리거나 가중 모드를 켰을 때 결론이 뒤집힌다면 그 상관은 신뢰할 수 없습니다.</p>
 <p><b>사전 채점의 한계</b> — "안 오른다" 같은 부정어는 처리하지만 반어법("좋겠다 참")과 신조어는 놓칩니다.
 부분 문자열 매칭이라 문맥도 무시합니다. 정확도가 중요하면 LLM으로 배치 채점해 <code>build.mjs</code> 의 채점기를 갈아끼우세요.</p>
 `;
 
 if (D) {
-  seg($('segPair'), PAIRS.map((p, i) => [i, p.filter(Boolean).join(' / ')]),
+  seg($('segPair'), LIST.map((t, i) => [i, t]),
       () => UI.pair, v => { UI.pair = v; });
   seg($('segRange'), [['all','전체'],['90','90일'],['60','60일'],['30','30일']],
       () => UI.range, v => { UI.range = v; });

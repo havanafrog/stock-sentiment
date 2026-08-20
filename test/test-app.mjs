@@ -71,13 +71,11 @@ export function run(stockData, tweak) {
   global.window = { STOCK_DATA: stockData };
   new Function('window', LEX_SRC)(global.window);
 
-  // render() 가 ROWS/CELLS/BEST 등을 재할당하므로 값이 아니라 게터로 노출해야 한다.
+  // render() 가 ROWS/DATES 를 재할당하므로 값이 아니라 게터로 노출해야 한다.
   const wrapped = CODE + `
 ;globalThis.__X = {
-  get ROWS(){return ROWS}, get DATES(){return DATES}, get CELLS(){return CELLS},
-  get BEST(){return BEST}, get BEST_REAL(){return BEST_REAL}, get NOISE(){return NOISE},
-  get LAGS(){return LAGS}, get RATE(){return RATE}, UI,
-  render, buildRows, corrAtLag, pearson, series, pairTickers, isLev,
+  get ROWS(){return ROWS}, get DATES(){return DATES}, get RATE(){return RATE}, UI,
+  render, buildRows, pairTickers,
   money, axisMoney, cur, ALERT };`;
   (0, eval)(wrapped);
   const X = globalThis.__X;

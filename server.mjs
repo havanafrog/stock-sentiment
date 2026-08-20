@@ -26,16 +26,14 @@ import { join, dirname, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { resolveStock, fetchLatest, fetchPrice, fetchRate, fetchBars, UNITS, MAX_COUNT, et, sleep } from './toss.mjs';
-import { loadPairs, savePairs, flatten, okSymbol, TICKERS_FILE } from './tickers.mjs';
+import { loadTickers, saveTickers, okSymbol, TICKERS_FILE } from './tickers.mjs';
 import { spawn } from 'node:child_process';
 
 // 목록은 화면에서 바뀔 수 있다. 모듈 상수로 잡아두면 추가해도 서버가 모른다.
 // 한 요청 안에서는 같은 값을 봐야 하므로 캐시하고, 바꿀 때만 갈아엎는다.
-let PAIRS = loadPairs();
-let TICKERS = flatten(PAIRS);
+let TICKERS = loadTickers();
 function refreshTickers() {
-  PAIRS = loadPairs();
-  TICKERS = flatten(PAIRS);
+  TICKERS = loadTickers();
   return TICKERS;
 }
 
@@ -49,6 +47,12 @@ const pollArg = argv.indexOf('--poll');
 // 5초 = 종목당 시간당 720회 남짓. 한 번 도는 데 보통 0.6초라 5초면 겹치지 않는다.
 // 그래도 느려질 때를 대비해 아래에 겹침 방지가 있다.
 const POLL_MS = Math.max(2_000, (Number(pollArg >= 0 ? argv[pollArg + 1] : 5) || 5) * 1000);
+
+// 수집은 30일치를 그대로 받아 둔다(기준선을 만들려면 그만큼 필요하다).
+// 다만 메모리에 올려 훑는 건 최근 며칠만 한다 — SNDK 13.8MB 를 통째로 파싱하면
+// 1GB 짜리 서버에서 힙이 53MB 씩 튄다. 글 탭에서 한 달 전 글을 뒤질 일은 드물다.
+const daysArg = argv.indexOf('--load-days');
+const LOAD_DAYS = Math.max(1, Number(daysArg >= 0 ? argv[daysArg + 1] : 5) || 5);
 const WINDOW_MIN = 60;       // 가장 긴 창 — 이보다 오래된 글은 버린다
 const FAST_MIN = 15;         // 민감한 창
 const MAX_PAGES = 6;         // 평상시 폴링 상한(66건). 폭주 구간 대비
@@ -168,11 +172,15 @@ function loadPosts(ticker) {
   let rows = [];
   if (existsSync(f)) {
     try {
+      // 자르는 게 먼저다. 채점 전에 걸러야 안 쓸 글을 채점하지 않는다.
       // 채점은 읽을 때 한 번만 한다. 요청마다 다시 하면 페이지 넘길 때마다 0.5초씩 든다.
-      rows = JSON.parse(readFileSync(f, 'utf8')).map(p => ({
-        id: p.id, at: p.at, text: p.text, likes: p.likes ?? 0, img: p.img ?? null,
-        s: +score(p.text).toFixed(3), f: hasFear(p.text), g: isWail(p.text), d: et(p.at).date,
-      }));
+      const cut = Date.now() - LOAD_DAYS * 86_400_000;
+      rows = JSON.parse(readFileSync(f, 'utf8'))
+        .filter(p => Date.parse(p.at) >= cut)
+        .map(p => ({
+          id: p.id, at: p.at, text: p.text, likes: p.likes ?? 0, img: p.img ?? null,
+          s: +score(p.text).toFixed(3), f: hasFear(p.text), g: isWail(p.text), d: et(p.at).date,
+        }));
       rows.reverse();                     // 파일은 오래된 순 — 최신을 앞으로
     } catch (e) {
       console.warn(`  ${ticker}.posts.json 을 읽지 못했습니다: ${e.message}`);
@@ -201,7 +209,7 @@ export function filterPosts(rows, o) {
   const page = Math.max(0, o.page | 0);
   const start = page * PAGE_SIZE;
   return {
-    total: rows.length, matched: hits.length,
+    total: rows.length, matched: hits.length, loadDays: LOAD_DAYS,
     page, pages: Math.ceil(hits.length / PAGE_SIZE), size: PAGE_SIZE,
     fear: hits.filter(r => r.f).length,
     rows: hits.slice(start, start + PAGE_SIZE),
@@ -282,40 +290,31 @@ if (argv.includes('--selftest')) { console.log('\n자체 점검\n'); selftest();
 // 다른 종목 기준선을 빌려 쓸 수는 없다. 평소 공포율이 종목마다 2배 가까이 다르다.
 const JOBS = new Map();            // 티커 → { phase, pages, posts, startedAt, error }
 
-async function addTicker(base, lev) {
-  base = String(base ?? "").toUpperCase();
-  lev = lev ? String(lev).toUpperCase() : null;
-  if (!okSymbol(base)) throw new Error(`티커 형식이 잘못됐습니다: ${base}`);
-  if (lev && !okSymbol(lev)) throw new Error(`티커 형식이 잘못됐습니다: ${lev}`);
-  const now = loadPairs();
-  const have = new Set(flatten(now));
-  if (have.has(base)) throw new Error(`${base} 는 이미 목록에 있습니다.`);
-  if (lev && have.has(lev)) throw new Error(`${lev} 는 이미 목록에 있습니다.`);
+async function addTicker(sym) {
+  sym = String(sym ?? "").toUpperCase();
+  if (!okSymbol(sym)) throw new Error(`티커 형식이 잘못됐습니다: ${sym}`);
+  const now = loadTickers();
+  if (now.includes(sym)) throw new Error(`${sym} 는 이미 목록에 있습니다.`);
 
   // 토스가 아는 종목인지 먼저 확인한다. 없는 티커를 넣으면 폴링이 계속 실패한다.
-  const meta = { base: await resolveStock(base) };
-  if (lev) meta.lev = await resolveStock(lev);
+  const m = await resolveStock(sym);
 
-  savePairs([...now, [base, lev]]);
+  saveTickers([...now, sym]);
   refreshTickers();
-  for (const t of [base, lev].filter(Boolean)) {
-    const m = t === base ? meta.base : meta.lev;
-    LIVE.set(t, { code: m.code, name: m.name, posts: new Map(), price: null, error: null });
-  }
-  collectInBackground([base, lev].filter(Boolean));
-  return meta;
+  LIVE.set(sym, { code: m.code, name: m.name, posts: new Map(), price: null, error: null });
+  collectInBackground([sym]);
+  return m;
 }
 
-function removeTicker(base) {
-  const now = loadPairs();
-  const row = now.find(([b]) => b === base);
-  if (!row) throw new Error(`${base} 는 목록에 없습니다.`);
+function removeTicker(sym) {
+  const now = loadTickers();
+  if (!now.includes(sym)) throw new Error(`${sym} 는 목록에 없습니다.`);
   if (now.length === 1) throw new Error("마지막 종목은 지울 수 없습니다.");
-  savePairs(now.filter(([b]) => b !== base));
+  saveTickers(now.filter(t => t !== sym));
   refreshTickers();
-  for (const t of row.filter(Boolean)) { LIVE.delete(t); SERIES.delete(t); JOBS.delete(t); }
-  // 글 아카이브(data/*.posts.json)는 남긴다. 27.7MB 를 실수로 날리면 다시 40~60분이다.
-  return row;
+  LIVE.delete(sym); SERIES.delete(sym); JOBS.delete(sym);
+  // 글 아카이브(data/*.posts.json)는 남긴다. 실수로 날리면 다시 40~60분이다.
+  return sym;
 }
 
 /** 수집 → 빌드를 뒤에서 돌린다. 서버는 그동안 계속 응답한다. */
@@ -655,7 +654,7 @@ function snapshot() {
   for (const t of TICKERS) series[t] = (SERIES.get(t) ?? []).slice(-SERIES_SEND);
 
   return { at: lastPoll, pollMs: POLL_MS, windowMin: WINDOW_MIN, fastMin: FAST_MIN,
-           minLive: MIN_LIVE, minFast: MIN_FAST, pairs: PAIRS, tickers: out, pollErrors,
+           minLive: MIN_LIVE, minFast: MIN_FAST, list: TICKERS, tickers: out, pollErrors,
            rate: RATE, series, alert: LEX.FEAR_ALERT, sampleMs: SAMPLE_MS };
 }
 
@@ -782,16 +781,14 @@ createServer((req, res) => {
 
   // ── 종목 관리 ──
   if (path === '/api/tickers' && req.method === 'GET') {
-    const rows = loadPairs().map(([base, lev]) => ({
-      base, lev,
-      names: [base, lev].filter(Boolean).map(t => ({
-        t, name: LIVE.get(t)?.name ?? null,
-        // 기준선이 있어야 공포지수가 나온다. 없으면 수집이 아직 안 끝난 것.
-        baseline: !!SNAPSHOT?.[t]?.baseline?.counts?.['min:60'],
-        job: JOBS.get(t) ?? null,
-      })),
+    const list = loadTickers();
+    const rows = list.map(t => ({
+      t, name: LIVE.get(t)?.name ?? null,
+      // 기준선이 있어야 지수가 나온다. 없으면 수집이 아직 안 끝난 것.
+      baseline: !!SNAPSHOT?.[t]?.baseline?.wailCounts?.['min:60'],
+      job: JOBS.get(t) ?? null,
     }));
-    const n = flatten(loadPairs()).length;
+    const n = list.length;
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
     return res.end(JSON.stringify({
       rows, count: n, pollMs: POLL_MS,
@@ -817,7 +814,7 @@ createServer((req, res) => {
   if (path === '/api/tickers' && req.method === 'POST') {
     return readBody(req).then(async b => {
       try {
-        const meta = await addTicker(b.base, b.lev);
+        const meta = await addTicker(b.symbol ?? b.base);
         sendJSON(res, 200, { ok: true, meta });
       } catch (e) { sendJSON(res, 400, { error: e.message }); }
     }).catch(e => sendJSON(res, 400, { error: e.message }));
