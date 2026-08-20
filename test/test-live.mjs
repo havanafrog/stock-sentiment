@@ -16,9 +16,16 @@ function makeNode(id = '') {
   let _html = '';
   const n = {
     id, tagName: 'DIV', children: [], _attrs: {}, style: {}, dataset: {},
-    textContent: '', value: '', hidden: false,
+    textContent: '', value: '',
     appendChild(c) { this.children.push(c); return c; },
     setAttribute(k, v) { this._attrs[k] = String(v); },
+    removeAttribute(k) { delete this._attrs[k]; },
+    hasAttribute(k) { return k in this._attrs; },
+    toggleAttribute(k, on) { if (on) this._attrs[k] = ''; else delete this._attrs[k]; return !!on; },
+    // CSS 가 보는 건 속성이다. hidden 을 속성 위에 얹어 둔다 —
+    // 자바스크립트 속성만 바뀌고 문서가 그대로인 실수를 테스트가 잡아야 한다.
+    get hidden() { return 'hidden' in this._attrs; },
+    set hidden(v) { this.toggleAttribute('hidden', v); },
     getAttribute(k) { return this._attrs[k]; },
     _on: {},
     addEventListener(t, f) { (this._on[t] ||= []).push(f); },
@@ -65,7 +72,7 @@ export function run() {
   const wrapped = CODE + `
 ;globalThis.__L = { spark, drawCharts, paint, card, UI, get LAST(){return LAST}, money, moneyShort, cur,
   sma, drawBars, drawFear, paintUnitSeg, viewRange, BAR, MIN_BARS, YSCALE, HAIRS, setTitle,
-  tkRender, ema, macd, rsi, drawInd, fitCharts, get ALERT(){return ALERT} };`;
+  tkRender, ema, macd, rsi, mfi, drawInd, fitCharts, get ALERT(){return ALERT} };`;
   (0, eval)(wrapped);
   return { L: globalThis.__L, node };
 }

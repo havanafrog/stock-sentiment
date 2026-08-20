@@ -12,13 +12,14 @@
  */
 
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
+import { DATA_DIR } from './paths.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveStock, fetchComments, et } from './toss.mjs';
 import { TICKERS } from './tickers.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const DATA = join(HERE, 'data');
+const DATA = DATA_DIR;
 
 const argv = process.argv.slice(2);
 const dashDays = argv.indexOf('--days');

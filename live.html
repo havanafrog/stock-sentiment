@@ -33,7 +33,7 @@
     --fear-bg: #ffeeee; --fear-ink: #bc1b2a; --fear-bd: rgba(240, 68, 82, .35);
     --up: #f04452; --down: #3182f6;    /* 한국 시세 관례: 빨강 상승 */
     --ma20: #f5a623; --ma120: #7a5af8; --ma200: #00a29a;
-    --sig: #7a5af8; --rsi: #00a29a;
+    --sig: #7a5af8; --rsi: #00a29a; --mfi: #e07b39;
     --warn-bg: #fff4e6; --warn-ink: #9a5b00; --warn-bd: rgba(245, 166, 35, .35);
     --ok-bg: #eaf5ec;   --ok-ink: #1a6b2a;   --ok-bd: rgba(26, 107, 42, .30);
     --radius: 9px;              /* 버튼·입력 (실측) */
@@ -56,7 +56,7 @@
     --fear-bg: #2e1517; --fear-ink: #feafb4; --fear-bd: rgba(246, 101, 112, .35);
       --up: #f66570; --down: #64a8ff;
       --ma20: #f5b74d; --ma120: #9b82ff; --ma200: #3fc4bb;
-      --sig: #9b82ff; --rsi: #3fc4bb;
+      --sig: #9b82ff; --rsi: #3fc4bb; --mfi: #f0a05a;
       --warn-bg: #2a2110; --warn-ink: #f5c97a; --warn-bd: rgba(245, 166, 35, .30);
       --ok-bg: #12210f;   --ok-ink: #9ad79a;   --ok-bd: rgba(26, 107, 42, .30);
     --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
@@ -77,7 +77,7 @@
     --fear-bg: #2e1517; --fear-ink: #feafb4; --fear-bd: rgba(246, 101, 112, .35);
     --up: #f66570; --down: #64a8ff;
     --ma20: #f5b74d; --ma120: #9b82ff; --ma200: #3fc4bb;
-    --sig: #9b82ff; --rsi: #3fc4bb;
+    --sig: #9b82ff; --rsi: #3fc4bb; --mfi: #f0a05a;
     --warn-bg: #2a2110; --warn-ink: #f5c97a; --warn-bd: rgba(245, 166, 35, .30);
     --ok-bg: #12210f;   --ok-ink: #9ad79a;   --ok-bd: rgba(26, 107, 42, .30);
     --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
@@ -175,7 +175,7 @@
   /* 끌어서 이동할 때 축 글자가 선택되면 파랗게 잡혀 끌린다.
      pan-y 는 세로 스크롤만 브라우저에 넘긴다 — 폰에서 페이지는 굴러가고
      가로로 끄는 건 차트가 받는다. none 이면 폰에서 페이지가 아예 안 움직였다. */
-  #cPrice, #cVol, #cFear, #cMacd, #cRsi, #cWm {
+  #cPrice, #cVol, #cFear, #cMacd, #cRsi, #cWm, #cMfi {
     user-select: none; -webkit-user-select: none; touch-action: pan-y; }
   #cPrice text, #cVol text { user-select: none; -webkit-user-select: none; }
   #cPrice { cursor: grab; }
@@ -379,6 +379,7 @@
       <div class="mas" id="indBox">
         <label><input type="checkbox" data-ind="macd"><i class="k" style="background:var(--sig)"></i>MACD</label>
         <label><input type="checkbox" data-ind="rsi"><i class="k" style="background:var(--rsi)"></i>RSI</label>
+        <label><input type="checkbox" data-ind="mfi"><i class="k" style="background:var(--mfi)"></i>매수/매도 압력</label>
         <label><input type="checkbox" data-ind="wm"><i class="k" style="background:var(--neg)"></i>곡소리 MACD</label>
       </div>
     </div>
@@ -643,6 +644,10 @@ function card(ticker, d, meta) {
   // 곡소리도 공포와 같은 0~100 눈금이라 게이지가 그대로 비교된다.
   const wail = w.wail ?? null;
   const fillW = wail === null ? 0 : wail;
+  // 체결강도. 100 이 균형이라 게이지 한가운데를 100 에 두고 0~200 으로 편다.
+  // 200 을 넘는 날도 있어 자르되, 자른 건 숫자에 그대로 보인다.
+  const stg = d.price?.strength ?? null;
+  const fillS = stg === null ? 0 : Math.min(100, stg / 200 * 100);
   const isWail = wail !== null && wail >= meta.alert;
   const isFear = isWail;                       // 카드가 붉어지는 기준 = 곡소리
 
@@ -676,6 +681,13 @@ function card(ticker, d, meta) {
         <span class="v">${w.n < 5 ? `<span class="thin">${w.n}건</span>`
           : pctf((w.wailN ?? 0) / Math.max(1, w.n))}</span>
       </div>
+      <div class="row">
+        <span class="k">체결강도</span>
+        <span class="meter"><i style="width:${fillS}%;background:${stg === null ? 'var(--muted)'
+          : stg >= 100 ? 'var(--up)' : 'var(--down)'}"></i>
+          <span class="base" style="left:50%"></span></span>
+        <span class="v">${stg === null ? '<span class="thin">—</span>' : stg.toFixed(0)}</span>
+      </div>
     </div>
 
     <div class="zline">
@@ -698,6 +710,10 @@ function card(ticker, d, meta) {
       <svg id="cMacd" viewBox="0 0 600 80" role="img" aria-label="MACD" hidden></svg>
       <div class="chead" id="hRsi" hidden><b>RSI</b><span>14 · 30 / 70</span><span class="now" id="cNowR"></span></div>
       <svg id="cRsi" viewBox="0 0 600 80" role="img" aria-label="RSI" hidden></svg>
+      <div class="chead" id="hMfi" hidden><b>매수 / 매도 압력</b>
+        <span>MFI 14 · 80 위 매수 몰림 · 20 아래 매도 몰림</span>
+        <span class="now" id="cNowI"></span></div>
+      <svg id="cMfi" viewBox="0 0 600 80" role="img" aria-label="매수 매도 압력" hidden></svg>
       <p class="cnote"><span id="cBarNote"></span>
         <button class="lnk" id="cReset" hidden>전체 보기</button></p>
       <div class="chead"><b>곡소리 지수</b><span>50 = 평소 · ${meta.alert} = 경보 · 봉과 같은 구간</span>
@@ -892,7 +908,7 @@ const BAR = { unit: store.get('unit', 'min:10'), ma: {}, rows: [], units: null,
 const MIN_BARS = 15;                   // 이보다 좁게는 못 줄인다 — 봉 몇 개만 남으면 읽을 게 없다
 for (const n of [20, 120, 200]) BAR.ma[n] = store.get('ma' + n, '') === '1';
 BAR.ind = {};
-for (const k of ['macd', 'rsi', 'wm']) BAR.ind[k] = store.get('ind' + k, '') === '1';
+for (const k of ['macd', 'rsi', 'wm', 'mfi']) BAR.ind[k] = store.get('ind' + k, '') === '1';
 
 const MA_COLOR = { 20: 'var(--ma20)', 120: 'var(--ma120)', 200: 'var(--ma200)' };
 
@@ -933,7 +949,7 @@ function fitCharts() {
   IH = narrow ? 92 : 80;
   CH = narrow ? 112 : 90;
   for (const [id, h] of [["cPrice", BH], ["cVol", VH], ["cMacd", IH],
-                         ["cRsi", IH], ["cWm", IH], ["cFear", CH]]) {
+                         ["cRsi", IH], ["cWm", IH], ["cMfi", IH], ["cFear", CH]]) {
     $(id)?.setAttribute("viewBox", `0 0 ${w} ${h}`);
   }
   return changed;
@@ -982,6 +998,36 @@ function rsi(closes, n = 14) {
     up = (up * (n - 1) + Math.max(0, d)) / n;
     dn = (dn * (n - 1) + Math.max(0, -d)) / n;
     out[i] = dn === 0 ? 100 : 100 - 100 / (1 + up / dn);
+  }
+  return out;
+}
+
+/**
+ * 자금흐름지수(MFI). RSI 를 거래량으로 무게 준 것이다.
+ *
+ * 체결강도는 장중 누적값 하나뿐이라 봉마다 볼 수 없다. MFI 는 이미 받아 둔
+ * OHLCV 로만 계산되니 전 구간·전 봉단위·확대까지 그대로 따라온다.
+ *
+ * 대표가격이 오른 봉의 거래대금은 매수, 내린 봉은 매도로 친다. 80 위면 매수가
+ * 몰렸고 20 아래면 매도가 몰렸다는 뜻. 값이 같은 봉은 어느 쪽도 아니라 버린다.
+ */
+function mfi(rows, n = 14) {
+  const out = new Array(rows.length).fill(null);
+  if (rows.length <= n) return out;
+  // rows: [ms, 시, 고, 저, 종, 거래량, 단위]
+  const tp = rows.map(r => (r[2] + r[3] + r[4]) / 3);
+  const flow = rows.map((r, i) => tp[i] * (r[5] ?? 0));
+  let pos = 0, neg = 0;
+  const at = i => (tp[i] > tp[i - 1] ? [flow[i], 0] : tp[i] < tp[i - 1] ? [0, flow[i]] : [0, 0]);
+  for (let i = 1; i <= n; i++) { const [p, q] = at(i); pos += p; neg += q; }
+  out[n] = neg === 0 ? 100 : 100 - 100 / (1 + pos / neg);
+  for (let i = n + 1; i < rows.length; i++) {
+    const [p, q] = at(i);
+    const [op, oq] = at(i - n);          // 창 밖으로 나간 봉을 뺀다
+    pos += p - op; neg += q - oq;
+    // 부동소수점 누적으로 아주 작은 음수가 남을 수 있다
+    pos = Math.max(0, pos); neg = Math.max(0, neg);
+    out[i] = neg === 0 ? (pos === 0 ? 50 : 100) : 100 - 100 / (1 + pos / neg);
   }
   return out;
 }
@@ -1099,6 +1145,15 @@ function drawBars() {
     fmt: v => v.toFixed(0),
     guides: [{ v: 30, color: 'var(--down)' }, { v: 70, color: 'var(--up)' }],
     lines: [{ v: r14, color: 'var(--rsi)', w: 1.5 }],
+  });
+  // 거래량이 0 인 봉만 오는 단위에서는 MFI 가 뜻이 없다 — 전부 50 이 된다.
+  const i14 = mfi(all);
+  drawInd('cMfi', 'hMfi', i14, a, b, {
+    key: 'mfi', nowId: 'cNowI', lo: 0, hi: 100,
+    fmt: v => v.toFixed(0),
+    guides: [{ v: 20, color: 'var(--down)' }, { v: 50, color: 'var(--muted)', dash: '2 3' },
+             { v: 80, color: 'var(--up)' }],
+    lines: [{ v: i14, color: 'var(--mfi)', w: 1.5 }],
   });
 
   const need = [20, 120, 200].filter(n => BAR.ma[n] && all.length < n);
@@ -1330,7 +1385,10 @@ function drawInd(id, headId, rows, a, b, opt) {
   if (!svg || !head) return;
   svg.innerHTML = '';
   const on = !!BAR.ind[opt.key];
-  svg.hidden = head.hidden = !on;
+  // svg.hidden = false 는 안 먹는다 — hidden 은 HTML 요소 속성이라 SVG 에선
+  // 자바스크립트 속성만 바뀌고 문서의 hidden 은 그대로 남는다. 직접 지운다.
+  svg.toggleAttribute('hidden', !on);
+  head.toggleAttribute('hidden', !on);
   if (!on) return;
 
   const seen = rows.slice(a, b + 1).filter(v => v !== null);
@@ -1505,7 +1563,7 @@ addEventListener('pointerup', ev => {
 const inChart = ev => {
   const t = ev.target;
   const svg = t.ownerSVGElement || t;
-  return svg && ['cPrice', 'cVol', 'cFear', 'cMacd', 'cRsi', 'cWm'].includes(svg.id);
+  return svg && ['cPrice', 'cVol', 'cFear', 'cMacd', 'cRsi', 'cWm', 'cMfi'].includes(svg.id);
 };
 
 /** 화면 x 좌표 → 봉 색인 */

@@ -13,13 +13,14 @@
  */
 
 import { writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { DATA_DIR, BASELINE_FILE, ensureDataDir } from './paths.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveStock, fetchCandles, fetchRate, et } from './toss.mjs';
 import { TICKERS } from './tickers.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const DATA = join(HERE, 'data');
+const DATA = ensureDataDir();
 
 const argv = process.argv.slice(2);
 const dashDays = argv.indexOf('--days');
@@ -421,7 +422,7 @@ try {
   try { rate = await fetchRate(); } catch (e) { console.warn(`  환율을 받지 못했습니다: ${e.message}`); }
 
   const out = { builtAt: new Date().toISOString(), days: DAYS, list: TICKERS, rate, tickers };
-  writeFileSync(join(HERE, 'data.js'),
+  writeFileSync(BASELINE_FILE,
     `// 자동 생성 — build.mjs\nwindow.STOCK_DATA = ${JSON.stringify(out)};\n`);
 
   const any = Object.values(tickers)[0].days;

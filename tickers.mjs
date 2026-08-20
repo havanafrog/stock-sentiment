@@ -9,11 +9,12 @@
 // 파일이 깨졌거나 없어도 기본값으로 돌아가므로 앱이 멈추지 않는다.
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { dataPath } from './paths.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-export const TICKERS_FILE = join(HERE, 'data', 'tickers.json');
+export const TICKERS_FILE = dataPath('tickers.json');
 
 const DEFAULT = ['SNDK', 'SNXX', 'MU', 'MUU', 'KORU'];
 

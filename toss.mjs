@@ -140,6 +140,9 @@ export async function fetchPrice(code) {
   return {
     close: +r.close, open: +r.open, high: +r.high, low: +r.low,
     volume: +r.volume, at: r.tradeDateTime ?? null,
+    // 체결강도 = 매수 체결량 / 매도 체결량 x 100. 100 이 균형, 넘으면 매수 우위.
+    // 장중 누적값 하나뿐이라 이력이 없다 — 봉마다 보려면 MFI 를 쓴다.
+    strength: Number.isFinite(+r.tradingStrength) ? +r.tradingStrength : null,
   };
 }
 
