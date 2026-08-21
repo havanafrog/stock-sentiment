@@ -487,5 +487,17 @@ console.log('\n── K. 보조지표 ──');
   ok('20 · 50 · 80 선', node('cMfi').children.filter(c => c._attrs['stroke-dasharray']).length >= 3);
 }
 
+// ── N. 글 목록 날짜 ──
+// 날짜는 미국 동부 장 하루(r.d), 시각은 보는 사람 시계였다. 한국 00~13시 글이
+// 하루씩 밀렸다 — 08-21 09:14 글이 08-20 09:14 로 찍혔다.
+{
+  const { L } = run();
+  // ET 로는 전날 20:14, KST 로는 당일 09:14 인 시각
+  const iso = '2026-08-21T09:14:00+09:00';
+  ok('날짜가 시각과 같은 기준으로 나온다', L.fmtYMD(iso) === '2026-08-21', L.fmtYMD(iso));
+  ok('자정 직후도 맞다', L.fmtYMD('2026-08-21T00:05:00+09:00') === '2026-08-21');
+  ok('자정 직전도 맞다', L.fmtYMD('2026-08-20T23:55:00+09:00') === '2026-08-20');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
