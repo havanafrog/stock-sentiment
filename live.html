@@ -582,6 +582,11 @@ const $ = id => document.getElementById(id);
 const HM = new Intl.DateTimeFormat('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit' });
 const HMS = new Intl.DateTimeFormat('ko-KR', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
 const fmtHM = iso => HM.format(new Date(iso));
+// 글 목록의 날짜. 서버가 주는 r.d 는 미국 동부 기준 장 하루라 분석 탭이 쓰는 값이고,
+// 옆에 붙는 시각은 보는 사람 시계다. 둘을 나란히 두면 한국 00~13시 글이 하루씩 밀린다.
+// 시각과 같은 기준으로 찍는다.
+const YMD = new Intl.DateTimeFormat('sv-SE', { year: 'numeric', month: '2-digit', day: '2-digit' });
+const fmtYMD = iso => YMD.format(new Date(iso));
 const MD = new Intl.DateTimeFormat('ko-KR', { month: '2-digit', day: '2-digit' });
 const fmtMD = d => MD.format(d).replace(/\.\s?$/, '').replace(/\.\s?/, '/');
 const VOLF = new Intl.NumberFormat('ko', { notation: 'compact', maximumFractionDigits: 1 });
@@ -1328,7 +1333,7 @@ function paintPosts() {
     ? P.rows.map(r => `
       <div class="pitem${r.f ? ' f' : ''}">
         <div class="ph">
-          <span>${r.d}</span><span>${fmtHM(r.at)}</span>
+          <span>${fmtYMD(r.at)}</span><span>${fmtHM(r.at)}</span>
           <span class="ps ${r.s > 0 ? 'p' : r.s < 0 ? 'n' : ''}">${sgn(r.s)}</span>
           ${r.f ? '<span class="pf">공포</span>' : ''}
           ${r.likes ? `<span>\u2665 ${r.likes.toLocaleString()}</span>` : ''}
