@@ -56,6 +56,29 @@ docker run --rm -v stock-data:/data -v "$PWD:/out" alpine \
   tar czf /out/stock-data.tgz -C /data .
 ```
 
+## 매일 수집
+
+서버는 5초마다 새 글을 받아 `<티커>.live.jsonl` 에 붙인다. 재시작해도 남고,
+읽을 때 `posts.json` 과 합쳐지므로 목록과 차트는 끊기지 않는다.
+
+다만 그쪽은 `--load-days` 치만 두고 잘린다. 지난 30일 이력은 `collect.sh` 가
+하루 한 번 `posts.json` 으로 흡수시킨다. 안 걸어 두면 차트의 과거 구간이
+마지막으로 수집한 날에서 멈춘다 — 새 글은 계속 들어오는데 오래된 쪽이
+말라붙는 모양이 된다.
+
+```
+crontab -e
+20 6 * * * /home/ubuntu/stock-docker/collect.sh    # 06:20 UTC = 15:20 KST, 미장 마감 뒤
+```
+
+한 번 직접 돌릴 때는 떼어 놓는다. `docker compose exec` 를 그냥 부르면
+부른 쪽이 끊길 때 안에서 돌던 수집도 같이 죽는다.
+
+```
+setsid nohup ~/stock-docker/collect.sh >/dev/null 2>&1 </dev/null &
+tail -f ~/collect.log
+```
+
 ## 부팅 때 뜨게
 
 `restart: unless-stopped` 는 도커가 이미 돌고 있을 때만 소용이 있다.
