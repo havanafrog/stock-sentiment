@@ -27,6 +27,12 @@ export const dataPath = (...p) => join(DATA_DIR, ...p);
 export const BASELINE_FILE = dataPath('data.js');
 export const BASELINE_FALLBACK = join(APP_DIR, 'data.js');
 
+/**
+ * 사람이 손으로 찍은 정답. 한 줄에 하나, 나중 줄이 이긴다 —
+ * 고쳐 찍으면 앞의 줄을 지울 필요 없이 덮인다.
+ */
+export const LABELS_FILE = dataPath('labels.jsonl');
+
 export function ensureDataDir() {
   mkdirSync(DATA_DIR, { recursive: true });
   return DATA_DIR;
