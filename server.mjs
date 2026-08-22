@@ -55,6 +55,8 @@ const POLL_MS = Math.max(2_000, (Number(pollArg >= 0 ? argv[pollArg + 1] : 5) ||
 const daysArg = argv.indexOf('--load-days');
 const LOAD_DAYS = Math.max(1, Number(daysArg >= 0 ? argv[daysArg + 1] : 5) || 5);
 const WINDOW_MIN = 60;       // 가장 긴 창 — 이보다 오래된 글은 버린다
+const RECENT_MIN = 60;       // 실시간 탭 "최근 글" 이 덮는 시간
+const RECENT_MAX = 30;       // 그중 실제로 보내는 건수 (푸시 크기를 묶는다)
 const FAST_MIN = 15;         // 민감한 창
 const MAX_PAGES = 6;         // 평상시 폴링 상한(66건). 폭주 구간 대비
 const WARMUP_PAGES = 60;     // 기동 직후 60분 창을 한 번에 채울 때의 상한(660건)
@@ -757,6 +759,7 @@ function snapshot() {
     const z60 = warming ? { z: null, why: '창을 채우는 중' } : fearZ(ticker, w60.fear, w60.n);
     // 공포지수는 개수로 낸다. 표본 문턱이 없다 — 0건도 뜻이 있는 값이다.
     const fearN = posts.filter(p => p.fear && minutesAgo(p.at) <= WINDOW_MIN).length;
+    const inHour = posts.filter(p => minutesAgo(p.at) <= RECENT_MIN);
     const i60 = warming ? { idx: null, why: '창을 채우는 중' } : fearIdx(ticker, fearN);
     // 60분 창이 아직 안 찼어도 1분·10분 창은 벌써 찼을 수 있다.
     if (warming) for (const k of Object.keys(win)) {
@@ -772,7 +775,11 @@ function snapshot() {
       w60: { ...w60, ...z60, fearN, ...i60 },
       win,                                   // 봉 단위별 창 — 화면이 골라 쓴다
       w15,
-      recent: posts.slice(0, 12).map(p => ({ at: p.at, text: p.text, fear: p.fear, score: p.score, img: p.img ?? null })),
+      // 화면 제목이 "최근 1시간" 이라고 말하므로 창(WINDOW_MIN)이 아니라 1시간으로 못박는다.
+      // 전부 실어 보내지는 않는다 — 장중에는 시간당 백 건이 넘어서 5초마다 그걸 밀면
+      // 폰 데이터가 녹는다. 흐름을 보는 칸이라 최근 것부터 RECENT_MAX 건이면 된다.
+      recent: inHour.slice(0, RECENT_MAX).map(p => ({ at: p.at, text: p.text, fear: p.fear, score: p.score, img: p.img ?? null })),
+      recentN: inHour.length,              // 잘려도 몇 건인지는 알려 준다
     };
   }
   // 보관은 24시간이지만 내보내는 건 최근 3시간뿐이다. 전부 실으면 15초마다 수백 KB 가 나간다.

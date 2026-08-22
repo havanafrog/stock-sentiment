@@ -49,8 +49,9 @@ console.log('\n── B. 값이 빈 구간 ──');
 console.log('\n── C. 눈금 범위 ──');
 {
   const { L, node } = run();
-  // 공포지수는 0~100 고정이라 값이 조금 움직여도 눈금이 안 흔들려야 한다
-  L.spark('cFear', pts([50, 51, 52]), FEAR);
+  // 공포지수는 0~100 고정이라 값이 조금 움직여도 눈금이 안 흔들려야 한다.
+  // 지금값 배지가 눈금 글자를 덮으므로 눈금에서 먼 값을 쓴다 — 50 근처면 50 이 지워진다.
+  L.spark('cFear', pts([20, 25, 28]), FEAR);
   const ticks = node('cFear').children.filter(c => c.textContent !== '' && c._attrs.class === 'ctk');
   ok('고정 범위면 눈금이 0·50·100', ticks.slice(0, 3).map(t => t.textContent).join() === '0,50,100',
      ticks.map(t => t.textContent).join());
@@ -71,14 +72,15 @@ console.log('\n── D. 경보선 ──');
 {
   const { L, node } = run();
   L.spark('cFear', pts([50, 60]), { ...FEAR, lines: [{ v: 50, color: 'g' }, { v: 90, color: 'r' }] });
-  const dashed = node('cFear').children.filter(c => c._attrs['stroke-dasharray']);
+  // 지금값 선(class nl)은 기준선이 아니다 — 세지 않는다
+  const dashed = node('cFear').children.filter(c => c._attrs['stroke-dasharray'] && c._attrs.class !== 'nl');
   ok('기준선 두 개를 긋는다', dashed.length === 2, String(dashed.length));
 
   const { L: L2, node: n2 } = run();
   // 범위 밖 기준선은 칸 밖에 그려져 어긋난다 — 아예 안 그린다
   L2.spark('cFear', pts([50, 60]), { ...FEAR, lines: [{ v: 200, color: 'r' }] });
   ok('범위 밖 기준선은 안 긋는다',
-     n2('cFear').children.filter(c => c._attrs['stroke-dasharray']).length === 0);
+     n2('cFear').children.filter(c => c._attrs['stroke-dasharray'] && c._attrs.class !== 'nl').length === 0);
 }
 
 console.log('\n── E. 통화 전환 ──');
@@ -165,13 +167,13 @@ console.log('\n── G. 봉 차트 ──');
   });
   L.BAR.rows = bars; L.BAR.err = null;
   L.drawBars();
-  const bodies = node('cPrice').children.filter(c => c._attrs.width !== undefined && /^var\(--(up|down)\)$/.test(c._attrs.fill ?? ''));
+  const bodies = node('cPrice').children.filter(c => c._attrs.width !== undefined && c._attrs.class !== 'nl' && /^var\(--(up|down)\)$/.test(c._attrs.fill ?? ''));
   ok('봉 수만큼 몸통', bodies.length === 30, String(bodies.length));
   ok('오른 봉은 --up', bodies[0]._attrs.fill === 'var(--up)', bodies[0]._attrs.fill);
   ok('내린 봉은 --down', bodies[1]._attrs.fill === 'var(--down)', bodies[1]._attrs.fill);
   ok('몸통은 최소 1px', bodies.every(b => +b._attrs.height >= 1));
   ok('거래량 막대도 봉 수만큼',
-     node('cVol').children.filter(c => c._attrs.width !== undefined && /^var\(--(up|down)\)$/.test(c._attrs.fill ?? '')).length === 30);
+     node('cVol').children.filter(c => c._attrs.width !== undefined && c._attrs.class !== 'nl' && /^var\(--(up|down)\)$/.test(c._attrs.fill ?? '')).length === 30);
   ok('봉 수를 적는다', /30봉/.test(node('cBarNote').textContent), node('cBarNote').textContent);
 
   // 이동평균 토글
@@ -200,20 +202,20 @@ console.log('\n── G. 봉 차트 ──');
   ok('실패하면 이유를 적는다', /502/.test(r2.node('cBarNote').textContent),
      r2.node('cBarNote').textContent);
   ok('실패하면 봉을 안 그린다',
-     r2.node('cPrice').children.filter(c => c._attrs.width !== undefined && /^var\(--(up|down)\)$/.test(c._attrs.fill ?? '')).length === 0);
+     r2.node('cPrice').children.filter(c => c._attrs.width !== undefined && c._attrs.class !== 'nl' && /^var\(--(up|down)\)$/.test(c._attrs.fill ?? '')).length === 0);
 
   const r3 = run();
   r3.L.BAR.rows = [[at(0), 100, 100, 100, 100, 0, 'day']]; r3.L.BAR.err = null;
   r3.L.drawBars();
   ok('봉 하나면 안 그린다',
-     r3.node('cPrice').children.filter(c => c._attrs.width !== undefined && /^var\(--(up|down)\)$/.test(c._attrs.fill ?? '')).length === 0);
+     r3.node('cPrice').children.filter(c => c._attrs.width !== undefined && c._attrs.class !== 'nl' && /^var\(--(up|down)\)$/.test(c._attrs.fill ?? '')).length === 0);
 
   // 값이 완전히 평평해도 0 으로 나누면 안 된다
   const r4 = run();
   r4.L.BAR.rows = Array.from({ length: 5 }, (_, i) => [at(i), 100, 100, 100, 100, 1, 'day']);
   r4.L.BAR.err = null;
   r4.L.drawBars();
-  const flat = r4.node('cPrice').children.filter(c => c._attrs.width !== undefined && /^var\(--(up|down)\)$/.test(c._attrs.fill ?? ''));
+  const flat = r4.node('cPrice').children.filter(c => c._attrs.width !== undefined && c._attrs.class !== 'nl' && /^var\(--(up|down)\)$/.test(c._attrs.fill ?? ''));
   ok('평평해도 봉이 나온다', flat.length === 5, String(flat.length));
   ok('평평한 봉에 NaN 없음', flat.every(b => !/NaN/.test(b._attrs.y + b._attrs.height)));
 
@@ -526,5 +528,40 @@ console.log('\n── K. 보조지표 ──');
   ok('라벨은 기본이 꺼짐', L.P.label === false);
   ok('기본 보기는 안 찍은 것', L.P.lab === 'none');
 }
+// ── P. 가로선 ──
+// lo · 가운데 · hi 를 그대로 찍으면 1593.47 같은 값이 나온다. 아무 뜻도 없고
+// 종목마다 눈금이 달라 견줄 수도 없다. 1 · 2 · 5 배수로 끊는다.
+{
+  const { L, node } = run();
+
+  ok('1590~1602 는 5 단위로', L.niceTicks(1590, 1602).join() === '1590,1595,1600');
+  ok('0~100 은 50 단위로', L.niceTicks(0, 100).join() === '0,50,100');
+  ok('0~1 은 소수로', L.niceTicks(0, 1).join() === '0,0.5,1');
+  ok('모두 간격이 같다', (t => t.every((v, i) => i < 2 || 
+     Math.abs((v - t[i-1]) - (t[1] - t[0])) < 1e-9))(L.niceTicks(37, 184)),
+     L.niceTicks(37, 184).join());
+  ok('범위 안에만 있다', L.niceTicks(37, 184).every(v => v >= 37 && v <= 184));
+  ok('둘 이상 나온다', L.niceTicks(1000.1, 1000.4).length >= 2);
+  ok('평평하면 안 죽는다', L.niceTicks(5, 5).length >= 1);
+
+  // 지금 값 — 점선 하나와 배지 하나가 늘 붙는다
+  L.spark('cFear', pts([50, 60]), FEAR);
+  const nl = node('cFear').children.filter(c => c._attrs.class === 'nl');
+  ok('지금값은 선과 배지 둘', nl.length === 2, String(nl.length));
+  ok('선은 점선', nl.some(c => c._attrs['stroke-dasharray']));
+  ok('배지는 칸 밖으로 안 나간다', nl.every(c => Number(c._attrs.x ?? 0) >= 0));
+  const txt = node('cFear').children.filter(c => c._attrs.class === 'cnow');
+  ok('배지에 지금 값이 찍힌다', txt.length === 1 && txt[0].textContent.includes('60'),
+     txt[0]?.textContent);
+
+  // 배지와 눈금 글자가 겹치면 둘 다 못 읽는다. 깔리는 쪽을 지운다.
+  const { L: L2, node: n2 } = run();
+  L2.spark('cFear', pts([48, 49, 50]), FEAR);          // 지금값이 50 눈금 위
+  const shown = n2('cFear').children
+    .filter(c => c._attrs.class === 'ctk' && c.textContent !== '').map(c => c.textContent);
+  ok('배지에 깔린 눈금은 지운다', !shown.includes('50'), shown.join());
+  ok('나머지 눈금은 남는다', shown.includes('0') && shown.includes('100'), shown.join());
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
