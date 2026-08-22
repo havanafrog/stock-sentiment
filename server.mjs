@@ -21,7 +21,7 @@
  */
 
 import { createServer } from 'node:http';
-import { DATA_DIR, dataPath, BASELINE_FILE, BASELINE_FALLBACK, ensureDataDir } from './paths.mjs';
+import { DATA_DIR, dataPath, BASELINE_FILE, BASELINE_FALLBACK, LABELS_FILE, ensureDataDir } from './paths.mjs';
 import { readFileSync, writeFileSync, appendFileSync, existsSync, statSync } from 'node:fs';
 import { join, dirname, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -212,6 +212,42 @@ function trimLive(ticker) {
 const PAGE_SIZE = 50;
 let CACHE = { ticker: null, rows: null, stamp: 0 };
 
+// ── 사람이 찍은 정답 ─────────────────────────────────────────
+//
+// 사전은 재현율이 30% 언저리다. 어디서 놓치는지는 글을 직접 보는 수밖에
+// 없어서, 화면에서 바로 찍어 모은다. 붙이기만 하고 고쳐 쓰지 않는다 —
+// 같은 글을 다시 찍으면 줄이 하나 더 붙고 나중 것이 이긴다.
+let LABELS = null, LABELS_STAMP = -1;
+
+/** {id: "P"|"X"|"N"} 한 덩어리. 종목을 안 가른다 — id 가 이미 전역이다. */
+function readLabels() {
+  const stamp = existsSync(LABELS_FILE) ? statSync(LABELS_FILE).mtimeMs : 0;
+  if (LABELS && LABELS_STAMP === stamp) return LABELS;
+  const out = {};
+  if (stamp) {
+    for (const line of readFileSync(LABELS_FILE, "utf8").split("\n")) {
+      if (!line) continue;
+      try {
+        const r = JSON.parse(line);
+        if (LABEL_SET.has(r.y)) out[r.id] = r.y; else delete out[r.id];
+      } catch { /* 붙이는 중에 죽으면 마지막 줄이 잘린다 */ }
+    }
+  }
+  LABELS = out; LABELS_STAMP = stamp;
+  return out;
+}
+
+const LABEL_SET = new Set(["P", "X", "N"]);
+
+/** y 가 null 이면 지운 것으로 남긴다 — 잘못 찍은 것을 무를 자리가 있어야 한다. */
+function appendLabel(ticker, id, y) {
+  // 글월을 같이 박아 둔다. 이것만 있으면 채점기가 원본 더미를 안 열어도 된다.
+  const text = loadPosts(ticker).find(r => r.id === id)?.text ?? null;
+  const row = JSON.stringify({ id, t: ticker, y, text, at: new Date().toISOString() });
+  appendFileSync(LABELS_FILE, row + "\n");
+  LABELS_STAMP = -1;                       // 다음에 읽을 때 다시 훑는다
+}
+
 function loadPosts(ticker) {
   const f = join(POSTS_DIR, `${ticker}.posts.json`);
   const lf = livePath(ticker);
@@ -250,8 +286,17 @@ function loadPosts(ticker) {
 }
 
 /** 순수 함수 — 디스크를 안 탄다. --selftest 가 여기를 때린다. */
+/** 사전이 이 글에 매기는 답. 라벨과 견주려고 같은 세 글자로 맞춘다. */
+export const predict = r => (r.s > 0 ? 'P' : r.s < 0 ? 'N' : 'X');
+
 export function filterPosts(rows, o) {
   let hits = rows;
+  // 라벨 보기. 18,000건을 다 볼 일은 없다 — 아직 안 찍은 것이나,
+  // 찍어 보니 사전과 어긋난 것만 봐야 손이 남는다.
+  const lab = o.labels || {};
+  if (o.lab === 'none') hits = hits.filter(r => !lab[r.id]);
+  else if (o.lab === 'done') hits = hits.filter(r => lab[r.id]);
+  else if (o.lab === 'diff') hits = hits.filter(r => lab[r.id] && lab[r.id] !== predict(r));
   if (o.mood === 'fear') hits = hits.filter(r => r.f);
   else if (o.mood === 'pos') hits = hits.filter(r => r.s > 0);
   else if (o.mood === 'neg') hits = hits.filter(r => r.s < 0);
@@ -271,7 +316,9 @@ export function filterPosts(rows, o) {
     total: rows.length, matched: hits.length, loadDays: LOAD_DAYS,
     page, pages: Math.ceil(hits.length / PAGE_SIZE), size: PAGE_SIZE,
     fear: hits.filter(r => r.f).length,
-    rows: hits.slice(start, start + PAGE_SIZE),
+    labeled: o.labels ? hits.filter(r => lab[r.id]).length : 0,
+    rows: hits.slice(start, start + PAGE_SIZE)
+      .map(r => (o.labels ? { ...r, y: lab[r.id] || null } : r)),
   };
 }
 
@@ -284,6 +331,8 @@ function queryPosts(q) {
     to: q.get('to') || '',
     sort: q.get('sort') === 'likes' ? 'likes' : 'new',
     page: Number(q.get('page')) || 0,
+    lab: q.get('lab') || '',
+    labels: q.get('lab') ? readLabels() : null,
   }) };
 }
 
@@ -330,6 +379,19 @@ function selftest() {
   const p2 = filterPosts(many, { mood: 'all', sort: 'new', page: 2 });
   ok('50건씩 끊는다', p2.pages === 3 && p2.rows.length === 20, `${p2.pages} ${p2.rows.length}`);
   ok('세 번째 쪽은 101번째부터', p2.rows[0].id === 100);
+
+  // 라벨 — 3번은 사전과 같게, 2번은 어긋나게 찍어 둔다
+  const labels = { 3: 'N', 2: 'N' };
+  const g = o => filterPosts(rows, { mood: 'all', sort: 'new', page: 0, labels, ...o });
+  ok('사전 예측은 점수 부호', predict(rows[0]) === 'N' && predict(rows[1]) === 'P' && predict(rows[2]) === 'X');
+  ok('라벨 안 걸면 전부', g({}).matched === 3);
+  ok('아직 안 찍은 것만', g({ lab: 'none' }).rows.map(r => r.id).join() === '1');
+  ok('찍은 것만', g({ lab: 'done' }).rows.map(r => r.id).join() === '3,2');
+  ok('사전과 어긋난 것만', g({ lab: 'diff' }).rows.map(r => r.id).join() === '2');
+  ok('찍은 값이 줄에 붙는다', g({ lab: 'done' }).rows[0].y === 'N');
+  ok('안 찍힌 줄은 y 가 null', g({ lab: 'none' }).rows[0].y === null);
+  ok('labels 를 안 주면 y 를 안 붙인다', !('y' in f({}).rows[0]));
+  ok('찍은 건수를 센다', g({}).labeled === 2);
 
 
   // 종목 목록 — 잘못된 값이 파일로 들어와도 앱이 멈추면 안 된다
@@ -944,6 +1006,26 @@ createServer((req, res) => {
     }
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
     return res.end(JSON.stringify(out));
+  }
+
+  if (path === '/api/label' && req.method === 'GET') {   // 찍어 둔 정답 전부
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify(readLabels()));
+  }
+
+  if (path === '/api/label' && req.method === 'POST') {  // 한 건 찍기
+    return readBody(req).then(({ t, id, y }) => {
+      if (!TICKERS.includes(t) || !Number.isFinite(+id) || (y !== null && !LABEL_SET.has(y))) {
+        res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+        return res.end(JSON.stringify({ error: "t·id·y 를 확인하세요" }));
+      }
+      appendLabel(t, +id, y);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ ok: true, id: +id, y }));
+    }).catch(e => {
+      res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify({ error: e.message }));
+    });
   }
 
   if (path === '/api/live') {          // curl 로 들여다볼 때 쓴다

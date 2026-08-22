@@ -1,6 +1,7 @@
 // 홀드아웃 채점. 튜닝에 쓴 3,991건은 빼고 잰다 — 같은 글로 재면 사전이 잘하는 게 아니라
 // 그 글을 외운 것이다.
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+import { join } from 'node:path';
 
 const W = {};
 new Function('window', readFileSync('lexicon.js', 'utf8'))(W);
@@ -8,6 +9,24 @@ new Function('window', readFileSync('lexicon.js', 'utf8'))(W);
 const tuned = new Set(JSON.parse(readFileSync('docs/labels-4000.json', 'utf8')).map(r => r.id));
 const all = JSON.parse(readFileSync('docs/labels-holdout-12000.json', 'utf8'));
 const held = all.filter(r => !tuned.has(r.id));
+
+// 화면에서 손으로 찍은 것. 한 줄에 하나, 나중 줄이 이긴다.
+// 없으면 그냥 건너뛴다 — 아직 아무도 안 찍었을 뿐이다.
+function readMine() {
+  const f = process.env.STOCK_DATA_DIR
+    ? join(process.env.STOCK_DATA_DIR, 'labels.jsonl') : 'data/labels.jsonl';
+  if (!existsSync(f)) return [];
+  const by = new Map();
+  for (const line of readFileSync(f, 'utf8').split('\n')) {
+    if (!line) continue;
+    try {
+      const r = JSON.parse(line);
+      if (r.y && r.text) by.set(r.id, r); else by.delete(r.id);
+    } catch { /* 잘린 줄 */ }
+  }
+  return [...by.values()];
+}
+const mine = readMine();
 
 console.log(`전체 ${all.length.toLocaleString()} · 튜닝 겹침 ${(all.length - held.length).toLocaleString()} · 홀드아웃 ${held.length.toLocaleString()}\n`);
 
@@ -39,3 +58,9 @@ function score(rows, tag) {
 
 score(held, '홀드아웃');
 score(all.filter(r => tuned.has(r.id)), '튜닝에 쓴 글');
+
+// 손으로 찍은 것은 사전을 고친 뒤 바로 다시 재려고 따로 낸다.
+// 화면에서 어긋난 글만 골라 찍으므로 여기 숫자는 홀드아웃보다 낮게 나오는 게 정상이다.
+if (mine.length) score(mine, '직접 찍은 것');
+else console.log('직접 찍은 것 없음 — 글 탭에서 라벨을 켜고 찍으면 여기에 같이 나옵니다.\n');
+

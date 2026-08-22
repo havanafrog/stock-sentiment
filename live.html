@@ -213,6 +213,24 @@
     white-space: pre-wrap; }
   .pitem.f .ptxt { color: var(--fear-ink); }
   .ptxt mark { background: var(--accent-wash); color: inherit; border-radius: 3px; padding: 0 1px; }
+  /* 라벨 찍는 줄. 켤 때만 나온다 — 평소에 글 읽는 화면을 어지럽히지 않는다. */
+  .pitem[tabindex]:focus { outline: 0; }
+  .pitem[tabindex]:focus-visible, .pitem.here { background: var(--accent-wash);
+    box-shadow: inset 3px 0 0 var(--pos); }
+  .plab { display: flex; align-items: center; gap: 6px; margin: 7px 0 0; font-size: 12px; }
+  .plab button { appearance: none; cursor: pointer; font: inherit; font-size: 12px;
+    padding: 3px 12px; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--surface-1); color: var(--text-secondary); }
+  .plab button:hover { background: var(--neutral); }
+  .plab button[aria-pressed="true"] { font-weight: 600; color: #fff; border-color: transparent; }
+  .plab button.p[aria-pressed="true"] { background: var(--pos); }
+  .plab button.n[aria-pressed="true"] { background: var(--neg); }
+  .plab button.x[aria-pressed="true"] { background: var(--muted); }
+  .plab .pdict { margin-left: 4px; color: var(--muted); }
+  .plab .pdict.bad { color: var(--neg); font-weight: 600; }
+  .pkeys { font-size: 11.5px; color: var(--muted); margin: 0 0 10px; }
+  .pkeys kbd { font: inherit; font-size: 11px; padding: 1px 5px; border-radius: 4px;
+    border: 1px solid var(--border); background: var(--surface-1); color: var(--text-secondary); }
   .pitem .pimg { margin: 6px 0 0; }
   .pitem .pimg img { max-width: 100%; max-height: 220px; border-radius: var(--radius);
     display: block; cursor: zoom-in; background: var(--neutral); }
@@ -423,10 +441,28 @@
         <label for="pQ">검색</label>
         <input type="search" id="pQ" class="fld" placeholder="그 말이 든 글만">
       </div>
+      <div class="ctrl">
+        <label>라벨</label>
+        <div class="seg" id="pLabOn">
+          <button data-on="0" aria-pressed="true">끔</button>
+          <button data-on="1" aria-pressed="false">켬</button>
+        </div>
+      </div>
+      <div class="ctrl" id="pLabWrap" hidden>
+        <label>보기</label>
+        <div class="seg" id="pLab">
+          <button data-l="none" aria-pressed="true">안 찍은 것</button>
+          <button data-l="diff" aria-pressed="false">사전과 어긋남</button>
+          <button data-l="done" aria-pressed="false">찍은 것</button>
+          <button data-l="all" aria-pressed="false">전부</button>
+        </div>
+      </div>
     </div>
 
     <div class="card">
       <div class="feed-head" id="pCount">불러오는 중…</div>
+      <p class="pkeys" id="pKeys" hidden>글을 누르고 <kbd>1</kbd> 긍정 · <kbd>2</kbd> 중립 · <kbd>3</kbd> 부정 —
+      찍으면 다음 글로 넘어갑니다. <kbd>↑</kbd><kbd>↓</kbd> 로 오갑니다.</p>
       <div class="plist" id="pList"></div>
       <div class="pmore"><button class="btn" id="pMore" hidden>더 보기</button></div>
       <p class="pnote">수집해 둔 글입니다 — 마지막 <code>collect</code> 시점까지. 그 뒤 글은 실시간 탭에 있습니다.</p>
@@ -1289,7 +1325,8 @@ function paint(d) {
 // ── 글 탭 ──
 // 수집해 둔 data/{티커}.posts.json 을 서버가 걸러서 50건씩 준다.
 // 브라우저로 통째로 내려받지 않는 이유: SNDK 하나가 13.8MB 다.
-const P = { mood: 'all', sort: 'new', q: '', from: '', to: '', page: 0, rows: [], seen: null };
+const P = { mood: 'all', sort: 'new', q: '', from: '', to: '', page: 0, rows: [], seen: null,
+            label: false, lab: 'none' };
 let pTimer = null;
 
 // 검색어를 강조한다. esc() 를 먼저 걸고 나서 자르므로 태그가 깨지지 않는다.
@@ -1305,6 +1342,8 @@ async function loadPosts(reset) {
     t: UI.ticker || '', mood: P.mood, sort: P.sort,
     q: P.q, from: P.from, to: P.to, page: String(P.page),
   });
+  // lab 이 붙어야 서버가 라벨을 읽어 줄에 y 를 달아 준다. 안 붙이면 예전 그대로다.
+  if (P.label) qs.set('lab', P.lab);
   if (!P.rows.length) $('pCount').textContent = '불러오는 중…';
   let d;
   try {
@@ -1329,9 +1368,12 @@ function paintPosts() {
     + (d.matched ? ` · 공포 ${d.fear.toLocaleString()}건 (${(d.fear / d.matched * 100).toFixed(1)}%)` : '')
     + (d.total ? '' : ' — 아직 수집한 글이 없습니다. collect 를 먼저 돌리세요.');
 
+  $('pCount').innerHTML += P.label && d.labeled != null
+    ? ` · <span style="color:var(--pos)">찍음 ${d.labeled.toLocaleString()}건</span>` : '';
+
   $('pList').innerHTML = P.rows.length
     ? P.rows.map(r => `
-      <div class="pitem${r.f ? ' f' : ''}">
+      <div class="pitem${r.f ? ' f' : ''}"${P.label ? ' tabindex="0" data-id="' + r.id + '"' : ''}>
         <div class="ph">
           <span>${fmtYMD(r.at)}</span><span>${fmtHM(r.at)}</span>
           <span class="ps ${r.s > 0 ? 'p' : r.s < 0 ? 'n' : ''}">${sgn(r.s)}</span>
@@ -1339,6 +1381,7 @@ function paintPosts() {
           ${r.likes ? `<span>\u2665 ${r.likes.toLocaleString()}</span>` : ''}
         </div>
         <div class="ptxt">${hl(esc(r.text), P.q)}</div>
+        ${P.label ? labRow(r) : ''}
         ${r.img ? `<div class="pimg"><img src="${esc(r.img)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>` : ''}
       </div>`).join('')
     : '<div class="pitem"><div class="ptxt" style="color:var(--muted)">조건에 맞는 글이 없습니다</div></div>';
@@ -1346,6 +1389,67 @@ function paintPosts() {
   $('pMore').hidden = P.page + 1 >= d.pages;
   $('pMore').textContent = `더 보기 (${P.rows.length.toLocaleString()} / ${d.matched.toLocaleString()})`;
 }
+
+// ── 라벨 ──
+// 사전은 부정 재현율이 30% 언저리다. 어디서 놓치는지는 글을 직접 봐야 알아서,
+// 읽던 자리에서 바로 찍는다. 새 화면을 만들지 않은 이유가 이것이다 —
+// 검색·기간·종목 거르개가 그대로 라벨 고르개가 된다.
+const LAB = [['P', 'p', '긍정'], ['X', 'x', '중립'], ['N', 'n', '부정']];
+const labName = y => (LAB.find(v => v[0] === y) || [, , '없음'])[2];
+
+function labRow(r) {
+  const dict = r.s > 0 ? 'P' : r.s < 0 ? 'N' : 'X';
+  const bad = r.y && r.y !== dict;
+  return `<div class="plab">`
+    + LAB.map(([y, cls, name]) =>
+        `<button class="${cls}" data-y="${y}" aria-pressed="${r.y === y}">${name}</button>`).join('')
+    + `<span class="pdict${bad ? ' bad' : ''}">사전: ${labName(dict)}${r.y ? (bad ? ' \u2717' : ' \u2713') : ''}</span>`
+    + `</div>`;
+}
+
+/** 찍고 나면 다음 글로 옮긴다. 손이 멈추지 않아야 100건이 2분에 끝난다. */
+async function putLabel(item, y) {
+  const id = Number(item.dataset.id);
+  const row = P.rows.find(r => r.id === id);
+  if (!row) return;
+  const was = row.y;
+  row.y = row.y === y ? null : y;          // 같은 것을 다시 누르면 무른다
+  item.querySelector('.plab').outerHTML = labRow(row);
+  try {
+    const res = await fetch('/api/label', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ t: P.seen?.ticker, id, y: row.y }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+  } catch (e) {
+    row.y = was;                            // 못 남겼으면 화면도 되돌린다
+    item.querySelector('.plab').outerHTML = labRow(row);
+    $('pCount').textContent = '라벨을 남기지 못했습니다 (' + e.message + ')';
+    return;
+  }
+  const next = item.nextElementSibling?.closest('.pitem');
+  (next || item).focus();
+}
+
+$('pList').addEventListener('click', ev => {
+  const b = ev.target.closest('.plab button'); if (!b) return;
+  putLabel(b.closest('.pitem'), b.dataset.y);
+});
+
+$('pList').addEventListener('keydown', ev => {
+  const item = ev.target.closest('.pitem[tabindex]'); if (!item) return;
+  const step = ev.key === 'ArrowDown' ? 1 : ev.key === 'ArrowUp' ? -1 : 0;
+  if (step) {
+    ev.preventDefault();
+    const all = [...$('pList').querySelectorAll('.pitem[tabindex]')];
+    all[all.indexOf(item) + step]?.focus();
+    return;
+  }
+  const y = { 1: 'P', 2: 'X', 3: 'N' }[ev.key];
+  if (!y) return;
+  ev.preventDefault();
+  putLabel(item, y);
+});
 
 // 종목 버튼은 실시간 탭과 같은 선택을 쓴다 — 탭을 옮겨도 보던 종목이 유지된다
 function paintPTicker() {
@@ -1369,6 +1473,11 @@ const segPick = (host, attr, set) => $(host).onclick = ev => {
   loadPosts(true);
 };
 segPick('pMood', 'm', v => { P.mood = v; });
+segPick('pLabOn', 'on', v => {
+  P.label = v === '1';
+  $('pLabWrap').hidden = $('pKeys').hidden = !P.label;
+});
+segPick('pLab', 'l', v => { P.lab = v; });
 segPick('pSort', 's', v => { P.sort = v; });
 segPick('pTicker', 't', v => { UI.ticker = v; store.set('ticker', v); if (LAST) paint(LAST); });
 

@@ -499,5 +499,32 @@ console.log('\n── K. 보조지표 ──');
   ok('자정 직전도 맞다', L.fmtYMD('2026-08-20T23:55:00+09:00') === '2026-08-20');
 }
 
+// ── O. 라벨 줄 ──
+// 사전이 놓치는 자리를 찾으려면 사람이 찍어야 한다. 화면은 세 버튼과
+// 사전이 뭐라 했는지만 보여준다 — 어긋나야 눈에 띈다.
+{
+  const { L } = run();
+  const row = (s, y) => ({ id: 7, at: 'x', text: 't', likes: 0, s, f: false, d: '2026-08-13', y });
+
+  ok('안 찍은 글은 눌린 버튼이 없다', !L.labRow(row(-0.4, null)).includes('aria-pressed="true"'));
+  ok('찍은 값이 눌려 있다',
+     (L.labRow(row(-0.4, 'N')).match(/aria-pressed="true"/g) || []).length === 1);
+  ok('버튼은 셋', (L.labRow(row(0, null)).match(/<button/g) || []).length === 3);
+
+  // 사전 예측은 점수 부호 그대로다
+  ok('점수가 양수면 사전은 긍정', L.labRow(row(0.4, null)).includes('사전: 긍정'));
+  ok('0 이면 중립', L.labRow(row(0, null)).includes('사전: 중립'));
+  ok('음수면 부정', L.labRow(row(-0.4, null)).includes('사전: 부정'));
+
+  ok('사전과 같으면 체크', L.labRow(row(-0.4, 'N')).includes('\u2713'));
+  ok('어긋나면 가위표', L.labRow(row(0, 'N')).includes('\u2717'));
+  ok('어긋나야 bad 가 붙는다', L.labRow(row(0, 'N')).includes('pdict bad'));
+  ok('같으면 bad 가 없다', !L.labRow(row(-0.4, 'N')).includes('pdict bad'));
+  ok('안 찍었으면 표시가 없다',
+     !L.labRow(row(0, null)).includes('\u2713') && !L.labRow(row(0, null)).includes('\u2717'));
+
+  ok('라벨은 기본이 꺼짐', L.P.label === false);
+  ok('기본 보기는 안 찍은 것', L.P.lab === 'none');
+}
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
