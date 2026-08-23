@@ -202,6 +202,25 @@ function readLive(ticker) {
  * 오래된 줄을 떨어낸다. 어차피 로딩할 때 잘리는 글이라 파일에 둘 이유가 없다.
  * 시작할 때 한 번만 — 돌아가는 중에 줄이면 그 사이 붙은 줄을 잃는다.
  */
+/**
+ * 재시작 직후의 창을 디스크에서 먼저 채운다.
+ *
+ * 안 하면 방금 올라온 글만 남아 "최근 1시간" 이 몇 건으로 쪼그라든다. 워밍업이
+ * 토스에서 다시 긁어 오기는 하지만 종목당 60페이지까지라 조용한 종목은 못 채우고,
+ * 무엇보다 그 사이 화면이 빈다. 이미 받아 둔 줄이 옆에 있는데 다시 받을 이유가 없다.
+ */
+function primeLive(ticker) {
+  const st = LIVE.get(ticker);
+  if (!st) return 0;
+  let n = 0;
+  for (const p of readLive(ticker)) {
+    if (minutesAgo(p.at) > WINDOW_MIN || st.posts.has(p.id)) continue;
+    st.posts.set(p.id, { ...p, score: score(p.text), fear: hasFear(p.text), wail: isWail(p.text) });
+    n++;
+  }
+  return n;
+}
+
 function trimLive(ticker) {
   const f = livePath(ticker);
   if (!existsSync(f)) return;
@@ -881,6 +900,10 @@ console.log(`\n  창 ${WINDOW_MIN}분 채우는 중… (종목당 최대 ${WARMU
 // 로딩 창 밖으로 나간 줄은 파일에 둘 이유가 없다. 시작할 때 한 번만 —
 // 돌아가는 중에 줄이면 그 사이 붙은 줄을 잃는다.
 for (const t of TICKERS) trimLive(t);
+
+// 자른 다음에 채운다 — 자르기 전에 채우면 창 밖 줄까지 메모리에 들어온다.
+const primed = TICKERS.reduce((a, t) => a + primeLive(t), 0);
+if (primed) console.log(`  디스크에서 ${primed}건을 먼저 채웠습니다 — 창이 비지 않습니다`);
 
 await pollAll(true);
 // 앞선 폴링이 아직 안 끝났으면 건너뛴다. 겹치면 같은 글을 두 번 받고,
