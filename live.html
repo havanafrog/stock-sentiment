@@ -187,6 +187,8 @@
   .ctk { font-size: 9px; fill: var(--muted); }
   /* 지금 값 배지. 눈금을 덮고 앉는다 — 어차피 그 자리에서 제일 알고 싶은 수다. */
   .cnow { font-size: 9px; font-weight: 700; fill: #fff; }
+  /* 날짜가 바뀌는 자리와 양 끝은 진하게 — 나머지 시각은 사이를 메우는 눈금이다. */
+  .ctk.d, .ctk.e { fill: var(--text-secondary); font-weight: 600; }
   .cempty { font-size: 11.5px; color: var(--muted); padding: 6px 0; }
 
   /* 분석 탭 — index.html 을 그대로 끼워넣는다 */
@@ -798,6 +800,44 @@ const svgEl = (t, a = {}) => {
 };
 // 치수는 고정이 아니다. 폰에서 600 폭을 320px 에 밀어 넣으면 배율이 0.53 이 되어
 /**
+ * 가로축에 세울 자리를 고른다.
+ *
+ * 양 끝 두 개만 찍으면 가운데 봉이 언제인지 알 길이 없다. 그렇다고 n 등분하면
+ * 03:47 · 09:14 같은 값이 나와 읽히지 않는다. 시각도 세로 눈금과 같은 원리다 —
+ * 정각 · 자정처럼 사람이 아는 경계에서 끊는다.
+ *
+ * 봉은 거래일만 있으므로 시각으로 자리를 계산하면 휴장 구간이 비뚤어진다.
+ * 그래서 봉을 훑다가 경계를 넘는 순간의 순번을 잡는다.
+ *
+ * @param stamps  봉의 시각(ms) 배열, 오래된 순
+ * @param want    몇 개쯤 원하나 (실제 개수는 경계에 따라 달라진다)
+ * @returns [{ i, ms, day }] — day 는 날짜가 바뀐 자리(굵게 쓸 곳)
+ */
+const TIME_STEPS = [
+  60e3, 5*60e3, 10*60e3, 15*60e3, 30*60e3,     // 분
+  36e5, 2*36e5, 4*36e5, 6*36e5, 12*36e5,       // 시간
+  864e5, 2*864e5, 7*864e5, 14*864e5, 28*864e5, // 일
+];
+function timeTicks(stamps, want = 5) {
+  if (stamps.length < 2) return [];
+  const span = stamps[stamps.length - 1] - stamps[0];
+  if (!(span > 0)) return [];
+  const step = TIME_STEPS.find(s => span / s <= want) ?? TIME_STEPS[TIME_STEPS.length - 1];
+  const out = [];
+  let prev = null, prevDay = null;
+  for (let i = 0; i < stamps.length; i++) {
+    const ms = stamps[i];
+    // 경계는 현지 시계 기준이라야 "정각" 이 정각으로 보인다.
+    const local = ms - new Date(ms).getTimezoneOffset() * 60e3;
+    const bucket = Math.floor(local / step);
+    const day = Math.floor(local / 864e5);
+    if (prev !== null && bucket !== prev) out.push({ i, ms, day: day !== prevDay });
+    prev = bucket; prevDay = day;
+  }
+  return out;
+}
+
+/**
  * 사람이 읽는 눈금값을 고른다.
  *
  * 지금까지는 lo · 가운데 · hi 를 그대로 찍었다. 1593.47 · 1601.02 같은 수가 나오는데,
@@ -918,9 +958,21 @@ function spark(id, pts, o) {
     text: o.fmt(last[1]), color: o.color });
   svg.appendChild(svgEl('circle', { cx:lastX, cy:yAt(last[1]), r:3, fill:o.color }));
 
-  // 시각 눈금은 양 끝만 — 90px 짜리 칸에 더 넣으면 겹친다
+  // 가로축. 봉 차트와 같은 자리에 세워야 두 칸을 세로로 훑어 읽을 수 있다.
+  let lastTx = -1e9;
+  for (const tk of timeTicks(pts.map(p => p[0]))) {
+    const x = o.byIndex ? at2x(tk.i) : xAt(pts[tk.i][0]);
+    if (x - lastTx < 42 || x < CP.l + 42 || x > CW - CP.r - 42) continue;
+    lastTx = x;
+    svg.appendChild(svgEl('line', { class:'gl', x1:x, x2:x, y1:CP.t, y2:CH-CP.b }));
+    const d = new Date(tk.ms);
+    const t = svgEl('text', { class: tk.day ? 'ctk d' : 'ctk', x, y:CH-3, 'text-anchor':'middle' });
+    t.textContent = tk.day ? fmtMD(d) : fmtHM(d.toISOString());
+    svg.appendChild(t);
+  }
+  // 양 끝은 늘 쓴다.
   for (const [ms, anchor, xp] of [[t0, 'start', CP.l], [t1, 'end', CW - CP.r]]) {
-    const t = svgEl('text', { class:'ctk', x: o.byIndex ? xp : xAt(ms), y:CH-3, 'text-anchor':anchor });
+    const t = svgEl('text', { class:'ctk e', x: o.byIndex ? xp : xAt(ms), y:CH-3, 'text-anchor':anchor });
     t.textContent = fmtHM(new Date(ms).toISOString()); svg.appendChild(t);
   }
   addCrosshair(svg, CH, CP);
@@ -1124,9 +1176,23 @@ function mfi(rows, n = 14) {
 }
 
 /** 지금 보이는 구간의 [첫 봉, 끝 봉] 색인. view 가 null 이면 전체. */
+/**
+ * 기본 화면은 곡소리가 있는 구간까지만 잡는다.
+ *
+ * 글은 90일치를 들고 있는데 토스는 일봉을 376개 준다. 그대로 다 그리면 화면의
+ * 84%가 빈 칸이고, 처음 보는 사람은 지표가 고장 난 줄 안다. 휠로 끝까지 줄이면
+ * 전체가 나오고, 더블클릭하면 다시 이 기본 화면으로 돌아온다.
+ */
 function viewRange() {
   const n = BAR.rows.length;
-  if (!BAR.view) return [0, n - 1];
+  if (!BAR.view) {
+    const f = BAR.fear;
+    if (f && f.length === n) {
+      const first = f.findIndex(r => r && r[2] > 0);
+      if (first > 0 && n - first >= MIN_BARS) return [first, n - 1];
+    }
+    return [0, n - 1];
+  }
   const a = Math.max(0, Math.min(n - 1, BAR.view[0]));
   const b = Math.max(a, Math.min(n - 1, BAR.view[1]));
   return [a, b];
@@ -1204,13 +1270,33 @@ function drawBars() {
       color: lastC >= cur(rows[0][1] ?? rows[rows.length-1][4]) ? 'var(--up)' : 'var(--down)' });
   }
 
-  // 시각 눈금은 양 끝만 — 600px 폭에 450봉이라 더 넣으면 겹친다
+  // 가로축. 정각·자정 같은 경계에만 세운다.
+  const dayOnly = BAR.unit === 'day:1';
+  const ticks = timeTicks(rows.map(r => r[0]));
+  let lastX = -1e9;
+  for (const tk of ticks) {
+    const x = xAt(tk.i);
+    // 양 끝 글자와도, 앞 눈금과도 겹치면 안 된다.
+    // 끝 라벨은 날짜+시각이라 더 넓다. 그만큼 비워 둔다.
+    if (x - lastX < 46 || x < BP.l + 62 || x > BW - BP.r - 76) continue;
+    lastX = x;
+    svg.appendChild(svgEl('line', { class:'gl', x1:x, x2:x, y1:BP.t, y2:BH-BP.b }));
+    vol?.appendChild(svgEl('line', { class:'gl', x1:x, x2:x, y1:0, y2:VH-4 }));
+    const d = new Date(tk.ms);
+    // 날짜가 바뀌는 자리에만 월/일을 쓴다. 매번 쓰면 같은 날짜가 줄줄이 늘어선다.
+    const label = dayOnly || tk.day ? fmtMD(d) : fmtHM(d.toISOString());
+    const t = svgEl('text', { class: tk.day || dayOnly ? 'ctk d' : 'ctk',
+      x, y: BH-4, 'text-anchor':'middle' });
+    t.textContent = label; svg.appendChild(t);
+  }
+
+  // 양 끝은 늘 쓴다 — 이 화면이 어디부터 어디까지인지가 먼저다.
   const stampAt = ms => {
     const d = new Date(ms);
-    return BAR.unit === 'day:1' ? fmtMD(d) : fmtMD(d) + ' ' + fmtHM(d.toISOString());
+    return dayOnly ? fmtMD(d) : fmtMD(d) + ' ' + fmtHM(d.toISOString());
   };
   [[0, 'start'], [rows.length - 1, 'end']].forEach(([i, anchor]) => {
-    const t = svgEl('text', { class:'ctk', x:xAt(i), y:BH-4, 'text-anchor':anchor });
+    const t = svgEl('text', { class:'ctk e', x:xAt(i), y:BH-4, 'text-anchor':anchor });
     t.textContent = stampAt(rows[i][0]); svg.appendChild(t);
   });
 
@@ -1757,7 +1843,8 @@ $('single').addEventListener('wheel', ev => {
   const anchor = barAt(ev);
   let next = Math.round(span * (ev.deltaY > 0 ? 1.3 : 1 / 1.3));
   next = Math.max(MIN_BARS, Math.min(n, next));
-  if (next >= n) { BAR.view = null; drawBars(); return drawFear(); }
+  // null 은 이제 "곡소리 있는 구간" 이라는 뜻이다. 전체를 보려면 값을 박아야 한다.
+  if (next >= n) { BAR.view = [0, n - 1]; drawBars(); return drawFear(); }
   // 커서가 가리키던 봉이 제자리에 남도록 시작점을 옮긴다
   let from = Math.round(anchor - (anchor - a) * (next / span));
   from = Math.max(0, Math.min(n - next, from));

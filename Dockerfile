@@ -26,4 +26,4 @@ HEALTHCHECK --interval=30s --timeout=4s --start-period=40s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:8731/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["node", "server.mjs"]
-CMD ["--poll", "5", "--load-days", "5"]
+CMD ["--poll", "5", "--load-days", "90"]

@@ -72,7 +72,7 @@ export function run() {
   const wrapped = CODE + `
 ;globalThis.__L = { spark, drawCharts, paint, card, UI, get LAST(){return LAST}, money, moneyShort, cur,
   sma, drawBars, drawFear, paintUnitSeg, viewRange, BAR, MIN_BARS, YSCALE, HAIRS, setTitle,
-  tkRender, ema, macd, rsi, mfi, drawInd, fitCharts, fmtYMD, labRow, labName, P, niceTicks, nowLine, get ALERT(){return ALERT} };`;
+  tkRender, ema, macd, rsi, mfi, drawInd, fitCharts, fmtYMD, labRow, labName, P, niceTicks, nowLine, timeTicks, get ALERT(){return ALERT} };`;
   (0, eval)(wrapped);
   return { L: globalThis.__L, node };
 }
