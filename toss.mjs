@@ -182,12 +182,16 @@ export async function fetchLatest(code, cursor = null) {
  * 그 경우 stopOnSeen=false 로 두면 중복은 건너뛰고 cutoff 까지 계속 판다.
  *
  * onProgress(pages, count) 로 진행 상황을 흘려보낸다.
+ *
+ * from 을 주면 그 id 다음(더 오래된 쪽)부터 시작한다. 커서는 그냥 마지막 글의
+ * commentId 라서 아무 지점으로나 뛸 수 있다 — 이미 가진 9만 건을 다시 훑지 않으려면
+ * 가장 오래된 id 를 주면 된다. 안 그러면 종목마다 9천 페이지를 버린다.
  */
 export async function fetchComments(code, cutoff, seen,
-    { delay = 80, hardCap = 20000, stopOnSeen = true, onProgress } = {}) {
+    { delay = 25, hardCap = 20000, stopOnSeen = true, from = null, onProgress } = {}) {
   const base = `${FEED}?subjectType=STOCK&subjectId=${encodeURIComponent(code)}&commentSortType=RECENT`;
   const out = [];
-  let cursor = null, pages = 0, stop = null;
+  let cursor = from, pages = 0, stop = null;
 
   while (pages < hardCap) {
     const j = await getJSON(base + (cursor == null ? '' : `&lastCommentId=${cursor}`));

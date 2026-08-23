@@ -24,7 +24,7 @@ services:
     init: true
 
     # 봉·글 폴링 주기(초)와 메모리에 올릴 날짜 수
-    command: ["--poll", "5", "--load-days", "5"]
+    command: ["--poll", "5", "--load-days", "90"]
 
 volumes:
   stock-data:

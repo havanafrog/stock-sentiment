@@ -77,13 +77,35 @@ for (const ticker of LIST) {
     process.stdout.write('\n');
 
     const t0 = Date.now();
-    const { posts: fresh, pages, stop } = await fetchComments(code, cutoff, seen, {
-      stopOnSeen: covered,
-      onProgress: (pg, n) => {
-        if (pg % 25 === 0) process.stdout.write(`\r  ${pg}페이지 · ${n}건…`);
-      },
-    });
-    if (pages >= 25) process.stdout.write('\r'.padEnd(40) + '\r');
+    const show = tag => (pg, n) => {
+      if (pg % 25 === 0) process.stdout.write(`\r  ${tag} ${pg}페이지 · ${n}건…`);
+    };
+
+    // 앞쪽 — 마지막 수집 이후 올라온 글. 아는 글을 만나면 멈춘다.
+    //
+    // 가진 게 없으면 건너뛴다. 두 패스가 똑같이 맨 앞에서 시작해 같은 글을 두 번
+    // 받는다 — 병합에서 걸러지긴 하지만 요청이 두 배다.
+    const head = seen.size
+      ? await fetchComments(code, cutoff, seen, { stopOnSeen: true, onProgress: show('최신') })
+      : { posts: [], pages: 0, stop: '가진 글 없음 — 과거 수집만' };
+
+    // 뒤쪽 — 아직 cutoff 에 못 닿았으면 더 판다.
+    //
+    // 처음부터 다시 훑으면 안 된다. 가진 글이 9만 건이면 오래된 구간에 닿기까지
+    // 9천 페이지가 전부 버리는 요청이다. 커서는 그냥 마지막 글의 commentId 라서
+    // 가장 오래된 id 로 바로 뛸 수 있다.
+    let tail = { posts: [], pages: 0, stop: null };
+    if (!covered) {
+      const from = existing.length ? existing[0].id : null;
+      tail = await fetchComments(code, cutoff, seen, {
+        stopOnSeen: false, from, onProgress: show('과거'),
+      });
+    }
+
+    const fresh = head.posts.concat(tail.posts);
+    const pages = head.pages + tail.pages;
+    const stop = covered ? head.stop : `${head.stop} / 과거 ${tail.stop}`;
+    if (pages >= 25) process.stdout.write('\r'.padEnd(52) + '\r');
 
     // 병합 후 기간 밖은 버린다. 같은 id 는 새 것으로 덮는다.
     const merged = new Map(existing.map(p => [p.id, p]));

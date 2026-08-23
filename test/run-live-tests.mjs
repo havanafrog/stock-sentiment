@@ -563,5 +563,73 @@ console.log('\n── K. 보조지표 ──');
   ok('나머지 눈금은 남는다', shown.includes('0') && shown.includes('100'), shown.join());
 }
 
+// ── Q. 가로축 시각 눈금 ──
+// 양 끝 두 개만 있으면 가운데 봉이 언제인지 알 길이 없었다.
+{
+  const { L, node } = run();
+  const H = 36e5;
+
+  // 10분봉 6시간치 — 시간 경계마다 잡혀야 한다
+  const s6 = Array.from({ length: 36 }, (_, i) => Date.UTC(2026, 7, 20, 0, 0) + i * 6e5);
+  const t6 = L.timeTicks(s6);
+  ok('여러 자리가 나온다', t6.length >= 3, String(t6.length));
+  ok('순번은 오름차순', t6.every((t, i) => i === 0 || t.i > t[i-1]?.i || t.i > t6[i-1].i));
+  ok('간격이 고르다', (() => {
+     const gaps = t6.slice(1).map((t, i) => t.i - t6[i].i);
+     return new Set(gaps).size <= 2;
+   })(), t6.map(t => t.i).join());
+
+  // 하루를 넘으면 날짜 바뀌는 자리가 표시된다
+  const s2d = Array.from({ length: 48 }, (_, i) => Date.UTC(2026, 7, 20) + i * H);
+  ok('날짜가 바뀌는 자리를 표시한다', L.timeTicks(s2d).some(t => t.day));
+
+  ok('봉이 하나면 빈 배열', L.timeTicks([1]).length === 0);
+  ok('전부 같은 시각이면 빈 배열', L.timeTicks([5, 5, 5]).length === 0);
+
+  // 넓은 범위일수록 성긴 간격을 고른다 — 개수가 폭발하지 않아야 한다
+  const s90 = Array.from({ length: 90 }, (_, i) => Date.UTC(2026, 5, 1) + i * 864e5);
+  ok('90일도 눈금이 열 개를 안 넘는다', L.timeTicks(s90).length <= 10,
+     String(L.timeTicks(s90).length));
+
+  // 실제로 그려지는지
+  const at = i => Date.UTC(2026, 7, 20, 0, 0) + i * 6e5;
+  L.BAR.rows = Array.from({ length: 40 }, (_, i) =>
+    [at(i), 100, 101, 99, 100 + (i % 3), 1000, 'min']);
+  L.BAR.err = null;
+  L.drawBars();
+  const xs = node('cPrice').children.filter(c => c._attrs.class?.startsWith('ctk'));
+  ok('가로축 글자가 셋 이상', xs.length >= 3, String(xs.length));
+  const vlines = node('cPrice').children.filter(c =>
+    c._attrs.class === 'gl' && c._attrs.x1 === c._attrs.x2);
+  ok('세로선도 같이 선다', vlines.length >= 1, String(vlines.length));
+}
+
+// ── R. 기본 화면 ──
+// 글은 90일치인데 토스는 일봉을 376개 준다. 다 그리면 화면의 84%가 빈 칸이다.
+{
+  const { L } = run();
+  const n = 100;
+  L.BAR.rows = Array.from({ length: n }, (_, i) => [i * 864e5, 10, 11, 9, 10, 1, 'day']);
+  const fearFrom = k => Array.from({ length: n },
+    (_, i) => [i * 864e5, 0, i < k ? 0 : 5, 50, 0, 50]);
+  L.BAR.view = null;
+
+  L.BAR.fear = [];
+  ok('곡소리가 없으면 전체', L.viewRange().join() === '0,' + (n-1), L.viewRange().join());
+
+  L.BAR.fear = fearFrom(70);          // 앞 70봉은 글이 없다
+  ok('빈 앞구간은 기본 화면에서 뺀다', L.viewRange().join() === '70,' + (n-1), L.viewRange().join());
+
+  L.BAR.fear = fearFrom(95);          // 남는 게 5봉뿐이면 읽을 게 없다
+  ok('남는 봉이 적으면 그냥 전체', L.viewRange().join() === '0,' + (n-1), L.viewRange().join());
+
+  L.BAR.fear = [[0, 0, 5, 50, 0, 50]];   // 아직 안 받아온 상태
+  ok('길이가 다르면 전체', L.viewRange().join() === '0,' + (n-1));
+
+  L.BAR.fear = fearFrom(70);
+  L.BAR.view = [0, n - 1];            // 휠로 끝까지 줄인 경우
+  ok('전체를 박으면 전체', L.viewRange().join() === '0,' + (n-1));
+  L.BAR.view = null;
+}
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
