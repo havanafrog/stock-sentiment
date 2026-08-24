@@ -297,6 +297,9 @@
     background: var(--neg); margin-left: 5px; vertical-align: middle; }
 
   .boardwrap { overflow-x: auto; margin: -2px -4px 0; padding: 2px 4px 0; }
+
+  /* 종목 추가. 판 바로 아래에 둔다 — 목록을 보다 "여기 하나 더" 가 자연스럽다. */
+  .tkhead { font-size: 13px; font-weight: 600; color: var(--text-primary); margin: 0 0 10px; }
   /* 좁으면 뒤쪽 칸부터 접는다. 종목·현재가·등락·곡소리가 먼저다. */
   @media (max-width: 640px) {
     .board .c-value, .board .c-str, .board .c-vol, .board .rk { display: none; }
@@ -379,7 +382,16 @@
   .tkchk { font-size: 12px; min-height: 17px; margin: 2px 0 8px; }
   .tkchk.ok { color: var(--ok-ink); }
   .tkchk.no { color: var(--fear-ink); }
-  .tklist { margin: 10px 0 0; border-top: 1px solid var(--hairline); }
+  .tklist { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; }
+  .tkchip { display: inline-flex; align-items: center; gap: 5px; font-size: 12.5px;
+    font-weight: 600; padding: 4px 5px 4px 10px; border-radius: 999px;
+    background: var(--neutral); color: var(--text-secondary); }
+  .tkchip.warm { background: var(--warn-bg); color: var(--warn-ink); }
+  .tkchip i { font-style: normal; font-weight: 400; opacity: .8; }
+  .tkchip .tkdel { appearance: none; border: 0; background: none; cursor: pointer;
+    font: inherit; font-size: 14px; line-height: 1; color: var(--faint);
+    padding: 0 3px; border-radius: 50%; }
+  .tkchip .tkdel:hover { color: var(--neg); }
   .tkrow { display: flex; align-items: center; gap: 10px; padding: 9px 0;
     border-bottom: 1px solid var(--hairline); font-size: 12.5px; }
   .tkrow b { font-weight: 700; }
@@ -444,9 +456,22 @@
           <th data-k="idx">곡소리</th>
         </tr></thead><tbody id="boardBody"></tbody></table>
       </div>
-      <p class="pnote">머리글을 누르면 그 기준으로 정렬합니다. 줄을 누르면 실시간 탭에서 그 종목을 봅니다.
-      거래량 옆 괄호는 전일 대비입니다.</p>
     </div>
+  </div>
+
+  <div class="card">
+    <div class="tkhead">종목 추가</div>
+    <div class="tkadd">
+      <div class="ctrl">
+        <input id="tkBase" class="fld" placeholder="티커 (예: TSLA)"
+          autocapitalize="characters" spellcheck="false">
+      </div>
+      <div class="ctrl"><button class="btn" id="tkCheck">확인</button></div>
+      <div class="ctrl"><button class="btn" id="tkAdd" disabled>추가</button></div>
+    </div>
+    <div class="tkchk" id="tkMsg"></div>
+    <div class="tklist" id="tkList"></div>
+    <p class="cnote" id="tkNote"></p>
   </div>
 
   <div id="viewMain" hidden>
@@ -550,145 +575,45 @@
       찍으면 다음 글로 넘어갑니다. <kbd>↑</kbd><kbd>↓</kbd> 로 오갑니다.</p>
       <div class="plist" id="pList"></div>
       <div class="pmore"><button class="btn" id="pMore" hidden>더 보기</button></div>
-      <p class="pnote" id="pNote">수집해 둔 글입니다.</p>
+
     </div>
   </div>
 
   <div class="foot" id="viewHelp" hidden>
-    <h3>종목 관리</h3>
-    <p>티커를 넣으면 토스에서 이름을 확인한 뒤 목록에 넣습니다. 종목마다 따로 봅니다.
-    <b>현재가·봉 차트는 바로</b> 나오고, <b>공포지수는 기준선이 모여야</b> 나옵니다 — 30일치 글을 받는 데 40~60분입니다.
-    다른 종목 기준선을 빌려 쓸 수 없습니다. 평소 공포율이 종목마다 2배 가까이 다릅니다.</p>
+    <h3>곡소리 지수</h3>
+    <div class="eq">k     = 그 봉이 덮는 구간에 온 공포 글 수
+μ, σ  = 그 <b>종목</b> · 그 <b>미 동부 시각</b> · <b>같은 봉 길이</b>의 평소 공포 글 수
 
-    <div class="tkadd">
-      <div class="ctrl"><label for="tkBase">티커</label>
-        <input id="tkBase" class="fld" placeholder="TSLA" autocapitalize="characters" spellcheck="false"></div>
+z     = (k − μ) / σ
+<b>지수  = clamp( 50 + 20z , 0, 100 )</b>
 
-      <div class="ctrl"><label>&nbsp;</label><button class="btn" id="tkCheck">확인</button></div>
-      <div class="ctrl"><label>&nbsp;</label><button class="btn" id="tkAdd" disabled>추가</button></div>
-    </div>
-    <div class="tkchk" id="tkMsg"></div>
-    <div class="tklist" id="tkList"></div>
-    <p class="cnote" id="tkNote"></p>
+50 = 평소 · 90 = 경보(z = 2)</div>
 
-    <h3>계산식</h3>
+    <p>비율이 아니라 <b>개수</b>로 냅니다. 1분봉은 글이 중앙값 2건이라 비율이 0 / 50 / 100% 셋뿐입니다.
+    짧은 구간의 신호는 "몇 %가 공포냐" 가 아니라 "공포 글이 몇 개 쏟아졌냐" 입니다.</p>
 
-    <h4>1. 감정 점수 — 글 하나</h4>
-    <p><code>lexicon.js</code> 의 사전에 걸린 단어만 셉니다. 긍정 34개·부정 34개, 각각 가중치 1~3.</p>
-    <div class="eq">글 하나의 점수 s
+    <p><b>절대값은 뜻이 없습니다.</b> 평소 공포율이 종목마다 2배씩 다르고,
+    같은 종목도 미 동부 시각별로 2배 다릅니다 — 한국 사용자가 쓰니 밤에 몰립니다.
+    그래서 자기 평소 대비 <b>몇 표준편차</b>인지로 봅니다.</p>
 
-  s = clamp( Σ(부호 × 뒤집기 × 가중치) / (걸린단어수 × 2.2) ,  −1, +1 )
-
-  부호     긍정 사전 +1 · 부정 사전 −1
-  뒤집기   단어 직전 4글자에 안 / 못 / 없 / 아니 가 있으면 −1, 아니면 +1
-  2.2      가중치 최댓값 3보다 작게 잡은 값.
-           강한 단어 하나짜리 글이 곧바로 ±1 에 붙지 않게 한다.
-
-  걸린 단어가 하나도 없으면 s = 0 (중립. "부정"이 아니다)</div>
-
-    <h4>2. 구간 감정 — 카드의 <b>감정 60분</b></h4>
-    <div class="eq">감정 = (그 창에 쓰인 글들의 s) 의 산술평균</div>
-    <p>부분 문자열로 찾습니다. 형태소 분석을 하지 않으므로 "오른"이 "오른쪽"에 걸리는 식의 오탐이 있습니다.</p>
-
-    <h4>3. 공포 글 — 세는 법</h4>
-    <p>공포어 33개(<code>window.LEX_FEAR</code>)가 <b>하나라도</b> 들어 있으면 그 글은 공포 1건입니다.
-    한 글에 "무섭무섭무섭" 이라고 써도 1건입니다. 여기엔 가중치가 없습니다 — 세는 것이지 재는 것이 아닙니다.</p>
-    <p>일부러 뺀 말: <code>계좌</code>("계좌 개설" 잡음), <code>팔았</code>(익절일 수도),
-    <code>하락</code>·<code>악재</code>(부정이지만 공포는 아님).</p>
-
-    <h4>4. 공포 비율 — 카드의 <b>공포 60분 / 15분</b> %</h4>
-    <div class="eq">비율 = 그 창의 공포 글 수 / 그 창의 전체 글 수</div>
-    <p>표본이 적으면(60분 <span id="minLive2">20</span>건, 15분 <span id="minFast2">10</span>건 미만) 비율 대신 건수만 보여줍니다.</p>
-
-    <h4>5. 공포지수 — 차트의 0~100</h4>
-    <p>비율이 아니라 <b>개수</b>로 냅니다. 1분봉은 글이 중앙값 2건이라 비율이 0% / 50% / 100% 셋뿐이고,
-    표본 문턱을 걸면 97%가 빈칸이 됩니다. 짧은 구간에서 실제 신호는 "몇 %가 공포냐"가 아니라
-    "공포 글이 몇 개 쏟아졌냐" 입니다.</p>
-    <div class="eq">k = 그 봉이 덮는 구간에 온 공포 글 수
-  μ, σ = 그 <b>종목</b> · 그 <b>미 동부 시각</b> · <b>같은 봉 길이</b>의 평소 공포 글 수 (평균, 표준편차)
-
-  z = (k − μ) / σ
-
-  <b>공포지수 = clamp( 50 + 20z , 0, 100 )</b>
-
-  50 = 평소        z = 0
-  90 = 경보        z = 2   (실시간 카드가 붉어지는 지점과 같은 문턱)
-   0 / 100         z = ∓2.5 에서 포화</div>
-
-    <h4>6. 기준선 μ, σ 를 만드는 법</h4>
-    <p><code>node build.mjs</code> 가 <code>data/{종목}.posts.json</code> 을 훑어 만듭니다.</p>
-    <div class="eq">봉 단위(1분/10분/60분)마다, 미 동부 시각 0~23 마다:
-
-  보관 기간 전체를 그 봉 길이로 쪼개고
-  각 칸의 공포 글 수를 모아 평균·표준편차를 낸다
-
-  · 글이 <b>하나도 없는 칸도 0 으로 센다</b>
-    빼면 평균이 부풀려진다 (SNDK 미 동부 10시 1분봉: 포함 0.60 · 제외 1.59)
-  · <b>주말은 뺀다</b>
-    넣으면 평일 같은 시각이 늘 높아 보인다 (0.60 → 0.45)
-  · 일봉은 시각 축이 없다. 거래일 하나가 표본 하나.
-
-  실측 예 — SNDK, 미 동부 10시 (한국 밤 11시):
-     1분봉   공포 글  0.60 ± 1.00   (표본 1,380칸)
-    10분봉   공포 글  6.01 ± 6.56   (표본   138칸)
-    60분봉   공포 글 36.04 ± 33.31  (표본    23칸)</div>
-    <p>표준편차가 평균보다 큽니다. 글은 몰려서 오기 때문에 실제 분산이 포아송(√λ)보다 큽니다 —
-    그래서 √λ 가 아니라 실측 표준편차를 씁니다.</p>
-
-    <h4>창 길이는 봉을 따라갑니다</h4>
-    <p>카드의 <b>공포지수·공포 비율·감정</b>은 지금 고른 봉 길이만큼의 창을 봅니다 —
-    1분봉이면 최근 1분, 10분봉이면 10분, 60분봉이면 60분. 그래서 카드의 공포지수가
-    아래 차트의 <b>마지막 봉과 같은 숫자</b>입니다. 창을 따로 잡으면 한 화면에 다른 숫자가 두 개 뜹니다.</p>
-    <p>일봉은 60분으로 물러납니다. 서버가 최근 60분치 글만 메모리에 들고 있어서 하루 창을 만들 수 없습니다.</p>
-    <p>짧은 창에서는 <b>비율과 감정이 자주 비어</b> 건수만 나옵니다 — 1분에 글이 중앙값 2건이라 비율이 세 값뿐입니다.
-    공포지수는 개수 기반이라 그 구간에서도 나옵니다.</p>
-
-    <h4>보조지표</h4>
-    <p>가격과 눈금이 전혀 달라 같은 칸에 겹치지 않고 아래에 따로 놓습니다. 계산은 항상 전체 봉으로 하고
-    그리기만 잘라냅니다 — 확대할 때마다 값이 달라지면 지표가 아닙니다.</p>
-    <div class="eq">MACD(12, 26, 9)
-
-  MACD 선  = EMA12(종가) − EMA26(종가)
-  시그널   = EMA9(MACD 선)
-  히스토   = MACD 선 − 시그널      (0 위 빨강 · 아래 파랑)
-
-RSI(14) — Wilder 평활
-
-  RS  = 14봉 평균 상승폭 / 14봉 평균 하락폭
-  RSI = 100 − 100 / (1 + RS)        0~100 · 30/70 선</div>
-    <p>둘 다 <b>가격만</b> 씁니다. 커뮤니티 글과는 무관합니다.</p>
-
-    <h4>갱신 주기</h4>
-    <p>기본 5초입니다. <code>node server.mjs --poll 15</code> 처럼 바꿀 수 있습니다.
-    짧을수록 반응이 빠르지만 토스에 나가는 요청이 그만큼 늘고, 한 바퀴가 주기보다 오래 걸리면 그 회차는 건너뜁니다
-    (건너뛴 횟수는 서버 창에 찍힙니다).</p>
-
-    <h4>7. 시각 기준선이 왜 필요한가</h4>
-    <p>같은 SNDK 1분봉인데 미 동부 <b>10시 0.60건</b>, <b>14시 0.10건</b> 입니다.
-    한국 사용자가 쓰기 때문에 미 동부 10시(한국 23시)에 몰리고 미 동부 14시(한국 새벽 3시)에는 비어 있습니다.
-    시각 보정 없이 절대 개수를 보면 밤에는 늘 공포, 새벽에는 늘 평온으로 나옵니다.</p>
-    <p>종목 간에도 평소 공포 비율이 2배 가까이 다릅니다 (SNDK 5.4% ↔ MUU 7.3%).
-    그래서 절대값이 아니라 <b>자기 평소 대비 몇 표준편차</b>로 봅니다.</p>
-
-    <h4>읽을 때 조심할 것</h4>
-    <p><b>개수 기반이라 글이 몰리기만 해도 오릅니다.</b> 공포 비중이 평소여도 글이 10배 오면 지수가 오릅니다.
-    그래서 툴팁에 <code>글 / 공포</code> 를 같이 띄웁니다 — "글이 몰린 것"과 "공포 비중이 오른 것"을 구분하세요.</p>
-    <p><b>사전 채점의 한계.</b> 반어법("좋겠다 참")과 신조어는 놓칩니다. 부정어가 뒤에 오면("손절 안 했다") 놓칩니다.
-    다만 기준선을 <b>같은 채점기로</b> 계산하므로 이런 오탐은 평균에 섞여 z 에서 차감됩니다.
-    보는 건 절대 수준이 아니라 변화입니다.</p>
-    <p><b>상관은 인과가 아닙니다.</b> 공포지수가 먼저 튀었다고 그게 주가를 예고한 건 아닙니다.</p>
-
-    <h3>공포 지수를 읽는 법</h3>
-    <p><b>비율입니다.</b> 최근 60분 글 중 공포어("무섭다", "손절", "물렸다", "나락"…)가 든 <b>글의 비율</b>. 한 사람이 "무섭무섭무섭" 써도 1건으로 셉니다.</p>
-    <p><b>절대값은 의미가 없습니다.</b> 평소 비율이 종목마다 2배씩 다릅니다(SNDK 3.7% ↔ MUU 7.1%). 같은 종목도 미 동부 시간대별로 2배 차이납니다. 그래서 <b>z</b> — 그 종목, 그 시간대의 평소 대비 몇 표준편차인지 — 로 봅니다.</p>
-    <p><b>z ≥ 2 면 카드가 붉어집니다.</b> 평소 그 시간대에 이 정도로 올라가는 일이 드물다는 뜻입니다.</p>
-    <p><b>15분 창에는 z 를 안 매깁니다.</b> 표본이 1/4 이라 분산이 원래 큽니다. 같은 기준선에 대면 없는 공포가 보이게 됩니다. 대신 60분과 나란히 두었으니 <b>15분이 60분보다 높으면 지금 꺾이는 중</b>이라고 읽으세요.</p>
+    <h3>공포 글</h3>
+    <p>공포어가 <b>하나라도</b> 있으면 그 글은 공포 1건입니다. "무섭무섭무섭" 도 1건입니다 —
+    세는 것이지 재는 것이 아닙니다. 감정 점수는 따로, 긍정·부정 사전에 걸린 단어의
+    가중 평균으로 −1~+1 을 냅니다.</p>
 
     <h3>믿을 수 없는 경우</h3>
-    <p><b>표본 부족</b> — 60분 창에 <span id="minLive">20</span>건, 15분 창에 <span id="minFast">10</span>건 미만이면 비율 대신 건수만 보여줍니다. 12건에서 나온 "25%"는 세 명이 쓴 것뿐이라 게이지를 채울 자격이 없습니다. 거래가 없는 시간대에는 대부분 이렇습니다.</p>
-    <p>문턱을 넘겨도 비율은 흔들립니다 — 비율의 표준오차는 √(p(1−p)/n) 이라 p=5%, n=20이면 ±4.9%로 값 자체만큼 큽니다. 그래서 절대 비율이 아니라 <b>z</b> 를 보셔야 합니다. 기준선이 그 흔들림을 이미 겪어봤기 때문입니다.</p>
-    <p><b>사전 채점</b> — "손절 안 했다"처럼 부정이 뒤에 오면 놓칩니다. 다만 기준선을 같은 채점기로 계산하므로 이런 오탐은 평균에 섞여 z 에서 차감됩니다. 보는 건 절대 수준이 아니라 변화입니다.</p>
-    <p><b>기준선</b>은 <code>node build.mjs</code> 를 돌린 시점의 30일치입니다. 오래되면 다시 돌리세요.</p>
+    <p><b>글이 몰리기만 해도 오릅니다.</b> 개수 기반이라 공포 비중이 평소여도 글이 10배 오면 지수가 오릅니다.
+    툴팁의 <code>글 / 공포</code> 를 같이 보세요.</p>
+    <p><b>표본 부족</b> — 60분 창에 <span id="minLive">20</span>건,
+    15분 창에 <span id="minFast">10</span>건 미만이면 비율 대신 건수만 보여줍니다.</p>
+    <p><b>사전 채점</b> — 반어법과 신조어를 놓칩니다. 부정어가 뒤에 오면("손절 안 했다") 놓칩니다.
+    다만 기준선을 같은 채점기로 계산하므로 오탐은 평균에 섞여 z 에서 차감됩니다.
+    보는 건 절대 수준이 아니라 변화입니다.</p>
+    <p><b>상관은 인과가 아닙니다.</b> 지수가 먼저 튀었다고 그게 주가를 예고한 건 아닙니다.</p>
+
+    <p class="cnote">기준선 만드는 법, 보조지표 공식, 사전 내용은
+    <a href="https://github.com/havanafrog/stock-sentiment" target="_blank"
+       rel="noreferrer">저장소 README</a> 에 있습니다.</p>
   </div>
 
   <p class="madeby">made by havanafrog</p>
@@ -1599,8 +1524,9 @@ async function loadPosts(reset) {
 function paintPosts() {
   const d = P.seen; if (!d) return;
   const filtered = d.matched !== d.total;
+  // 창 길이는 서버가 정한다(--posts-days). 문장으로 설명하지 않고 건수 옆에 붙인다.
   $('pCount').innerHTML =
-    `<b>${d.ticker}</b> · ${d.matched.toLocaleString()}건`
+    `<b>${d.ticker}</b> · 최근 ${d.loadDays}일 ${d.matched.toLocaleString()}건`
     + (filtered ? ` <span style="color:var(--muted);font-weight:400">/ 전체 ${d.total.toLocaleString()}건</span>` : '')
     + (d.matched ? ` · 공포 ${d.fear.toLocaleString()}건 (${(d.fear / d.matched * 100).toFixed(1)}%)` : '')
     + (d.total ? '' : ' — 아직 수집한 글이 없습니다. collect 를 먼저 돌리세요.');
@@ -1622,11 +1548,6 @@ function paintPosts() {
         ${r.img ? `<div class="pimg"><img src="${esc(r.img)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>` : ''}
       </div>`).join('')
     : '<div class="pitem"><div class="ptxt" style="color:var(--muted)">조건에 맞는 글이 없습니다</div></div>';
-
-  // 창은 서버가 정한다(--posts-days). 여기 숫자를 박아 두면 서버 설정과 갈린다.
-  const note = $("pNote");
-  if (note) note.innerHTML = `최근 <b>${d.loadDays}일</b>치입니다. 더 옛날 글은 차트에만 들어 있습니다 —`
-    + ` 다 싣기엔 20만 건이라 여는 데 몇 초씩 걸립니다.`;
 
   $('pMore').hidden = P.page + 1 >= d.pages;
   $('pMore').textContent = `더 보기 (${P.rows.length.toLocaleString()} / ${d.matched.toLocaleString()})`;
@@ -2218,12 +2139,15 @@ async function tkDel(base) {
 }
 
 function tkRender(d) {
+  // 위의 판이 이미 같은 종목을 다 보여준다. 여기서 또 표로 늘어놓으면 한 화면에
+  // 같은 목록이 둘이다 — 지우는 자리만 있으면 되니 칩 한 줄로 접는다.
   $('tkList').innerHTML = d.rows.map(r => {
-    const st = r.job
-      ? `<span class="st warm">${r.job.phase}${r.job.pages ? ` ${r.job.pages}페이지 ${r.job.posts.toLocaleString()}건` : ''}</span>`
-      : r.baseline ? '' : '<span class="st warm">기준선 없음</span>';
-    return `<div class="tkrow"><b>${r.t}</b> <span class="st">${r.name ?? ''}</span> ${st}`
-      + `<span class="grow"></span><button class="tkdel" data-del="${r.t}">삭제</button></div>`;
+    const busy = r.job
+      ? `${r.job.phase}${r.job.pages ? ` ${r.job.pages}쪽` : ''}`
+      : r.baseline ? '' : '기준선 없음';
+    return `<span class="tkchip${busy ? ' warm' : ''}">${r.t}`
+      + `${busy ? `<i>${busy}</i>` : ''}`
+      + `<button class="tkdel" data-del="${r.t}" title="${r.t} 삭제">\u00d7</button></span>`;
   }).join('');
 
   // 종목이 늘면 한 바퀴가 길어진다. 주기를 넘기면 회차를 건너뛴다.
@@ -2270,7 +2194,7 @@ let showTab = () => {};
     }
     if (name === 'posts') openPosts();
     if (name === 'analysis') openAnalysis();
-    if (name === 'help') tkLoad();
+    if (name === 'board') tkLoad();     // 종목 관리가 메인으로 옮겨졌다
     // 숨어 있는 동안 그린 차트는 폭이 0 이라 선이 뭉개진다. 나올 때 다시 그린다.
     if (name === 'main') { drawBars(); drawFear(); }
   };
