@@ -10,7 +10,7 @@ ENV NODE_OPTIONS=--max-old-space-size=384 \
 WORKDIR /app
 
 # 코드는 이미지에, 남는 것은 볼륨에. 섞으면 갱신할 때마다 데이터가 위험해진다.
-COPY paths.mjs toss.mjs tickers.mjs lexicon.js \
+COPY paths.mjs toss.mjs tickers.mjs lexicon.js model.json \
      server.mjs build.mjs fetch-comments.mjs \
      live.html index.html data.js logo-128.png ./
 
