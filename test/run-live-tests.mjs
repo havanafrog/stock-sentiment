@@ -311,8 +311,9 @@ console.log('\n── J. 종목 관리 ──');
   L.tkRender({ rows: [row('SNDK'), row('KORU')],
                count: 3, pollMs: 5000, lastPollMs: 650, crowded: false });
   const html = node('tkList').innerHTML;
-  ok('종목마다 한 줄', (html.match(/tkrow/g) || []).length === 2);
-  ok('종목 이름도 보인다', html.includes('KORU이름'));
+  // 위의 판이 같은 목록을 이미 보여준다. 여기는 지우는 자리라 칩 한 줄이면 된다.
+  ok('종목마다 칩 하나', (html.match(/tkchip/g) || []).length === 2, html);
+  ok('종목 기호가 보인다', html.includes('>KORU'), html);
   ok('삭제 버튼에 종목이 붙는다', html.includes('data-del="KORU"'));
   ok('기준선 있으면 경고 없음', !html.includes('기준선 없음'));
   ok('폴링 상태를 적는다', /3개 종목 · 폴링 5초 · 한 바퀴 650ms/.test(node('tkNote').textContent),
@@ -329,7 +330,9 @@ console.log('\n── J. 종목 관리 ──');
                count: 1, pollMs: 5000, lastPollMs: 200, crowded: false });
   const busy = node('tkList').innerHTML;
   ok('수집 단계를 적는다', busy.includes('글 수집 중'));
-  ok('진행 수치를 적는다', busy.includes('120페이지') && busy.includes('1,320건'), busy.slice(0, 160));
+  // 칩은 좁다. 쪽수만 적고 건수는 뺀다 — 둘 다 넣으면 줄이 넘친다.
+  ok('진행 쪽수를 적는다', busy.includes('120쪽'), busy.slice(0, 160));
+  ok('수집 중이면 눈에 띈다', busy.includes('tkchip warm'), busy.slice(0, 80));
 
   // 종목이 많아 한 바퀴가 주기에 근접
   L.tkRender({ rows: [row('A')], count: 20, pollMs: 5000, lastPollMs: 4200, crowded: true });
