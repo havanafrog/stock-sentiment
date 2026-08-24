@@ -242,38 +242,65 @@
   .pmore { display: flex; justify-content: center; padding-top: 14px; }
   .pnote { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
 
-  /* 종목 판 — 지금 뭐가 도는지 한눈에. 누르면 아래 차트가 그 종목으로 바뀐다. */
+  /* 종목 판.
+   *
+   * 토스 목록을 재서 맞췄다. 특징이 셋인데 전부 "덜 그리는" 쪽이다.
+   *   1. 가로 구분선이 하나도 없다. 행을 56px 로 벌려 여백이 줄을 대신한다.
+   *   2. 글자 크기가 전부 13px 이다. 위계는 굵기(600/500/400)로만 준다.
+   *   3. 색은 등락에만 쓴다. 나머지는 회색 세 단계다.
+   */
   .board { width: 100%; border-collapse: collapse; font-size: 13px;
     font-variant-numeric: tabular-nums; }
-  .board th { font-weight: 500; color: var(--muted); font-size: 11.5px; text-align: right;
-    padding: 0 0 7px; cursor: pointer; user-select: none; white-space: nowrap; }
-  .board th:first-child { text-align: left; }
-  .board th:hover { color: var(--text-primary); }
+  .board th { font-weight: 400; color: var(--faint); font-size: 13px; text-align: right;
+    padding: 0 12px 10px 0; cursor: pointer; user-select: none; white-space: nowrap; }
+  .board th:first-child, .board th:nth-child(2) { text-align: left; }
+  .board th:hover { color: var(--text-secondary); }
   .board th[aria-sort] { color: var(--text-primary); font-weight: 600; }
-  .board td { padding: 7px 0; text-align: right; border-top: 1px solid var(--border);
-    white-space: nowrap; }
-  .board td:first-child { text-align: left; }
+  /* 정렬 중인 칸에만 방향을 붙인다. 늘 붙여 두면 머리글이 기호로 지저분해진다. */
+  .board th[aria-sort="descending"]::after { content: ' \2193'; }
+  .board th[aria-sort="ascending"]::after  { content: ' \2191'; }
+
+  .board td { height: 56px; padding: 0 12px 0 0; text-align: right; white-space: nowrap;
+    color: var(--text-primary); font-weight: 500; }
+  .board td:first-child, .board td:nth-child(2) { text-align: left; }
   .board tbody tr { cursor: pointer; }
   .board tbody tr:hover td { background: var(--neutral); }
   .board tr[aria-selected="true"] td { background: var(--accent-wash); }
-  .board tr[aria-selected="true"] td:first-child { box-shadow: inset 3px 0 0 var(--pos); }
-  .board .sym { font-weight: 650; padding-left: 9px; }
-  .board .nm { color: var(--muted); font-weight: 400; margin-left: 5px; font-size: 11.5px; }
+
+  /* 순번. 정렬을 바꾸면 순서가 바뀌므로 이게 있어야 몇 번째인지 읽힌다. */
+  .board .rk { width: 30px; padding-left: 10px; color: var(--faint); font-weight: 600; }
+  .board tr[aria-selected="true"] .rk { box-shadow: inset 3px 0 0 var(--pos);
+    color: var(--pos); }
+
+  /* 종목 — 심볼 위, 한글 이름 아래. 한 줄에 몰면 이름이 길 때 표가 밀린다. */
+  .board .sym { font-weight: 600; line-height: 18px; }
+  .board .nm { display: block; color: var(--faint); font-weight: 400; font-size: 12px;
+    line-height: 16px; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
+
+  /* 등락은 액수와 비율을 같이 준다. 비율만 보면 $1 짜리와 $1,500 짜리가 같아 보인다. */
+  .board .chg { line-height: 18px; }
+  .board .chgv { display: block; font-size: 12px; font-weight: 400; opacity: .75;
+    line-height: 16px; }
   .board .up { color: var(--up); }
   .board .down { color: var(--down); }
+
   /* 전일 대비 거래량. 100% 를 넘으면 오늘 몰린다는 뜻이라 눈에 띄어야 한다. */
-  .board .rel { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
-  .board .rel.hot { color: var(--fear-ink); font-weight: 600; }
+  .board .rel { display: block; color: var(--faint); font-size: 12px; font-weight: 400;
+    line-height: 16px; }
+  .board .rel.hot { color: var(--up); font-weight: 600; opacity: 1; }
+
+  /* 곡소리. 경보만 알약으로 띄운다 — 다 띄우면 아무것도 안 띄운 것과 같다. */
   .board .idx { font-weight: 600; }
-  .board .idx.alert { color: var(--fear-ink); }
-  .board .fdot { display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+  .board .idx.alert { color: #fff; background: var(--fear); border-radius: 5px;
+    padding: 3px 7px; }
+  .board .fdot { display: inline-block; width: 5px; height: 5px; border-radius: 50%;
     background: var(--neg); margin-left: 5px; vertical-align: middle; }
-  .boardwrap { overflow-x: auto; }
+
+  .boardwrap { overflow-x: auto; margin: -2px -4px 0; padding: 2px 4px 0; }
   /* 좁으면 뒤쪽 칸부터 접는다. 종목·현재가·등락·곡소리가 먼저다. */
   @media (max-width: 640px) {
-    .board .c-value, .board .c-str { display: none; }
-    .board { font-size: 12.5px; }
-    .board .nm { display: none; }
+    .board .c-value, .board .c-str, .board .c-vol, .board .rk { display: none; }
+    .board td { height: 62px; }
   }
   .rate { font-size: 11.5px; color: var(--muted); }
 
@@ -407,10 +434,11 @@
     <div class="card">
       <div class="boardwrap">
         <table class="board" id="board"><thead id="boardHead"><tr>
+          <th class="rk"></th>
           <th data-k="sym">종목</th>
           <th data-k="close">현재가</th>
           <th data-k="chg">등락</th>
-          <th data-k="volume">거래량</th>
+          <th data-k="volume" class="c-vol">거래량</th>
           <th data-k="value" class="c-value">거래대금</th>
           <th data-k="strength" class="c-str">체결강도</th>
           <th data-k="idx">곡소리</th>
@@ -1695,29 +1723,44 @@ function paintBoard(order, tickers, feary) {
     return BOARD.desc ? y - x : x - y;
   });
 
-  body.innerHTML = rows.map(t => {
+  body.innerHTML = rows.map((t, i) => {
     const v = tickers[t], p = v.price;
     const chg = chgOf(p);
     const dir = chg === null ? '' : chg > 0 ? 'up' : chg < 0 ? 'down' : '';
+    // 비율만 보면 $1 짜리와 $1,500 짜리가 같아 보인다. 액수도 같이 준다.
+    const diff = p && p.base ? p.close - p.base : null;
     // 전일 대비 거래량. 장 초반에는 당연히 낮으니 색은 100% 를 넘을 때만 준다.
     const rel = p?.preVolume ? p.volume / p.preVolume : null;
     const idx = v.w60?.idx;
     return `<tr data-t="${t}" aria-selected="${t === UI.ticker}">`
-      + `<td class="sym">${t}${feary.includes(t) ? '<span class="fdot"></span>' : ''}`
+      + `<td class="rk">${i + 1}</td>`
+      + `<td><span class="sym">${t}`
+        + `${feary.includes(t) ? '<span class="fdot"></span>' : ''}</span>`
         + `<span class="nm">${esc(v.name ?? '')}</span></td>`
       + `<td>${p ? money(p.close) : '—'}</td>`
-      + `<td class="${dir}">${chg === null ? '—'
-          : (chg > 0 ? '+' : '') + (chg * 100).toFixed(2) + '%'}</td>`
-      + `<td>${p?.volume ? VOLF.format(p.volume) : '—'}`
+      + `<td class="chg ${dir}">`
+        + `${chg === null ? '—' : (chg > 0 ? '+' : '') + (chg * 100).toFixed(2) + '%'}`
+        + `${diff === null ? ''
+            : `<span class="chgv">${diff > 0 ? '+' : diff < 0 ? '-' : ''}`
+              + `${money(Math.abs(diff))}</span>`}</td>`
+      + `<td class="c-vol">${p?.volume ? VOLF.format(p.volume) : '—'}`
         // 장 열린 직후엔 0% 가 줄줄이 늘어선다. 반올림해 0 이 될 값은 그렇게 안 쓴다.
         + `${rel === null ? '' : `<span class="rel${rel >= 1 ? ' hot' : ''}">`
             + `${rel < 0.01 ? '<1' : Math.round(rel * 100)}%</span>`}</td>`
       + `<td class="c-value">${valueShort(p?.value)}</td>`
       + `<td class="c-str">${p?.strength == null ? '—' : p.strength.toFixed(1)}</td>`
-      + `<td class="idx${idx >= ALERT ? ' alert' : ''}">`
-        + `${idx == null ? '—' : Math.round(idx)}</td>`
+      + `<td><span class="idx${idx >= ALERT ? ' alert' : ''}">`
+        + `${idx == null ? '—' : Math.round(idx)}</span></td>`
       + '</tr>';
   }).join('');
+
+  // 어느 칸으로 정렬 중인지 머리글에 표시한다.
+  const hrow = $('boardHead')?.children?.[0];
+  for (const th of (hrow?.children ?? [])) {
+    if (th.dataset?.k === BOARD.key) {
+      th.setAttribute('aria-sort', BOARD.desc ? 'descending' : 'ascending');
+    } else th.removeAttribute?.('aria-sort');
+  }
 }
 
 // 종목 버튼은 실시간 탭과 같은 선택을 쓴다 — 탭을 옮겨도 보던 종목이 유지된다
