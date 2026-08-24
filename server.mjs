@@ -4,6 +4,8 @@
  *   node server.mjs              # http://localhost:8731
  *   node server.mjs --port 9000
  *   node server.mjs --poll 15      # 폴링 주기(초). 기본 5
+ *   node server.mjs --load-days 90 --posts-days 7
+ *        차트가 보는 기간 / 글 탭이 보는 기간. 글 탭은 짧아야 빠르다.
  *   node server.mjs --selftest   # 네트워크 없이 글 열람 필터만 점검
  *
  * 하는 일 두 가지:
@@ -54,6 +56,12 @@ const POLL_MS = Math.max(2_000, (Number(pollArg >= 0 ? argv[pollArg + 1] : 5) ||
 // 1GB 짜리 서버에서 힙이 53MB 씩 튄다. 글 탭에서 한 달 전 글을 뒤질 일은 드물다.
 const daysArg = argv.indexOf('--load-days');
 const LOAD_DAYS = Math.max(1, Number(daysArg >= 0 ? argv[daysArg + 1] : 5) || 5);
+
+// 글 탭은 차트만큼 길게 볼 이유가 없다. 90일치를 다 채점해 넘기면 첫 응답이
+// 9초까지 갔다 — 읽는 사람은 어제오늘 글을 본다. 차트 창과 따로 둔다.
+const postsArg = argv.indexOf('--posts-days');
+const POSTS_DAYS = Math.min(LOAD_DAYS,
+  Math.max(1, Number(postsArg >= 0 ? argv[postsArg + 1] : 7) || 7));
 const WINDOW_MIN = 60;       // 가장 긴 창 — 이보다 오래된 글은 버린다
 const RECENT_MIN = 60;       // 실시간 탭 "최근 글" 이 덮는 시간
 const RECENT_MAX = 30;       // 그중 실제로 보내는 건수 (푸시 크기를 묶는다)
@@ -231,7 +239,36 @@ function trimLive(ticker) {
   } catch { /* 못 줄여도 도는 데는 지장 없다 */ }
 }
 const PAGE_SIZE = 50;
-let CACHE = { ticker: null, rows: null, stamp: 0 };
+// 차트와 글 탭이 필요한 게 다르다.
+//
+//   차트   90일치 · 시각 · 공포 · 곡소리  — 그것뿐이다
+//   글 탭  최근 며칠 · 본문 · 좋아요 · 사진 · 점수
+//
+// 하나로 합쳐 두면 실시간 글 한 줄이 붙을 때마다 20만 건을 다시 채점한다.
+// 5초마다 그러니 사실상 늘 미스였다. 캐시가 한 칸뿐이라 종목을 바꿔도 미스였다.
+//
+// 그래서 셋으로 나눈다. 무거운 쪽(본 파일)은 collect 가 돌 때만 다시 만들고,
+// 5초마다 바뀌는 쪽(실시간)은 몇백 건이라 다시 만들어도 티가 안 난다.
+const ARCH_IDX = new Map();   // 티커 → { stamp, ms, f, g }  본 파일 차트 색인
+const CHART = new Map();      // 티커 → { stamp, ms, f, g }  본 + 실시간
+const ARCH_ROWS = new Map();  // 티커 → { stamp, rows }      본 파일 최근 며칠, 채점 완료
+const RECENT = new Map();     // 티커 → { stamp, rows }      본 + 실시간, 최신순
+
+/** 파일 두 개의 손댄 시각. 어느 쪽이 바뀌어도 다시 만든다. */
+const stampOf = (...files) => files
+  .map(f => (existsSync(f) ? statSync(f).mtimeMs : 0)).join(':');
+
+/** 본 파일을 통째로 읽는다. 26MB 짜리라 여기 드는 시간이 전부다. */
+function readArchive(ticker) {
+  const f = join(POSTS_DIR, `${ticker}.posts.json`);
+  if (!existsSync(f)) return [];
+  try {
+    return JSON.parse(readFileSync(f, 'utf8'));
+  } catch (e) {
+    console.warn(`  ${ticker}.posts.json 을 읽지 못했습니다: ${e.message}`);
+    return [];
+  }
+}
 
 // ── 사람이 찍은 정답 ─────────────────────────────────────────
 //
@@ -269,40 +306,99 @@ function appendLabel(ticker, id, y) {
   LABELS_STAMP = -1;                       // 다음에 읽을 때 다시 훑는다
 }
 
+/**
+ * 차트가 보는 색인. 오래된 순으로 시각·공포·곡소리 셋만 담는다.
+ *
+ * 20만 건을 객체로 들면 종목마다 50MB 다 — 여섯 종목이면 컨테이너가 죽는다.
+ * 여기 담는 건 숫자 세 줄이라 종목당 1.8MB 다.
+ */
+function chartIndex(ticker) {
+  const f = join(POSTS_DIR, `${ticker}.posts.json`);
+  const lf = livePath(ticker);
+  const key = stampOf(f, lf);
+  const hit = CHART.get(ticker);
+  if (hit && hit.stamp === key) return hit;
+
+  const cut = Date.now() - LOAD_DAYS * 86_400_000;
+
+  // 본 파일 쪽. collect 가 돌 때만 다시 만든다 — 하루 한 번이다.
+  const aKey = stampOf(f);
+  let arch = ARCH_IDX.get(ticker);
+  if (!arch || arch.stamp !== aKey) {
+    const ms = [], fl = [], gl = [];
+    for (const p of readArchive(ticker)) {
+      const t = Date.parse(p.at);
+      if (!(t >= cut)) continue;
+      ms.push(t); fl.push(hasFear(p.text) ? 1 : 0); gl.push(isWail(p.text) ? 1 : 0);
+    }
+    arch = { stamp: aKey, ms, f: fl, g: gl, ids: new Set() };
+    ARCH_IDX.set(ticker, arch);
+  }
+
+  // 실시간 쪽. 몇백 건이라 매번 다시 만들어도 티가 안 난다.
+  const live = readLive(ticker)
+    .map(p => ({ t: Date.parse(p.at), p }))
+    .filter(x => x.t >= cut && x.t > (arch.ms[arch.ms.length - 1] ?? -Infinity))
+    .sort((a, b) => a.t - b.t);
+
+  const n = arch.ms.length + live.length;
+  const ms = new Float64Array(n), fl = new Uint8Array(n), gl = new Uint8Array(n);
+  ms.set(arch.ms); fl.set(arch.f); gl.set(arch.g);
+  live.forEach((x, i) => {
+    const k = arch.ms.length + i;
+    ms[k] = x.t;
+    fl[k] = hasFear(x.p.text) ? 1 : 0;
+    gl[k] = isWail(x.p.text) ? 1 : 0;
+  });
+  const out = { stamp: key, ms, f: fl, g: gl };
+  CHART.set(ticker, out);
+  return out;
+}
+
+/**
+ * 글 탭이 보는 줄. 최근 POSTS_DAYS 치만 채점한다.
+ *
+ * 본 파일은 오래된 순이라 최근 며칠은 끝쪽 토막이다. 앞에서부터 훑지 않고
+ * 뒤에서 잘라 오면 20만 건 중 만 건만 만진다.
+ */
 function loadPosts(ticker) {
   const f = join(POSTS_DIR, `${ticker}.posts.json`);
   const lf = livePath(ticker);
-  // collect 는 서버가 떠 있는 채로 돈다. 파일이 바뀌었으면 다시 읽어야
-  // 방금 받은 글이 화면에 나온다. 실시간으로 붙는 쪽도 같이 본다.
-  const stamp = (existsSync(f) ? statSync(f).mtimeMs : 0)
-    + ':' + (existsSync(lf) ? statSync(lf).mtimeMs : 0);
-  if (CACHE.ticker === ticker && CACHE.stamp === stamp) return CACHE.rows;
+  const key = stampOf(f, lf);
+  const hit = RECENT.get(ticker);
+  if (hit && hit.stamp === key) return hit.rows;
 
-  // 자르는 게 먼저다. 채점 전에 걸러야 안 쓸 글을 채점하지 않는다.
-  const cut = Date.now() - LOAD_DAYS * 86_400_000;
-  let raw = [];
-  if (existsSync(f)) {
-    try {
-      raw = JSON.parse(readFileSync(f, 'utf8')).filter(p => Date.parse(p.at) >= cut);
-    } catch (e) {
-      console.warn(`  ${ticker}.posts.json 을 읽지 못했습니다: ${e.message}`);
-    }
+  const cut = Date.now() - POSTS_DAYS * 86_400_000;
+  const mk = p => ({
+    id: p.id, at: p.at, text: p.text, likes: p.likes ?? 0, img: p.img ?? null,
+    s: +score(p.text).toFixed(3), f: hasFear(p.text), g: isWail(p.text), d: et(p.at).date,
+  });
+
+  // 본 파일 쪽 — collect 가 돌 때만 다시 채점한다.
+  // 자르는 날을 열쇠에 넣는다. 안 넣으면 서버가 오래 떠 있을수록 창이 슬금슬금
+  // 늘어난다 — 만들 때 쓴 경계가 그대로 굳기 때문이다.
+  const aKey = stampOf(f) + ":" + Math.floor(cut / 86_400_000);
+  let arch = ARCH_ROWS.get(ticker);
+  if (!arch || arch.stamp !== aKey) {
+    const all = readArchive(ticker);
+    let i = all.length;
+    while (i > 0 && Date.parse(all[i - 1].at) >= cut) i--;   // 뒤에서 훑는다
+    const rows = all.slice(i).map(mk).reverse();             // 최신을 앞으로
+    arch = { stamp: aKey, rows };
+    ARCH_ROWS.set(ticker, arch);
   }
-  // 실시간으로 붙은 글. 재시작하면 이미 붙은 걸 또 붙이므로 id 로 거른다.
-  const seen = new Set(raw.map(p => p.id));
+
+  // 실시간 쪽을 앞에 붙인다. 이미 본 파일에 흡수된 글은 id 로 거른다.
+  const seen = new Set(arch.rows.map(r => r.id));
+  const live = [];
   for (const p of readLive(ticker)) {
     if (seen.has(p.id) || Date.parse(p.at) < cut) continue;
     seen.add(p.id);
-    raw.push(p);
+    live.push(mk(p));
   }
-  raw.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));   // 최신을 앞으로
-
-  // 채점은 읽을 때 한 번만 한다. 요청마다 다시 하면 페이지 넘길 때마다 0.5초씩 든다.
-  const rows = raw.map(p => ({
-    id: p.id, at: p.at, text: p.text, likes: p.likes ?? 0, img: p.img ?? null,
-    s: +score(p.text).toFixed(3), f: hasFear(p.text), g: isWail(p.text), d: et(p.at).date,
-  }));
-  CACHE = { ticker, rows, stamp };
+  live.sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  const rows = live.concat(arch.rows);
+  RECENT.set(ticker, { stamp: key, rows });
   return rows;
 }
 
@@ -334,7 +430,7 @@ export function filterPosts(rows, o) {
   const page = Math.max(0, o.page | 0);
   const start = page * PAGE_SIZE;
   return {
-    total: rows.length, matched: hits.length, loadDays: LOAD_DAYS,
+    total: rows.length, matched: hits.length, loadDays: POSTS_DAYS,
     page, pages: Math.ceil(hits.length / PAGE_SIZE), size: PAGE_SIZE,
     fear: hits.filter(r => r.f).length,
     labeled: o.labels ? hits.filter(r => lab[r.id]).length : 0,
@@ -515,15 +611,14 @@ const ET_HOUR = new Intl.DateTimeFormat('en-CA', {
   timeZone: 'America/New_York', hour: '2-digit', hourCycle: 'h23' });
 
 function fearSeries(ticker, unit, bars) {
-  const rows = loadPosts(ticker);
+  // 차트는 시각·공포·곡소리 셋만 쓴다. 글 줄을 통째로 들 이유가 없다.
+  const idx = chartIndex(ticker);
   const bl = SNAPSHOT?.[ticker]?.baseline?.counts?.[unit];
   const wbl = SNAPSHOT?.[ticker]?.baseline?.wailCounts?.[unit];
   const out = [];
   if (!bars.length) return { rows: out, covers: null };
 
-  // 글은 최신순으로 캐시돼 있다. 훑으려면 오래된 순이 편하다.
-  const asc = rows.slice().reverse();
-  const stamps = asc.map(r => Date.parse(r.at));
+  const stamps = idx.ms;                     // 이미 오래된 순이다
 
   // 봉 i 가 덮는 구간 = (이전 봉 시각, 이 봉 시각]. 첫 봉은 봉 간격만큼 뒤로 잡는다.
   //
@@ -544,7 +639,7 @@ function fearSeries(ticker, unit, bars) {
     while (j < stamps.length && stamps[j] <= from) j++;
     let n = 0, f = 0, g = 0;
     let k = j;
-    while (k < stamps.length && stamps[k] <= at) { n++; if (asc[k].f) f++; if (asc[k].g) g++; k++; }
+    while (k < stamps.length && stamps[k] <= at) { n++; if (idx.f[k]) f++; if (idx.g[k]) g++; k++; }
     j = k;
     const h = +ET_HOUR.format(new Date(at));
     const b = bl?.hourly?.[h] ?? bl?.overall ?? null;
