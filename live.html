@@ -241,6 +241,40 @@
   .pitem .pimg img.big { max-height: none; cursor: zoom-out; }
   .pmore { display: flex; justify-content: center; padding-top: 14px; }
   .pnote { color: var(--muted); font-size: 12px; margin: 10px 0 0; }
+
+  /* 종목 판 — 지금 뭐가 도는지 한눈에. 누르면 아래 차트가 그 종목으로 바뀐다. */
+  .board { width: 100%; border-collapse: collapse; font-size: 13px;
+    font-variant-numeric: tabular-nums; }
+  .board th { font-weight: 500; color: var(--muted); font-size: 11.5px; text-align: right;
+    padding: 0 0 7px; cursor: pointer; user-select: none; white-space: nowrap; }
+  .board th:first-child { text-align: left; }
+  .board th:hover { color: var(--text-primary); }
+  .board th[aria-sort] { color: var(--text-primary); font-weight: 600; }
+  .board td { padding: 7px 0; text-align: right; border-top: 1px solid var(--border);
+    white-space: nowrap; }
+  .board td:first-child { text-align: left; }
+  .board tbody tr { cursor: pointer; }
+  .board tbody tr:hover td { background: var(--neutral); }
+  .board tr[aria-selected="true"] td { background: var(--accent-wash); }
+  .board tr[aria-selected="true"] td:first-child { box-shadow: inset 3px 0 0 var(--pos); }
+  .board .sym { font-weight: 650; padding-left: 9px; }
+  .board .nm { color: var(--muted); font-weight: 400; margin-left: 5px; font-size: 11.5px; }
+  .board .up { color: var(--up); }
+  .board .down { color: var(--down); }
+  /* 전일 대비 거래량. 100% 를 넘으면 오늘 몰린다는 뜻이라 눈에 띄어야 한다. */
+  .board .rel { color: var(--muted); font-size: 11.5px; margin-left: 4px; }
+  .board .rel.hot { color: var(--fear-ink); font-weight: 600; }
+  .board .idx { font-weight: 600; }
+  .board .idx.alert { color: var(--fear-ink); }
+  .board .fdot { display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--neg); margin-left: 5px; vertical-align: middle; }
+  .boardwrap { overflow-x: auto; }
+  /* 좁으면 뒤쪽 칸부터 접는다. 종목·현재가·등락·곡소리가 먼저다. */
+  @media (max-width: 640px) {
+    .board .c-value, .board .c-str { display: none; }
+    .board { font-size: 12.5px; }
+    .board .nm { display: none; }
+  }
   .rate { font-size: 11.5px; color: var(--muted); }
 
   .single { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
@@ -370,11 +404,22 @@
 
   <div id="viewMain">
 
-  <div class="ctrls">
-    <div class="ctrl">
-      <label>종목</label>
-      <div class="seg" id="segTicker"></div>
+  <div class="card" style="margin-bottom:14px">
+    <div class="boardwrap">
+      <table class="board" id="board"><thead id="boardHead"><tr>
+        <th data-k="sym">종목</th>
+        <th data-k="close">현재가</th>
+        <th data-k="chg">등락</th>
+        <th data-k="volume">거래량</th>
+        <th data-k="value" class="c-value">거래대금</th>
+        <th data-k="strength" class="c-str">체결강도</th>
+        <th data-k="idx">곡소리</th>
+      </tr></thead><tbody id="boardBody"></tbody></table>
     </div>
+    <p class="pnote">머리글을 누르면 그 기준으로 정렬합니다. 거래량 옆 괄호는 전일 대비입니다.</p>
+  </div>
+
+  <div class="ctrls">
     <div class="ctrl">
       <label>통화</label>
       <div class="seg" id="segCur">
@@ -655,6 +700,14 @@ const cur = v => (UI.cur === 'KRW' && RATE ? v * RATE : v);
 // 90px 칸의 왼쪽 눈금은 자리가 40px 뿐이다. 원화 1,414,900 같은 건 안 들어간다.
 const SHORT = new Intl.NumberFormat('ko', { notation: 'compact', maximumFractionDigits: 1 });
 const moneyShort = v => (UI.cur === 'KRW' ? SHORT.format(v) : v.toFixed(v < 100 ? 1 : 0));
+
+// 거래대금은 자릿수가 길다. $57,626,188 보다 $57.6M 이 한눈에 들어온다.
+const VALF = new Intl.NumberFormat('en', { notation: 'compact', maximumFractionDigits: 1 });
+const valueShort = v => {
+  if (!Number.isFinite(v)) return '\u2014';
+  if (UI.cur === 'KRW') return RATE ? SHORT.format(v * RATE) : '\u2014';
+  return '$' + VALF.format(v);
+};
 
 const money = v => {
   if (v === null || v === undefined) return '—';
@@ -1436,10 +1489,8 @@ function paint(d) {
       // 탭의 붉은 점도 같은 기준 — 지수가 경보선을 넘었나
     const feary = order.filter(t => (d.tickers[t].w60.idx ?? 0) >= ALERT);
 
-    // 종목 탭 — 보고 있지 않은 종목의 공포는 점으로 알린다
-    $('segTicker').innerHTML = order.map(t =>
-      `<button data-t="${t}" aria-pressed="${t === UI.ticker}">`
-      + `${t}${feary.includes(t) ? '<span class="fdot"></span>' : ''}</button>`).join('');
+    // 종목 판 — 보고 있지 않은 종목의 공포는 점으로 알린다
+    paintBoard(order, d.tickers, feary);
 
     $('single').innerHTML = UI.ticker ? card(UI.ticker, d.tickers[UI.ticker], meta) : '';
     drawCharts(d);                       // innerHTML 로 svg 가 새로 생기니 매번 다시 그린다
@@ -1600,6 +1651,61 @@ $('pList').addEventListener('keydown', ev => {
   ev.preventDefault();
   putLabel(item, y);
 });
+
+// ── 종목 판 ──
+//
+// 종목이 여섯을 넘으니 버튼 줄로는 "지금 뭐가 도는지" 를 알 수 없다.
+// 거래대금·거래량·체결강도·곡소리를 한 줄에 놓고 정렬한다.
+//
+// 거래대금이 기본 정렬인 이유: 거래량만 보면 싼 종목이 늘 위에 온다.
+const BOARD = { key: store.get('boardKey', 'value'), desc: store.get('boardDesc', '1') === '1' };
+
+/** 등락률. 시가가 아니라 전일 종가 기준이다 — 갭이 뜬 날 시가 대비는 실제와 어긋난다. */
+const chgOf = p => (p && p.base ? (p.close - p.base) / p.base : null);
+
+const boardVal = (t, v) => ({
+  sym: t,
+  close: v.price?.close ?? -Infinity,
+  chg: chgOf(v.price) ?? -Infinity,
+  volume: v.price?.volume ?? -Infinity,
+  value: v.price?.value ?? -Infinity,
+  strength: v.price?.strength ?? -Infinity,
+  idx: v.w60?.idx ?? -Infinity,
+}[BOARD.key]);
+
+function paintBoard(order, tickers, feary) {
+  const body = $('boardBody');
+  if (!body) return;
+  const rows = order.slice().sort((a, b) => {
+    const x = boardVal(a, tickers[a]), y = boardVal(b, tickers[b]);
+    if (typeof x === 'string') return BOARD.desc ? y.localeCompare(x) : x.localeCompare(y);
+    return BOARD.desc ? y - x : x - y;
+  });
+
+  body.innerHTML = rows.map(t => {
+    const v = tickers[t], p = v.price;
+    const chg = chgOf(p);
+    const dir = chg === null ? '' : chg > 0 ? 'up' : chg < 0 ? 'down' : '';
+    // 전일 대비 거래량. 장 초반에는 당연히 낮으니 색은 100% 를 넘을 때만 준다.
+    const rel = p?.preVolume ? p.volume / p.preVolume : null;
+    const idx = v.w60?.idx;
+    return `<tr data-t="${t}" aria-selected="${t === UI.ticker}">`
+      + `<td class="sym">${t}${feary.includes(t) ? '<span class="fdot"></span>' : ''}`
+        + `<span class="nm">${esc(v.name ?? '')}</span></td>`
+      + `<td>${p ? money(p.close) : '—'}</td>`
+      + `<td class="${dir}">${chg === null ? '—'
+          : (chg > 0 ? '+' : '') + (chg * 100).toFixed(2) + '%'}</td>`
+      + `<td>${p?.volume ? VOLF.format(p.volume) : '—'}`
+        // 장 열린 직후엔 0% 가 줄줄이 늘어선다. 반올림해 0 이 될 값은 그렇게 안 쓴다.
+        + `${rel === null ? '' : `<span class="rel${rel >= 1 ? ' hot' : ''}">`
+            + `${rel < 0.01 ? '<1' : Math.round(rel * 100)}%</span>`}</td>`
+      + `<td class="c-value">${valueShort(p?.value)}</td>`
+      + `<td class="c-str">${p?.strength == null ? '—' : p.strength.toFixed(1)}</td>`
+      + `<td class="idx${idx >= ALERT ? ' alert' : ''}">`
+        + `${idx == null ? '—' : Math.round(idx)}</td>`
+      + '</tr>';
+  }).join('');
+}
 
 // 종목 버튼은 실시간 탭과 같은 선택을 쓴다 — 탭을 옮겨도 보던 종목이 유지된다
 function paintPTicker() {
@@ -1946,13 +2052,28 @@ paintUnitSeg();                        // 첫 스냅샷이 오기 전에도 버�
 
 // ── 컨트롤 ──
 // 값만 바꾸고 마지막 스냅샷으로 다시 그린다. 서버에 되묻지 않는다.
-$('segTicker').onclick = ev => {
-  const b = ev.target.closest('button'); if (!b) return;
-  UI.ticker = b.dataset.t; store.set('ticker', UI.ticker);
+function pickTicker(t) {
+  if (!t || t === UI.ticker) return;
+  UI.ticker = t; store.set('ticker', t);
   if (LAST) paint(LAST);
   paintPTicker();
   if (pOpened) loadPosts(true);          // 글 탭도 같은 종목을 보게 맞춘다
   BAR.rows = []; BAR.err = null; BAR.view = null; BAR.fear = []; loadBars();
+}
+
+$('boardBody').onclick = ev => {
+  const tr = ev.target.closest('tr'); if (!tr) return;
+  pickTicker(tr.dataset.t);
+};
+
+// 머리글로 정렬. 같은 칸을 다시 누르면 방향이 뒤집힌다.
+$('boardHead').onclick = ev => {
+  const th = ev.target.closest('th'); if (!th) return;
+  const k = th.dataset.k;
+  if (BOARD.key === k) BOARD.desc = !BOARD.desc;
+  else { BOARD.key = k; BOARD.desc = true; }
+  store.set('boardKey', BOARD.key); store.set('boardDesc', BOARD.desc ? '1' : '0');
+  if (LAST) paint(LAST);
 };
 $('segCur').onclick = ev => {
   const b = ev.target.closest('button'); if (!b) return;
