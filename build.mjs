@@ -37,6 +37,19 @@ function loadLexicon() {
   return w;
 }
 
+// 채점기를 하나로 고른다. model.json 이 있으면 분류기, 없으면 사전.
+// 같은 홀드아웃 11,643건에서 분류기가 부정 F1 45.4% → 72.7% 였다.
+// 파일이 없어도 죽지 않아야 한다 — 서버에 모델을 안 올린 상태로도 돌아가야 한다.
+export function loadScorer(w) {
+  const f = join(HERE, 'model.json');
+  if (!existsSync(f)) return { score: t => w.scoreWith(t, w.LEX_DEFAULT), kind: '사전' };
+  let m = null;
+  try { m = w.loadModel(JSON.parse(readFileSync(f, 'utf8'))); }
+  catch (e) { console.error(`model.json 을 못 읽었습니다 — 사전으로 갑니다: ${e.message}`); }
+  if (!m) return { score: t => w.scoreWith(t, w.LEX_DEFAULT), kind: '사전' };
+  return { score: t => w.scoreModel(t, m), kind: `분류기 어휘 ${m.vocab.size.toLocaleString()}개` };
+}
+
 /**
  * 게시글을 거래일에 붙인다.
  *
@@ -217,7 +230,8 @@ export function countBaseline(posts, isHit) {
 
 // ── 자체 점검 (네트워크 없음) ────────────────────────────────
 function selftest() {
-  const { LEX_DEFAULT, scoreWith, hasFear, isWail, fearIndex, fearIntensity, FEAR_ALERT } = loadLexicon();
+  const w = loadLexicon();
+  const { LEX_DEFAULT, scoreWith, hasFear, isWail, fearIndex, fearIntensity, FEAR_ALERT } = w;
   const s = t => scoreWith(t, LEX_DEFAULT);
   let n = 0;
   const ok = (label, cond, extra = '') => {
@@ -268,6 +282,53 @@ function selftest() {
   ok('거래일 없는 날은 통째로 빠짐', Object.keys(daily).length === 2);
 
   // 공포 축 — 부정과 갈라지는가
+  // ── 분류기 ──
+  // 손으로 만든 여섯 줄로 학습한 장난감 모델. 진짜 model.json 을 안 쓰는 이유는
+  // 그 파일이 없는 곳(새로 받은 저장소, 모델 안 올린 서버)에서도 점검이 돌아야 해서다.
+  {
+    const rows = [
+      { y: 'P', text: '대박 가즈아' }, { y: 'P', text: '가즈아 좋다' },
+      { y: 'N', text: '망했다 물렸다' }, { y: 'N', text: '물렸다 손절' },
+      { y: 'X', text: '오늘 몇시 마감' }, { y: 'X', text: '마감 언제' },
+    ];
+    const CL = ['P', 'N', 'X'];
+    const nMin = 1, nMax = 2, alpha = 1;
+    const vocab = new Map();
+    const bag = rows.map(r => [...new Set(w.ngrams(r.text, nMin, nMax))]);
+    for (const f of bag) for (const g of f) if (!vocab.has(g)) vocab.set(g, vocab.size);
+    const V = vocab.size;
+    const cnt = CL.map(() => new Float64Array(V)), tot = new Float64Array(3), pri = new Float64Array(3);
+    rows.forEach((r, i) => {
+      const ci = CL.indexOf(r.y); pri[ci]++;
+      for (const g of bag[i]) { cnt[ci][vocab.get(g)]++; tot[ci]++; }
+    });
+    const raw = {
+      v: [...vocab.keys()].join(String.fromCharCode(0)),
+      w: CL.map((_, ci) => [...cnt[ci]].map(c => Math.round(1000 * (Math.log(c + alpha) - Math.log(tot[ci] + alpha * V))))),
+      lp: CL.map((_, ci) => Math.round(1000 * Math.log((pri[ci] + 1) / (rows.length + 3)))),
+      unk: CL.map((_, ci) => Math.round(1000 * (Math.log(alpha) - Math.log(tot[ci] + alpha * V)))),
+      nMin, nMax, binarize: true,
+    };
+    const m = w.loadModel(raw);
+    ok('모델을 읽는다', m && m.vocab.size === V, `${m && m.vocab.size} vs ${V}`);
+    ok('긍정을 가른다', w.classify(m, '대박 가즈아').y === 'P');
+    ok('부정을 가른다', w.classify(m, '망했다 물렸다').y === 'N');
+    ok('중립을 가른다', w.classify(m, '오늘 몇시 마감').y === 'X');
+    ok('확률 셋을 더하면 1', Math.abs(w.classify(m, '대박').p.reduce((a, b) => a + b, 0) - 1) < 1e-9);
+    ok('점수 부호가 사전과 같다', w.scoreModel('대박 가즈아', m) > 0 && w.scoreModel('망했다 물렸다', m) < 0);
+    ok('중립은 0 이다', w.scoreModel('오늘 몇시 마감', m) === 0);
+    ok('점수는 -1~+1 안', Math.abs(w.scoreModel('망했다 물렸다', m)) <= 1);
+    ok('빈 글은 0', w.scoreModel('', m) === 0 && w.scoreModel(null, m) === 0);
+    ok('모델이 없으면 0', w.scoreModel('대박', null) === 0);
+    ok('망가진 모델은 null', w.loadModel(null) === null && w.loadModel({}) === null);
+    // 경계 표시가 있어야 첫머리와 가운데를 가른다.
+    ok('경계 표시를 붙인다', w.ngrams('가', 1, 2).length === 5, w.ngrams('가', 1, 2).join('|'));
+    // 어휘 구분자(U+0000)가 n-gram 안에 들어가면 안 된다.
+    ok('구분자와 안 겹친다', ![...m.vocab.keys()].some(g => g.includes(String.fromCharCode(0))));
+    // 모델이 없으면 사전으로 돌아가야 한다.
+    ok('모델을 못 읽으면 사전으로', loadScorer({ ...w, loadModel: () => null }).kind === '사전');
+  }
+
   ok('공포어를 잡는다', hasFear('지금 너무 무섭다') === true);
   ok('항복도 공포다', hasFear('결국 손절했습니다') === true);
   ok('부정이지만 공포는 아님', hasFear('오늘 하락했고 실적도 악재') === false);
@@ -361,10 +422,11 @@ try {
   if (argv.includes('--selftest')) { console.log('\n자체 점검\n'); selftest(); process.exit(0); }
   if (!Number.isFinite(DAYS) || DAYS < 2) throw new Error('--days 는 2 이상이어야 합니다.');
 
-  const { LEX_DEFAULT, scoreWith, hasFear, isWail } = loadLexicon();
-  const score = t => scoreWith(t, LEX_DEFAULT);
+  const w = loadLexicon();
+  const { LEX_DEFAULT, scoreWith, hasFear, isWail } = w;
+  const { score, kind } = loadScorer(w);
 
-  console.log(`\n빌드 · ${TICKERS.join(' ')} · 최근 ${DAYS} 거래일\n`);
+  console.log(`\n빌드 · ${TICKERS.join(' ')} · 최근 ${DAYS} 거래일 · 채점 ${kind}\n`);
 
   const tickers = {};
   const missing = [];

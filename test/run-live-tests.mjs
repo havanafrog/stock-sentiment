@@ -1,6 +1,7 @@
 // live.html — 실시간 그래프 그리기 검사.
 // index.html 쪽은 run-tests.mjs 가 본다.
 import { run, pathOf } from './test-live.mjs';
+import { readFileSync } from 'node:fs';
 
 let pass = 0, fail = 0;
 const ok = (label, cond, extra = '') => {
@@ -685,6 +686,26 @@ console.log('\n── K. 보조지표 ──');
   // 장 시작 전에는 price 가 통째로 없다. 그래도 판은 그려져야 한다.
   L.paintBoard(['DDD'], { DDD: { name: 'x', price: null, w60: {} } }, []);
   ok('시세가 없으면 줄표', node('boardBody').innerHTML.includes('—'));
+}
+console.log('\n── R. 탭 ──');
+{
+  const src = readFileSync('live.html', 'utf8');
+  // 종목 추가는 메인 탭 안에만 있어야 한다. 밖에 두면 어느 탭을 눌러도 따라 나온다.
+  const from = src.indexOf('<div id="viewBoard">');
+  const to = src.indexOf('<!-- /viewBoard -->');
+  ok('viewBoard 가 닫힌다', from > 0 && to > from, `${from} ${to}`);
+  const board = src.slice(from, to);
+  ok('종목 추가는 메인 안에', board.includes('종목 추가') && board.includes('id="tkList"'));
+  // 판이 하나뿐인지도 본다 — 옮기다 복사본을 남기면 두 곳에 뜬다.
+  // (CSS 주석과 스크립트에도 tkList 가 나오므로 마크업만 센다.)
+  ok('종목 추가 판은 하나', (src.match(/id="tkList"/g) || []).length === 1);
+  ok('머리글도 하나', (src.match(/class="tkhead"/g) || []).length === 1);
+
+  // 전환은 무거운 일보다 먼저 그려져야 한다. 한 프레임에 같이 넣으면 뚝뚝 끊긴다.
+  const show = src.slice(src.indexOf('const show = name =>'), src.indexOf('showTab = show;'));
+  ok('무거운 일은 다음 프레임에', show.includes('requestAnimationFrame(() => requestAnimationFrame('), show.slice(0, 80));
+  ok('빠르게 눌러도 마지막 것만', show.includes('if (mine !== turn) return;'));
+  ok('rAF 가 없으면 그냥 부른다', show.includes('else heavy();'));
 }
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

@@ -225,6 +225,74 @@ window.scoreWith = function (raw, lex) {
   return Math.max(-1, Math.min(1, s / (hits * 2.2)));
 };
 
+// ── 분류기 ──────────────────────────────────────────────────
+// 사전은 낱말 하나가 곧 방향이다 — "안되" 가 부정이면 어디 나와도 부정이다.
+// 그런데 글이 짧다(중앙값 10글자). 짧은 글에서는 조합이 방향을 바꾼다:
+//   "안되네"(체념) 와 "안되겠나"(기대) 는 다른 말이다.
+// 글자 n-gram 나이브 베이즈는 그 조합을 통째로 센다. 학습은 tools/train-nb.mjs.
+//
+// 같은 홀드아웃 11,643건으로 잰 결과:
+//              사전    분류기
+//   부정 F1    45.4%   72.7%
+//   긍정 F1    41.0%   54.8%
+//   정확도     42.1%   62.1%
+//
+// 모델 파일이 없으면 scoreWith 로 돌아간다. 사전은 계속 살아 있다 —
+// 공포어(hasFear) 는 라벨이 없어 여전히 사전이 하고, 곡소리 지수도 그대로다.
+window.CLASSES = ['P', 'N', 'X'];
+
+window.ngrams = function (raw, nMin, nMax) {
+  const t = window.normalize(String(raw || '')).toLowerCase();
+  if (!t) return [];
+  // 앞뒤에 경계 표시를 붙인다. 글 첫머리의 "왜" 와 가운데의 "왜" 는 다르다.
+  const s = String.fromCharCode(1) + t + String.fromCharCode(2);
+  const out = [];
+  for (let n = nMin; n <= nMax; n++)
+    for (let i = 0; i + n <= s.length; i++) out.push(s.slice(i, i + n));
+  return out;
+};
+
+// 파일에서 읽은 모델을 채점할 수 있는 꼴로 편다. 가중치는 1000배 정수로 저장돼 있다.
+window.loadModel = function (j) {
+  if (!j || !j.v) return null;
+  const keys = j.v.split(String.fromCharCode(0));
+  const vocab = new Map();
+  for (let i = 0; i < keys.length; i++) vocab.set(keys[i], i);
+  return {
+    vocab,
+    w: j.w.map(a => Float32Array.from(a, x => x / 1000)),
+    lp: j.lp.map(x => x / 1000),
+    unk: j.unk.map(x => x / 1000),
+    nMin: j.nMin, nMax: j.nMax, binarize: j.binarize,
+  };
+};
+
+// { y: 'P'|'N'|'X', p: [P확률, N확률, X확률] }
+window.classify = function (m, raw) {
+  const f = window.ngrams(raw, m.nMin, m.nMax);
+  const g = m.binarize ? Array.from(new Set(f)) : f;
+  const s = m.lp.slice();
+  for (let k = 0; k < g.length; k++) {
+    const j = m.vocab.get(g[k]);
+    for (let ci = 0; ci < 3; ci++) s[ci] += j === undefined ? m.unk[ci] : m.w[ci][j];
+  }
+  let best = 0;
+  for (let ci = 1; ci < 3; ci++) if (s[ci] > s[best]) best = ci;
+  const mx = Math.max(s[0], s[1], s[2]);
+  const ex = s.map(v => Math.exp(v - mx));
+  const z = ex[0] + ex[1] + ex[2];
+  return { y: window.CLASSES[best], p: ex.map(v => v / z) };
+};
+
+// -1 ~ +1. scoreWith 와 같은 자리에 끼울 수 있게 부호와 범위를 맞춘다.
+// 중립으로 판정하면 0 이다 — 사전에서 "걸린 단어 없음" 이 0 이던 것과 같다.
+window.scoreModel = function (raw, m) {
+  if (!raw || !m) return 0;
+  const r = window.classify(m, raw);
+  if (r.y === 'X') return 0;
+  return Math.max(-1, Math.min(1, r.p[0] - r.p[1]));
+};
+
 // ── 공포지수 ────────────────────────────────────────────────
 // 공포어 비율은 종목마다 평소 수준이 2배씩 다르고(SNDK 3.7% ↔ MUU 7.1%)
 // 같은 종목도 시간대마다 2배 차이난다. 그래서 절대 비율이 아니라

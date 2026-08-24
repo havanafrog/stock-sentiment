@@ -140,7 +140,17 @@ function loadLexicon() {
   return w;
 }
 const LEX = loadLexicon();
-const score = t => LEX.scoreWith(t, LEX.LEX_DEFAULT);
+
+// 채점기. model.json 이 있으면 분류기, 없으면 사전으로 돌아간다.
+// 모델을 안 올린 서버에서도 그냥 돌아야 하므로 없는 걸 오류로 보지 않는다.
+const MODEL = (() => {
+  const f = join(HERE, 'model.json');
+  if (!existsSync(f)) return null;
+  try { return LEX.loadModel(JSON.parse(readFileSync(f, 'utf8'))); }
+  catch (e) { console.error(`model.json 을 못 읽었습니다 — 사전으로 갑니다: ${e.message}`); return null; }
+})();
+const SCORER = MODEL ? `분류기 어휘 ${MODEL.vocab.size.toLocaleString()}개` : '사전';
+const score = MODEL ? (t => LEX.scoreModel(t, MODEL)) : (t => LEX.scoreWith(t, LEX.LEX_DEFAULT));
 const intensity = (n, base) => LEX.fearIntensity(n, base);
 const hasFear = t => LEX.hasFear(t);
 const isWail = t => LEX.isWail(t);
@@ -1160,7 +1170,8 @@ createServer((req, res) => {
 
   serveStatic(req, res);
 }).listen(PORT, () => {
-  console.log(`\n\n  이 링크로 여세요 (키가 붙어 있어야 열립니다)\n`);
+  console.log(`\n  감정 채점 · ${SCORER}`);
+  console.log(`\n  이 링크로 여세요 (키가 붙어 있어야 열립니다)\n`);
   console.log(`    http://localhost:${PORT}/?k=${KEY}\n`);
   console.log(`  키 없이 들어오면 전부 404 입니다. 터널로 공개해도 링크를 아는 사람만 봅니다.`);
   console.log(`  키는 .access-key 에 있습니다. 유출되면 그 파일을 지우고 재시작하세요.`);
