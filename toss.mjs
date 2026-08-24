@@ -140,6 +140,13 @@ export async function fetchPrice(code) {
   return {
     close: +r.close, open: +r.open, high: +r.high, low: +r.low,
     volume: +r.volume, at: r.tradeDateTime ?? null,
+    // 전일 종가. 등락률은 시가가 아니라 이걸 기준으로 낸다 —
+    // 시가 대비로 내면 갭 상승한 날 화면이 실제와 어긋난다.
+    base: Number.isFinite(+r.base) ? +r.base : null,
+    // 거래대금. 거래량만 보면 싼 종목이 늘 위에 온다.
+    value: Number.isFinite(+r.value) ? +r.value : null,
+    // 전일 거래량. 오늘 몰리는지는 절대량이 아니라 이것과의 비로 안다.
+    preVolume: Number.isFinite(+r.preDayVolume) ? +r.preDayVolume : null,
     // 체결강도 = 매수 체결량 / 매도 체결량 x 100. 100 이 균형, 넘으면 매수 우위.
     // 장중 누적값 하나뿐이라 이력이 없다 — 봉마다 보려면 MFI 를 쓴다.
     strength: Number.isFinite(+r.tradingStrength) ? +r.tradingStrength : null,

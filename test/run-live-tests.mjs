@@ -631,5 +631,53 @@ console.log('\n── K. 보조지표 ──');
   ok('전체를 박으면 전체', L.viewRange().join() === '0,' + (n-1));
   L.BAR.view = null;
 }
+// ── S. 종목 판 ──
+// 버튼 줄로는 "지금 뭐가 도는지" 를 알 수 없다. 거래대금·거래량·곡소리를 나란히 놓는다.
+{
+  const { L, node } = run();
+  const mk = (close, base, volume, preVolume, value, strength, idx) =>
+    ({ name: '이름', price: { close, base, volume, preVolume, value, strength }, w60: { idx } });
+  const T = {
+    AAA: mk(110, 100, 200, 100, 900, 120, 95),   // +10% · 거래량 2배 · 경보
+    BBB: mk(90, 100, 50, 100, 100, 80, 40),      // -10% · 거래량 절반
+    CCC: mk(100, 100, 150, 100, 500, 100, 60),   // 보합
+  };
+  const order = ['AAA', 'BBB', 'CCC'];
+  const syms = () => [...node('boardBody').innerHTML.matchAll(/data-t="(\w+)"/g)].map(m => m[1]);
+
+  ok('등락은 전일 종가 기준', Math.abs(L.chgOf({ close: 110, base: 100 }) - 0.1) < 1e-9);
+  ok('전일 종가가 없으면 null', L.chgOf({ close: 110, base: null }) === null);
+
+  L.BOARD.key = 'value'; L.BOARD.desc = true;
+  L.paintBoard(order, T, []);
+  ok('기본은 거래대금 내림차순', syms().join() === 'AAA,CCC,BBB', syms().join());
+
+  L.BOARD.desc = false; L.paintBoard(order, T, []);
+  ok('방향을 뒤집는다', syms().join() === 'BBB,CCC,AAA', syms().join());
+
+  L.BOARD.key = 'idx'; L.BOARD.desc = true; L.paintBoard(order, T, []);
+  ok('곡소리순', syms().join() === 'AAA,CCC,BBB', syms().join());
+
+  L.BOARD.key = 'sym'; L.BOARD.desc = false; L.paintBoard(order, T, []);
+  ok('종목명순', syms().join() === 'AAA,BBB,CCC', syms().join());
+
+  L.BOARD.key = 'value'; L.BOARD.desc = true;
+  L.paintBoard(order, T, ['AAA']);
+  const h = node('boardBody').innerHTML;
+  ok('오른 종목은 up', /class="up">\+10\.00%/.test(h), h.slice(0, 160));
+  ok('내린 종목은 down', /class="down">-10\.00%/.test(h));
+  ok('전일보다 많으면 hot', /rel hot">200%/.test(h));
+  ok('전일보다 적으면 그냥', /class="rel">50%/.test(h));
+  L.paintBoard(['EEE'], { EEE: { name: 'x',
+    price: { close: 1, base: 1, volume: 3, preVolume: 1000, value: 1, strength: 1 }, w60: {} } }, []);
+  ok('장 초반 0% 대신 <1%', node('boardBody').innerHTML.includes('&lt;1%')
+     || node('boardBody').innerHTML.includes('<1%'), node('boardBody').innerHTML.slice(0,220));
+  ok('경보는 눈에 띈다', /idx alert">95/.test(h));
+  ok('공포 종목엔 점', /fdot/.test(h));
+
+  // 장 시작 전에는 price 가 통째로 없다. 그래도 판은 그려져야 한다.
+  L.paintBoard(['DDD'], { DDD: { name: 'x', price: null, w60: {} } }, []);
+  ok('시세가 없으면 줄표', node('boardBody').innerHTML.includes('—'));
+}
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
