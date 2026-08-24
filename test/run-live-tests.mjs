@@ -664,8 +664,12 @@ console.log('\n── K. 보조지표 ──');
   L.BOARD.key = 'value'; L.BOARD.desc = true;
   L.paintBoard(order, T, ['AAA']);
   const h = node('boardBody').innerHTML;
-  ok('오른 종목은 up', /class="up">\+10\.00%/.test(h), h.slice(0, 160));
-  ok('내린 종목은 down', /class="down">-10\.00%/.test(h));
+  ok('오른 종목은 up', /class="chg up">\+10\.00%/.test(h), h.slice(0, 160));
+  ok('내린 종목은 down', /class="chg down">-10\.00%/.test(h));
+  // 비율만 보면 $1 짜리와 $1,500 짜리가 같아 보인다. 액수도 붙는다.
+  ok('등락액도 같이', /chgv">\+\$10\.00/.test(h) && /chgv">-\$10\.00/.test(h),
+     h.slice(0, 400));
+  ok('순번이 붙는다', /class="rk">1</.test(h) && /class="rk">3</.test(h));
   ok('전일보다 많으면 hot', /rel hot">200%/.test(h));
   ok('전일보다 적으면 그냥', /class="rel">50%/.test(h));
   L.paintBoard(['EEE'], { EEE: { name: 'x',
