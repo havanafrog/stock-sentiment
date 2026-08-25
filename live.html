@@ -112,23 +112,28 @@
   .note.warn { background: var(--warn-bg); border: 1px solid var(--warn-bd); color: var(--warn-ink); }
 
   /* 컨트롤 */
-  .ctrls { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: flex-end;
-           background: var(--surface-1); border: 1px solid var(--border);
-           border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 14px; }
-  .ctrl { display: flex; flex-direction: column; gap: 5px; }
-  .ctrl > label { font-size: 11.5px; color: var(--text-secondary); }
-  /* 누른 것 — 투표 · 기분 · 평단. 세 줄이 같은 자리에 선다. */
-  .pulse { display: grid; gap: 10px; }
-  .prow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-  .plab { flex: 0 0 auto; min-width: 96px; font-size: 12.5px; color: var(--text-secondary); }
-  .plab b { color: var(--text-primary); font-weight: 700; }
-  .pnote { font-size: 11.5px; color: var(--faint); margin-left: auto; }
+  .ctrls { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
+           margin: 0 2px 12px; }
+  .ctrl { display: flex; align-items: center; gap: 7px; }
+  .ctrl > label { font-size: 11.5px; color: var(--faint); white-space: nowrap; }
+  /* [hidden] 은 UA 규칙이라 위의 display 선언에 진다. 라벨을 끄면 보기 무리가
+     사라져야 하는데 여태 그대로 있었다. */
+  .ctrl[hidden], .ctrls[hidden], .pgrp[hidden] { display: none; }
+  /* 누른 것 — 투표 · 기분 · 평단. 셋이 한 줄에 눕고, 좁아지면 알아서 접힌다. */
+  .pulse { gap: 8px 0; }
+  .pgrp { display: flex; align-items: center; gap: 7px; padding: 0 16px; }
+  .pgrp:first-child { padding-left: 0; }
+  .pgrp + .pgrp { border-left: 1px solid var(--hairline); }
+  .plab { font-size: 11.5px; color: var(--faint); white-space: nowrap; }
+  .plab b { color: var(--text-secondary); font-weight: 600; }
+  .pnote { font-size: 11px; color: var(--faint); white-space: nowrap; }
   .pnote input { vertical-align: -1px; margin-right: 3px; }
-  .vote, .mood { display: flex; gap: 6px; flex: 1 1 260px; max-width: 620px; }
-  .vote button, .mood button { flex: 1 1 0; position: relative; appearance: none; cursor: pointer;
-    font: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 10px; overflow: hidden;
-    border: 0; border-radius: var(--radius); box-shadow: var(--ring);
+  .vote, .mood { display: flex; gap: 5px; }
+  .vote button, .mood button { position: relative; appearance: none; cursor: pointer;
+    font: inherit; font-size: 11.5px; font-weight: 600; padding: 5px 10px; overflow: hidden;
+    white-space: nowrap; border: 0; border-radius: var(--radius); box-shadow: var(--ring);
     background: var(--surface-1); color: var(--text-secondary); }
+  .vote button { min-width: 104px; }
   .vote button em, .mood button em { font-style: normal; font-weight: 700; }
   .vote button i { font-style: normal; font-size: 10px; }
   /* 표가 몇 퍼센트인지 버튼 자체를 채워 보여준다. 막대를 따로 두면 줄이 하나 는다. */
@@ -142,8 +147,8 @@
   .vote button[aria-pressed="true"] { box-shadow: inset 0 0 0 1.5px currentColor; }
   .mood button:hover { color: var(--text-primary); }
   .vote button:disabled, .mood button:disabled { cursor: default; opacity: .55; }
-  .fld.avg { flex: 0 1 160px; }
-  .pnl { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .fld.avg { flex: 0 0 84px; width: 84px; padding: 5px 9px; font-size: 12px; }
+  .pnl { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .pnl.up { color: var(--up); }
   .pnl.down { color: var(--down); }
 
@@ -168,7 +173,7 @@
   .spacer { flex: 1 1 auto; }
 
   /* 봉 차트 */
-  .cbar { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 20px; margin: 0 0 14px; }
+  .cbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 2px 12px; }
   .cbar .seg button { padding: 4px 9px; font-size: 11.5px; }
   .mas { display: flex; gap: 9px; font-size: 11px; color: var(--text-secondary); }
   .mas label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
@@ -515,33 +520,24 @@
   <div id="viewMain" hidden>
 
   <div class="ctrls">
-    <div class="ctrl">
-      <label>종목</label>
-      <div class="seg" id="segTicker"></div>
-    </div>
-    <div class="ctrl">
-      <label>통화</label>
-      <div class="seg" id="segCur">
-        <button data-c="USD" aria-pressed="true">USD $</button>
-        <button data-c="KRW" aria-pressed="false">원화 ₩</button>
-      </div>
-    </div>
+    <div class="seg" id="segTicker"></div>
     <div class="spacer"></div>
-    <div class="ctrl"><span class="rate" id="rateInfo"></span></div>
+    <div class="seg" id="segCur">
+      <button data-c="USD" aria-pressed="true">USD $</button>
+      <button data-c="KRW" aria-pressed="false">원화 ₩</button>
+    </div>
+    <span class="rate" id="rateInfo"></span>
   </div>
 
   <div class="cbar">
-    <div class="ctrl"><label>봉</label><div class="seg" id="segUnit"></div></div>
+    <div class="seg" id="segUnit"></div>
     <div class="ctrl">
-      <label>이동평균</label>
+      <label>지표</label>
       <div class="mas" id="masBox">
         <label><input type="checkbox" data-ma="20"><i class="k" style="background:var(--ma20)"></i>20선</label>
         <label><input type="checkbox" data-ma="120"><i class="k" style="background:var(--ma120)"></i>120선</label>
         <label><input type="checkbox" data-ma="200"><i class="k" style="background:var(--ma200)"></i>200선</label>
       </div>
-    </div>
-    <div class="ctrl">
-      <label>보조지표</label>
       <div class="mas" id="indBox">
         <label><input type="checkbox" data-ind="macd"><i class="k" style="background:var(--sig)"></i>MACD</label>
         <label><input type="checkbox" data-ind="rsi"><i class="k" style="background:var(--rsi)"></i>RSI</label>
@@ -551,30 +547,30 @@
     </div>
   </div>
 
-  <div class="card pulse" id="pulseCard">
-    <div class="prow">
-      <div class="plab">오늘 <b id="pulseSym">—</b> 어디로</div>
+  <div class="ctrls pulse" id="pulseCard">
+    <div class="pgrp">
+      <span class="plab">오늘 <b id="pulseSym">&mdash;</b></span>
       <div class="vote" id="pulseVote">
-        <button id="voteU" data-v="U"><i>&#9650;</i> 오른다 <em id="voteUn">—</em></button>
-        <button id="voteD" data-v="D"><i>&#9660;</i> 내린다 <em id="voteDn">—</em></button>
+        <button id="voteU" data-v="U"><i>&#9650;</i> 오른다 <em id="voteUn">&mdash;</em></button>
+        <button id="voteD" data-v="D"><i>&#9660;</i> 내린다 <em id="voteDn">&mdash;</em></button>
       </div>
       <span class="pnote" id="pulseCount"></span>
     </div>
 
-    <div class="prow">
-      <div class="plab">기분 <b id="moodFace">&#128528;</b> <span id="moodHappy">0</span></div>
+    <div class="pgrp">
+      <span class="plab">기분 <b id="moodFace">&#128528;</b> <span id="moodHappy">0</span></span>
       <div class="mood" id="pulseMood">
         <button id="moodPet" data-v="pet">쓰담 <em id="moodPetN">0</em></button>
         <button id="moodHit" data-v="hit">한 대 <em id="moodHitN">0</em></button>
       </div>
-      <span class="pnote" id="moodNote">30초에 한 번</span>
+      <span class="pnote" id="moodNote"></span>
     </div>
 
-    <div class="prow">
-      <label class="plab" for="avgIn">내 평단</label>
+    <div class="pgrp">
+      <label class="plab" for="avgIn">평단</label>
       <input id="avgIn" class="fld avg" inputmode="decimal" placeholder="예: 1420.00">
       <span class="pnl" id="avgPnl"></span>
-      <label class="pnote"><input type="checkbox" id="avgLine" checked> 차트에 선</label>
+      <label class="pnote"><input type="checkbox" id="avgLine" checked>선</label>
     </div>
   </div>
 
@@ -588,12 +584,8 @@
 
   <div id="viewPosts" hidden>
     <div class="ctrls">
+      <div class="seg" id="pTicker"></div>
       <div class="ctrl">
-        <label>종목</label>
-        <div class="seg" id="pTicker"></div>
-      </div>
-      <div class="ctrl">
-        <label>감정</label>
         <div class="seg" id="pMood">
           <button data-m="all" aria-pressed="true">전체</button>
           <button data-m="fear" aria-pressed="false">공포</button>
@@ -602,19 +594,17 @@
         </div>
       </div>
       <div class="ctrl">
-        <label>정렬</label>
         <div class="seg" id="pSort">
           <button data-s="new" aria-pressed="true">최신</button>
           <button data-s="likes" aria-pressed="false">좋아요</button>
         </div>
       </div>
       <div class="ctrl">
-        <label for="pFrom">기간 (미 동부 거래일)</label>
+        <label for="pFrom">미 동부 거래일</label>
         <span class="dates"><input type="date" id="pFrom" class="fld"><span>~</span><input type="date" id="pTo" class="fld"></span>
       </div>
-      <div class="ctrl" style="flex:1 1 200px">
-        <label for="pQ">검색</label>
-        <input type="search" id="pQ" class="fld" placeholder="그 말이 든 글만">
+      <div class="ctrl" style="flex:1 1 180px">
+        <input type="search" id="pQ" class="fld" placeholder="그 말이 든 글만" style="width:100%">
       </div>
       <div class="ctrl">
         <label>라벨</label>
@@ -663,16 +653,22 @@ z     = (k − μ) / σ
 
     <h3>공포 글</h3>
     <p>공포어가 <b>하나라도</b> 있으면 그 글은 공포 1건입니다. "무섭무섭무섭" 도 1건입니다 —
-    세는 것이지 재는 것이 아닙니다. 감정 점수는 따로, 긍정·부정 사전에 걸린 단어의
-    가중 평균으로 −1~+1 을 냅니다.</p>
+    세는 것이지 재는 것이 아닙니다. <b>공포어는 사전으로 셉니다</b> — 공포에는 라벨이 없어
+    배울 자료가 없습니다.</p>
+
+    <p>감정 점수는 따로입니다. 글자 n-gram 분류기가 긍정·부정·중립을 가릅니다.
+    라벨 15,573건으로 배웠고, 그중 대부분은 로컬 SLM 이 찍은 것입니다.</p>
 
     <h3>믿을 수 없는 경우</h3>
     <p><b>글이 몰리기만 해도 오릅니다.</b> 개수 기반이라 공포 비중이 평소여도 글이 10배 오면 지수가 오릅니다.
     툴팁의 <code>글 / 공포</code> 를 같이 보세요.</p>
     <p><b>표본 부족</b> — 60분 창에 <span id="minLive">20</span>건,
     15분 창에 <span id="minFast">10</span>건 미만이면 비율 대신 건수만 보여줍니다.</p>
-    <p><b>사전 채점</b> — 반어법과 신조어를 놓칩니다. 부정어가 뒤에 오면("손절 안 했다") 놓칩니다.
-    다만 기준선을 같은 채점기로 계산하므로 오탐은 평균에 섞여 z 에서 차감됩니다.
+    <p><b>채점이 반쯤 틀립니다.</b> 사람이 읽고 찍은 240건으로 재니 분류기 정확도가
+    <b>56.3%</b> 였습니다(사전은 43.8%, 정답지를 만든 SLM 자신은 68.8%).
+    특히 부정을 과하게 부릅니다 — 사람이 중립으로 본 글의 절반 가까이를 부정이라 합니다.</p>
+
+    <p>다만 기준선을 같은 채점기로 계산하므로 오탐은 평균에 섞여 z 에서 차감됩니다.
     보는 건 절대 수준이 아니라 변화입니다.</p>
     <p><b>상관은 인과가 아닙니다.</b> 지수가 먼저 튀었다고 그게 주가를 예고한 건 아닙니다.</p>
 
@@ -1526,6 +1522,8 @@ function paint(d) {
     if (!order.includes(UI.ticker)) UI.ticker = order[0];
 
     avgPaint();          // 새 값이 왔으니 평단 손익도 다시 낸다
+    // 첫 스냅샷 전에는 종목을 모른다. 알게 된 순간 한 번 받아 온다.
+    if (UI.ticker && PULSE?.ticker !== UI.ticker) pulseLoad();
 
       // 탭의 붉은 점도 같은 기준 — 지수가 경보선을 넘었나
     const feary = order.filter(t => (d.tickers[t].w60.idx ?? 0) >= ALERT);
@@ -2148,7 +2146,7 @@ function pulseRender(d) {
     $(id + 'n').textContent = n ? `${Math.round(100 * c / n)}% (${c})` : '—';
     $(id).setAttribute('aria-pressed', String(mine === v));
   }
-  $('pulseCount').textContent = n ? `${n}명 · 미 동부 ${d.day}` : '아직 아무도 안 눌렀습니다';
+  $('pulseCount').textContent = `${n}명`;
 
   const { hit, pet, happy } = d.mood;
   $('moodHappy').textContent = (happy > 0 ? '+' : '') + happy.toLocaleString();
@@ -2167,7 +2165,7 @@ function pulseWait(ms) {
   const show = left => {
     const on = left > 0;
     for (const b of btns) b.disabled = on;
-    note.textContent = on ? `${Math.ceil(left / 1000)}초 뒤에 다시` : '30초에 한 번';
+    note.textContent = on ? `${Math.ceil(left / 1000)}초` : '';
   };
   show(ms);
   if (ms <= 0) return;

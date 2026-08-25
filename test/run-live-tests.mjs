@@ -715,7 +715,7 @@ console.log('\n── S. 누른 것 ──');
   L.pulseRender({ ticker: 'KORU', day: '2026-08-25',
     vote: { up: 0, down: 0, mine: null }, mood: { hit: 0, pet: 0, happy: 0 }, wait: 0 });
   ok('표가 없으면 채우지 않는다', node('voteUn').textContent === '—' && node('voteU').style['--fill'] === '0%', node('voteU').style['--fill']);
-  ok('표가 없다고 적는다', node('pulseCount').textContent.includes('아직'));
+  ok('표가 없으면 0명', node('pulseCount').textContent === '0명');
 
   L.pulseRender({ ticker: 'KORU', day: '2026-08-25',
     vote: { up: 3, down: 1, mine: 'U' }, mood: { hit: 10, pet: 4, happy: -6 }, wait: 0 });
@@ -723,7 +723,7 @@ console.log('\n── S. 누른 것 ──');
   const vbtn = [node('voteU'), node('voteD')];
   const vtext = [node('voteUn').textContent, node('voteDn').textContent];
   ok('비율을 낸다', vtext[0] === '75% (3)' && vtext[1] === '25% (1)', vtext.join(' | '));
-  ok('총원을 적는다', node('pulseCount').textContent.includes('4명'));
+  ok('총원을 적는다', node('pulseCount').textContent === '4명');
   ok('내가 누른 쪽에 표시', vbtn[0].getAttribute('aria-pressed') === 'true' && vbtn[1].getAttribute('aria-pressed') === 'false');
 
   // 기분 — 행복도가 음수면 화난 얼굴이다.
@@ -739,7 +739,7 @@ console.log('\n── S. 누른 것 ──');
   L.pulseRender({ ticker: 'KORU', day: '2026-08-25',
     vote: { up: 0, down: 0, mine: null }, mood: { hit: 0, pet: 0, happy: 0 }, wait: 12_000 });
   ok('쿨다운이 남으면 잠근다', node('moodPet').disabled && node('moodHit').disabled);
-  ok('몇 초 남았는지 적는다', node('moodNote').textContent.includes('12초'), node('moodNote').textContent);
+  ok('몇 초 남았는지 적는다', node('moodNote').textContent === '12초', node('moodNote').textContent);
 }
 
 console.log('\n── T. 내 평단 ──');
@@ -754,6 +754,28 @@ console.log('\n── T. 내 평단 ──');
   const draw = src.slice(src.indexOf("if ($('avgLine').checked)"), src.indexOf('// 가로축. 정각'));
   ok('눈금 밖이면 안 그린다', draw.includes('ay >= lo && ay <= hi'), draw.slice(0, 120));
   ok('통화를 거쳐 그린다', draw.includes('cur(a)'));
+}
+console.log('\n── U. 컨트롤 정리 ──');
+{
+  const src = readFileSync('live.html', 'utf8');
+  const style = src.slice(src.indexOf('<style>'), src.indexOf('</style>'));
+
+  // 컨트롤 줄은 판때기가 아니다. 흰 판 위에 얹으면 내용과 같은 무게로 보인다.
+  const ctrls = style.slice(style.indexOf('.ctrls {'), style.indexOf('.ctrl {'));
+  ok('컨트롤 줄에 판때기가 없다', !/background|border-radius/.test(ctrls), ctrls.trim());
+
+  // [hidden] 은 UA 규칙이라 위의 display 선언에 진다. 직접 눌러 줘야 한다.
+  ok('숨기면 진짜 숨는다', style.includes('.ctrl[hidden]'));
+
+  // 자명한 것에는 캡션을 안 단다. 캡션이 열둘이면 캡션이 배경이 된다.
+  const main = src.slice(src.indexOf('<div id="viewMain"'), src.indexOf('<!-- /viewMain -->'));
+  ok('종목·통화·봉 캡션은 없다', !/>종목</.test(main) && !/>통화</.test(main) && !/>봉</.test(main));
+  ok('이동평균과 보조지표는 지표 하나로', (main.match(/>지표</g) || []).length === 1
+     && !/>이동평균</.test(main) && !/>보조지표</.test(main));
+
+  // 투표·기분·평단이 한 줄에 눕는다. 세 줄이면 차트가 화면 밖으로 밀린다.
+  ok('누른 것은 한 줄', (main.match(/class="pgrp"/g) || []).length === 3
+     && !main.includes('class="prow"'));
 }
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
