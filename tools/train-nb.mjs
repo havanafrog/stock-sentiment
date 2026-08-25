@@ -126,6 +126,14 @@ export function report(rows, pred, tag) {
 }
 
 // ── 데이터 ───────────────────────────────────────────────────
+// 사람이 읽고 찍은 240건. SLM 정답지에서 P·N·X 80건씩 뽑아 라벨을 가리고 읽었다.
+// 이게 유일한 사람 자다 — SLM 정답지는 SLM 이 얼마나 잘하나를 못 잰다.
+// 학습에서는 뺀다. 넣으면 이 자로 잰 숫자가 거짓말이 된다.
+export function audit() {
+  return existsSync('docs/labels-audit-240.json')
+    ? JSON.parse(readFileSync('docs/labels-audit-240.json', 'utf8')) : [];
+}
+
 export function datasets() {
   const tuned = new Set(JSON.parse(readFileSync('docs/labels-4000.json', 'utf8')).map(r => r.id));
   const all = JSON.parse(readFileSync('docs/labels-holdout-12000.json', 'utf8'));
@@ -147,7 +155,14 @@ export function datasets() {
   const heldIds = new Set(held.map(r => r.id));
   const extra = [...read150, ...mine].filter(r => r.y && r.text && !heldIds.has(r.id));
 
-  return { train4k, held, extra, read150, mine };
+  // 사람 자에 든 글은 어느 쪽에도 넣지 않는다.
+  const audited = new Set(audit().map(r => r.id));
+  const drop = a => a.filter(r => !audited.has(r.id));
+
+  return {
+    train4k: drop(train4k), held: drop(held), extra: drop(extra),
+    read150, mine, audit: audit(),
+  };
 }
 
 // ── 교차검증 (학습셋 안에서만) ───────────────────────────────
@@ -182,7 +197,8 @@ export function serialize(m) {
 // ── CLI ──────────────────────────────────────────────────────
 //   node tools/train-nb.mjs          자로 잰다. 학습 4,170 · 홀드아웃 11,643
 //   node tools/train-nb.mjs --full   가진 라벨 전부로 배워 model.json 을 쓴다
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+// node -e 로 불러 쓸 때는 argv[1] 이 없다. 그때는 CLI 를 돌리지 않는다.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const OPT = { nMin: 1, nMax: 2, alpha: 1, binarize: true, minDf: 1 };
   const { train4k, held, extra } = datasets();
   const ruler = [...train4k, ...extra];
@@ -197,12 +213,24 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
     writeFileSync(out, JSON.stringify(serialize(m)));
     console.log(`${out} — 라벨 ${all.length.toLocaleString()}건 · 어휘 ${m.vocab.size.toLocaleString()}개`);
   } else {
-    const m = train(ruler, OPT);
     const W = {};
     new Function('window', readFileSync('lexicon.js', 'utf8'))(W);
     const lex = t => { const s = W.scoreWith(t, W.LEX_DEFAULT); return s > 0 ? 'P' : s < 0 ? 'N' : 'X'; };
+
+    const m = train(ruler, OPT);
     console.log(`학습 ${ruler.length.toLocaleString()} · 홀드아웃 ${held.length.toLocaleString()} · 어휘 ${m.vocab.size.toLocaleString()}\n`);
-    console.log(report(held, t => predict(m, t).y, '분류기').text, '\n');
-    console.log(report(held, lex, '사전').text);
+    console.log(report(held, t => predict(m, t).y, 'SLM 정답지로 잰 것 — 분류기').text, '\n');
+    console.log(report(held, lex, 'SLM 정답지로 잰 것 — 사전').text);
+
+    // 위의 숫자는 "SLM 을 얼마나 잘 흉내내나" 다. 아래가 "얼마나 맞나" 다.
+    const human = audit();
+    if (human.length) {
+      const full = train([...ruler, ...held], OPT);   // 사람 자는 애초에 빠져 있다
+      const bySlm = new Map(human.map(r => [r.text, r.slm]));
+      console.log(`\n\n사람이 읽고 찍은 ${human.length}건으로 다시 잰다. 셋 다 이 글을 못 봤다.\n`);
+      console.log(report(human, t => bySlm.get(t), 'SLM(정답지 자신)').text, '\n');
+      console.log(report(human, t => predict(full, t).y, '분류기').text, '\n');
+      console.log(report(human, lex, '사전').text);
+    }
   }
 }
