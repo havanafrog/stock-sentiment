@@ -15,7 +15,10 @@ const CODE = blocks[blocks.length - 1][1];
 function makeNode(id = '') {
   let _html = '';
   const n = {
-    id, tagName: 'DIV', children: [], _attrs: {}, style: {}, dataset: {},
+    id, tagName: 'DIV', children: [], _attrs: {}, dataset: {},
+    // 사용자 정의 속성(--fill 같은 것)은 style 객체에 그냥 못 넣는다. 진짜 DOM 처럼
+    // setProperty 를 받아야 코드가 브라우저와 같은 길로 간다.
+    style: { setProperty(k, v) { this[k] = v; }, getPropertyValue(k) { return this[k] ?? ''; } },
     textContent: '', value: '',
     appendChild(c) { this.children.push(c); return c; },
     setAttribute(k, v) { this._attrs[k] = String(v); },
@@ -72,7 +75,7 @@ export function run() {
   const wrapped = CODE + `
 ;globalThis.__L = { spark, drawCharts, paint, card, UI, get LAST(){return LAST}, money, moneyShort, cur,
   sma, drawBars, drawFear, paintUnitSeg, viewRange, BAR, MIN_BARS, YSCALE, HAIRS, setTitle,
-  tkRender, ema, macd, rsi, mfi, drawInd, fitCharts, fmtYMD, labRow, labName, P, niceTicks, nowLine, timeTicks, paintBoard, chgOf, BOARD, get ALERT(){return ALERT} };`;
+  tkRender, ema, macd, rsi, mfi, drawInd, fitCharts, fmtYMD, labRow, labName, P, niceTicks, nowLine, timeTicks, paintBoard, chgOf, BOARD, pulseRender, pulseWait, avgOf, avgPaint, get ALERT(){return ALERT} };`;
   (0, eval)(wrapped);
   return { L: globalThis.__L, node };
 }

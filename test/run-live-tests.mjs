@@ -707,5 +707,53 @@ console.log('\n── R. 탭 ──');
   ok('빠르게 눌러도 마지막 것만', show.includes('if (mine !== turn) return;'));
   ok('rAF 가 없으면 그냥 부른다', show.includes('else heavy();'));
 }
+console.log('\n── S. 누른 것 ──');
+{
+  const { L, node } = run();
+
+  // 투표 — 아무도 안 눌렀으면 비율을 그리지 않는다. 없는 합의를 그리는 셈이다.
+  L.pulseRender({ ticker: 'KORU', day: '2026-08-25',
+    vote: { up: 0, down: 0, mine: null }, mood: { hit: 0, pet: 0, happy: 0 }, wait: 0 });
+  ok('표가 없으면 채우지 않는다', node('voteUn').textContent === '—' && node('voteU').style['--fill'] === '0%', node('voteU').style['--fill']);
+  ok('표가 없다고 적는다', node('pulseCount').textContent.includes('아직'));
+
+  L.pulseRender({ ticker: 'KORU', day: '2026-08-25',
+    vote: { up: 3, down: 1, mine: 'U' }, mood: { hit: 10, pet: 4, happy: -6 }, wait: 0 });
+  ok('종목을 적는다', node('pulseSym').textContent === 'KORU');
+  const vbtn = [node('voteU'), node('voteD')];
+  const vtext = [node('voteUn').textContent, node('voteDn').textContent];
+  ok('비율을 낸다', vtext[0] === '75% (3)' && vtext[1] === '25% (1)', vtext.join(' | '));
+  ok('총원을 적는다', node('pulseCount').textContent.includes('4명'));
+  ok('내가 누른 쪽에 표시', vbtn[0].getAttribute('aria-pressed') === 'true' && vbtn[1].getAttribute('aria-pressed') === 'false');
+
+  // 기분 — 행복도가 음수면 화난 얼굴이다.
+  ok('행복도를 적는다', node('moodHappy').textContent === '-6');
+  ok('행복도가 음수면 화난 얼굴', node('moodFace').textContent === '\uD83D\uDE21');
+  L.pulseRender({ ticker: 'KORU', day: '2026-08-25',
+    vote: { up: 0, down: 0, mine: null }, mood: { hit: 1, pet: 9, happy: 8 }, wait: 0 });
+  ok('행복도가 양수면 웃는 얼굴', node('moodFace').textContent === '\uD83D\uDE0A');
+  ok('양수엔 부호를 붙인다', node('moodHappy').textContent === '+8');
+
+  // 쿨다운 — 남았으면 버튼을 잠근다. 눌러도 안 먹는데 눌리면 속은 기분이 든다.
+  ok('쿨다운이 없으면 누를 수 있다', !node('moodPet').disabled && !node('moodHit').disabled);
+  L.pulseRender({ ticker: 'KORU', day: '2026-08-25',
+    vote: { up: 0, down: 0, mine: null }, mood: { hit: 0, pet: 0, happy: 0 }, wait: 12_000 });
+  ok('쿨다운이 남으면 잠근다', node('moodPet').disabled && node('moodHit').disabled);
+  ok('몇 초 남았는지 적는다', node('moodNote').textContent.includes('12초'), node('moodNote').textContent);
+}
+
+console.log('\n── T. 내 평단 ──');
+{
+  const src = readFileSync('live.html', 'utf8');
+  // 평단은 서버에 안 보낸다. 남의 평단을 우리가 가지고 있을 이유가 없다.
+  const send = src.slice(src.indexOf('const avgKey'), src.indexOf('// ── 컨트롤 ──'));
+  ok('평단을 서버로 보내지 않는다', !/fetch\(/.test(send), send.slice(0, 80));
+  ok('평단은 종목마다 따로 둔다', send.includes("'avg.' + t"));
+
+  // 눈금 밖이면 안 그린다 — 칸 끝에 붙여 그리면 거기 값이 있는 것처럼 보인다.
+  const draw = src.slice(src.indexOf("if ($('avgLine').checked)"), src.indexOf('// 가로축. 정각'));
+  ok('눈금 밖이면 안 그린다', draw.includes('ay >= lo && ay <= hi'), draw.slice(0, 120));
+  ok('통화를 거쳐 그린다', draw.includes('cur(a)'));
+}
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);

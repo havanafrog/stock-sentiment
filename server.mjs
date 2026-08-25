@@ -23,8 +23,8 @@
  */
 
 import { createServer } from 'node:http';
-import { DATA_DIR, dataPath, BASELINE_FILE, BASELINE_FALLBACK, LABELS_FILE, ensureDataDir } from './paths.mjs';
-import { readFileSync, writeFileSync, appendFileSync, existsSync, statSync } from 'node:fs';
+import { DATA_DIR, dataPath, BASELINE_FILE, BASELINE_FALLBACK, LABELS_FILE, PULSE_FILE, ensureDataDir } from './paths.mjs';
+import { readFileSync, writeFileSync, appendFileSync, existsSync, statSync, unlinkSync } from 'node:fs';
 import { join, dirname, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
@@ -307,6 +307,105 @@ function readLabels() {
 
 const LABEL_SET = new Set(["P", "X", "N"]);
 
+// ── 누른 것 (투표 · 기분) ────────────────────────────────────
+// 두 가지가 한 파일에 섞인다. 꼴이 같아서다:
+//   {k:"vote", t, d:"2026-08-25", v:"U"|"D"|null, who, at}   거래일마다 한 사람 한 표
+//   {k:"mood", t,               v:"hit"|"pet",    who, at}   누적. 누를 때마다 한 줄
+//
+// 계정이 없으니 who 는 브라우저가 만든 아이디다. 막으려고 두는 게 아니라
+// 같은 사람이 두 번 세지 않게 두는 것이다 — 지우면 새 사람이 된다.
+const PULSE_KINDS = new Set(["vote", "mood"]);
+const VOTE_SET = new Set(["U", "D"]);
+const MOOD_SET = new Set(["hit", "pet"]);
+const MOOD_COOLDOWN_MS = 30_000;         // 김치차트와 같은 30초
+
+let PULSE = null, PULSE_STAMP = -1;
+
+// 점검이 진짜 파일을 더럽히면 안 된다. 경로를 잠깐 갈아끼울 자리를 둔다.
+// 앞의 경로를 돌려주므로 끝나고 되돌릴 수 있다.
+let PULSE_PATH = PULSE_FILE;
+function PULSE_FILE_FOR_TEST(p) {
+  const was = PULSE_PATH;
+  PULSE_PATH = p; PULSE_STAMP = -1;
+  return was;
+}
+
+/** 파일을 한 번 훑어 종목별로 접는다. mtime 이 그대로면 다시 안 훑는다. */
+function readPulse() {
+  const stamp = existsSync(PULSE_PATH) ? statSync(PULSE_PATH).mtimeMs : 0;
+  if (PULSE && PULSE_STAMP === stamp) return PULSE;
+  const out = { vote: new Map(), mood: new Map(), last: new Map() };
+  if (stamp) {
+    for (const line of readFileSync(PULSE_PATH, "utf8").split("\n")) {
+      if (!line) continue;
+      try {
+        const r = JSON.parse(line);
+        if (!r.t || !r.who) continue;
+        if (r.k === "vote") {
+          // 나중 줄이 이긴다. v 가 null 이면 무른 것이다.
+          const key = r.t + "|" + r.d + "|" + r.who;
+          if (VOTE_SET.has(r.v)) out.vote.set(key, r.v); else out.vote.delete(key);
+        } else if (r.k === "mood" && MOOD_SET.has(r.v)) {
+          const m = out.mood.get(r.t) ?? { hit: 0, pet: 0 };
+          m[r.v]++; out.mood.set(r.t, m);
+          out.last.set(r.t + "|" + r.who, Date.parse(r.at) || 0);
+        }
+      } catch { /* 붙이는 중에 죽으면 마지막 줄이 잘린다 */ }
+    }
+  }
+  PULSE = out; PULSE_STAMP = stamp;
+  return out;
+}
+
+function appendPulse(row) {
+  appendFileSync(PULSE_PATH, JSON.stringify({ ...row, at: new Date().toISOString() }) + "\n");
+  PULSE_STAMP = -1;                       // 다음에 읽을 때 다시 훑는다
+}
+
+/** 그 종목의 오늘 투표와 누적 기분. who 를 주면 그 사람이 뭘 눌렀는지도 같이 준다. */
+export function pulseOf(ticker, who, day = etDay()) {
+  const p = readPulse();
+  let u = 0, d = 0, mine = null;
+  const head = ticker + "|" + day + "|";
+  for (const [key, v] of p.vote) {
+    if (!key.startsWith(head)) continue;
+    if (v === "U") u++; else d++;
+    if (who && key === head + who) mine = v;
+  }
+  const m = p.mood.get(ticker) ?? { hit: 0, pet: 0 };
+  const last = who ? (p.last.get(ticker + "|" + who) ?? 0) : 0;
+  return {
+    day,
+    vote: { up: u, down: d, mine },
+    mood: { hit: m.hit, pet: m.pet, happy: m.pet - m.hit },
+    // 남은 쿨다운(ms). 화면이 버튼을 언제 살릴지 알아야 한다.
+    wait: Math.max(0, MOOD_COOLDOWN_MS - (Date.now() - last)),
+  };
+}
+
+/** 미 동부 거래일. 투표는 하루 단위인데 한국 자정에 끊으면 장 한복판이다. */
+export function etDay(ms = Date.now()) {
+  return new Intl.DateTimeFormat("sv-SE", { timeZone: "America/New_York",
+    year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(ms));
+}
+
+/** 눌린 것을 받는다. 못 받을 이유가 있으면 그 이유를 돌려준다. */
+export function takePulse({ t, k, v, who }) {
+  if (!PULSE_KINDS.has(k)) return { error: "k 는 vote 또는 mood 입니다." };
+  if (!who || typeof who !== "string" || who.length > 40) return { error: "who 가 없습니다." };
+  if (k === "vote") {
+    if (v !== null && !VOTE_SET.has(v)) return { error: "v 는 U · D · null 입니다." };
+    appendPulse({ k, t, d: etDay(), v, who });
+    return pulseOf(t, who);
+  }
+  if (!MOOD_SET.has(v)) return { error: "v 는 hit 또는 pet 입니다." };
+  const now = pulseOf(t, who);
+  // 도배 막기. 쿨다운이 남았으면 세지 않고 지금 값만 돌려준다.
+  if (now.wait > 0) return { ...now, throttled: true };
+  appendPulse({ k, t, v, who });
+  return pulseOf(t, who);
+}
+
 /** y 가 null 이면 지운 것으로 남긴다 — 잘못 찍은 것을 무를 자리가 있어야 한다. */
 function appendLabel(ticker, id, y) {
   // 글월을 같이 박아 둔다. 이것만 있으면 채점기가 원본 더미를 안 열어도 된다.
@@ -526,6 +625,56 @@ function selftest() {
   ok('경로 문자는 거부', !okSymbol('../etc') && !okSymbol('a/b') && !okSymbol('a b'));
   ok('소문자는 거부 (대문자로 정규화한 뒤에 검사한다)', !okSymbol('tsla'));
   ok('빈 값·긴 값 거부', !okSymbol('') && !okSymbol('ABCDEFGHIJKLM'));
+
+  // ── 누른 것 ──
+  // 진짜 파일에 쓰면 점검이 데이터를 더럽힌다. 임시 파일로 갈아끼우고 되돌린다.
+  {
+    const tmp = join(DATA_DIR, `.pulse-selftest-${process.pid}.jsonl`);
+    const keep = PULSE_FILE_FOR_TEST(tmp);
+    try {
+      const T = 'ZZTEST';
+      ok('아무도 안 눌렀으면 0', pulseOf(T, 'a').vote.up === 0 && pulseOf(T, 'a').mood.happy === 0);
+
+      takePulse({ t: T, k: 'vote', v: 'U', who: 'a' });
+      takePulse({ t: T, k: 'vote', v: 'D', who: 'b' });
+      ok('표를 센다', pulseOf(T).vote.up === 1 && pulseOf(T).vote.down === 1);
+      ok('내가 뭘 눌렀는지 안다', pulseOf(T, 'a').vote.mine === 'U' && pulseOf(T, 'b').vote.mine === 'D');
+
+      // 한 사람이 두 번 눌러도 한 표다. 나중 것이 이긴다.
+      takePulse({ t: T, k: 'vote', v: 'D', who: 'a' });
+      ok('한 사람 한 표', pulseOf(T).vote.up === 0 && pulseOf(T).vote.down === 2);
+      takePulse({ t: T, k: 'vote', v: null, who: 'a' });
+      ok('무를 수 있다', pulseOf(T).vote.down === 1 && pulseOf(T, 'a').vote.mine === null);
+
+      // 거래일이 다르면 다른 표다.
+      ok('어제 표는 안 섞인다', pulseOf(T, 'b', '1999-01-01').vote.down === 0);
+
+      ok('종목이 다르면 안 섞인다', pulseOf(T + 'X').vote.down === 0);
+
+      // 기분은 누적이고, 30초에 한 번만 센다.
+      const m1 = takePulse({ t: T, k: 'mood', v: 'pet', who: 'c' });
+      ok('기분을 센다', m1.mood.pet === 1 && m1.mood.happy === 1);
+      const m2 = takePulse({ t: T, k: 'mood', v: 'pet', who: 'c' });
+      ok('30초 안에 또 누르면 안 센다', m2.throttled === true && m2.mood.pet === 1);
+      const m3 = takePulse({ t: T, k: 'mood', v: 'hit', who: 'd' });
+      ok('다른 사람은 바로 센다', m3.mood.hit === 1 && m3.mood.happy === 0, JSON.stringify(m3.mood));
+      ok('쿨다운이 남은 만큼 알려준다', pulseOf(T, 'c').wait > 0 && pulseOf(T, 'c').wait <= 30_000);
+      ok('안 누른 사람은 기다릴 게 없다', pulseOf(T, 'zzz').wait === 0);
+
+      // 잘못된 값은 파일에 안 들어간다.
+      ok('모르는 k 는 거부', !!takePulse({ t: T, k: 'nope', v: 'U', who: 'a' }).error);
+      ok('모르는 표는 거부', !!takePulse({ t: T, k: 'vote', v: 'Z', who: 'a' }).error);
+      ok('모르는 기분은 거부', !!takePulse({ t: T, k: 'mood', v: 'kiss', who: 'a' }).error);
+      ok('who 없으면 거부', !!takePulse({ t: T, k: 'vote', v: 'U', who: '' }).error);
+
+      // 줄이 잘려도 앞의 것은 살아야 한다 — 붙이는 중에 죽으면 실제로 이렇게 된다.
+      appendFileSync(tmp, '{"k":"vote","t":"ZZTEST","v":"U"');
+      ok('잘린 줄은 건너뛴다', pulseOf(T).vote.down === 1);
+    } finally {
+      PULSE_FILE_FOR_TEST(keep);
+      try { unlinkSync(tmp); } catch { /* 이미 없으면 됐다 */ }
+    }
+  }
 
   console.log(`\n${n}개 점검 통과\n`);
 }
@@ -1161,6 +1310,22 @@ createServer((req, res) => {
       res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: e.message }));
     });
+  }
+
+  if (path === '/api/pulse' && req.method === 'GET') {   // 오늘 투표 · 누적 기분
+    const q = new URL(req.url, 'http://x').searchParams;
+    const ticker = TICKERS.includes(q.get('t')) ? q.get('t') : TICKERS[0];
+    const who = (q.get('who') ?? '').slice(0, 40);
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+    return res.end(JSON.stringify({ ticker, ...pulseOf(ticker, who) }));
+  }
+
+  if (path === '/api/pulse' && req.method === 'POST') {  // 한 번 누르기
+    return readBody(req).then(({ t, k, v, who }) => {
+      if (!TICKERS.includes(t)) return sendJSON(res, 400, { error: `${t} 은 목록에 없습니다.` });
+      const out = takePulse({ t, k, v: v === undefined ? null : v, who });
+      sendJSON(res, out.error ? 400 : 200, out.error ? out : { ticker: t, ...out });
+    }).catch(e => sendJSON(res, 400, { error: e.message }));
   }
 
   if (path === '/api/live') {          // curl 로 들여다볼 때 쓴다

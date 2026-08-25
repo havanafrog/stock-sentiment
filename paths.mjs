@@ -33,6 +33,12 @@ export const BASELINE_FALLBACK = join(APP_DIR, 'data.js');
  */
 export const LABELS_FILE = dataPath('labels.jsonl');
 
+/**
+ * 사람이 누른 것. 투표와 기분이 한 파일에 섞여 들어간다 —
+ * 둘 다 "누가 언제 무엇을 눌렀다" 라 꼴이 같고, 파일이 하나면 백업도 하나다.
+ */
+export const PULSE_FILE = dataPath('pulse.jsonl');
+
 export function ensureDataDir() {
   mkdirSync(DATA_DIR, { recursive: true });
   return DATA_DIR;
