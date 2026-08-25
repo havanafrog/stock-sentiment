@@ -117,6 +117,37 @@
            border-radius: var(--radius-lg); padding: 14px 16px; margin-bottom: 14px; }
   .ctrl { display: flex; flex-direction: column; gap: 5px; }
   .ctrl > label { font-size: 11.5px; color: var(--text-secondary); }
+  /* 누른 것 — 투표 · 기분 · 평단. 세 줄이 같은 자리에 선다. */
+  .pulse { display: grid; gap: 10px; }
+  .prow { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .plab { flex: 0 0 auto; min-width: 96px; font-size: 12.5px; color: var(--text-secondary); }
+  .plab b { color: var(--text-primary); font-weight: 700; }
+  .pnote { font-size: 11.5px; color: var(--faint); margin-left: auto; }
+  .pnote input { vertical-align: -1px; margin-right: 3px; }
+  .vote, .mood { display: flex; gap: 6px; flex: 1 1 260px; max-width: 620px; }
+  .vote button, .mood button { flex: 1 1 0; position: relative; appearance: none; cursor: pointer;
+    font: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 10px; overflow: hidden;
+    border: 0; border-radius: var(--radius); box-shadow: var(--ring);
+    background: var(--surface-1); color: var(--text-secondary); }
+  .vote button em, .mood button em { font-style: normal; font-weight: 700; }
+  .vote button i { font-style: normal; font-size: 10px; }
+  /* 표가 몇 퍼센트인지 버튼 자체를 채워 보여준다. 막대를 따로 두면 줄이 하나 는다. */
+  /* --fill 은 자바스크립트가 버튼마다 넣는다. 여기 기본값이 있어야 표가 없을 때도 0 이다. */
+  .vote button { --fill: 0%; }
+  .vote button::before { content: ""; position: absolute; inset: 0 auto 0 0;
+    width: var(--fill); background: currentColor; opacity: .12; transition: width .25s ease; }
+  .vote button > * { position: relative; }
+  .vote button[data-v="U"] { color: var(--up); }
+  .vote button[data-v="D"] { color: var(--down); }
+  .vote button[aria-pressed="true"] { box-shadow: inset 0 0 0 1.5px currentColor; }
+  .mood button:hover { color: var(--text-primary); }
+  .vote button:disabled, .mood button:disabled { cursor: default; opacity: .55; }
+  .fld.avg { flex: 0 1 160px; }
+  .pnl { font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .pnl.up { color: var(--up); }
+  .pnl.down { color: var(--down); }
+
+  .cavg { font-size: 8.5px; font-weight: 700; fill: var(--ma20); }
   .seg { display: flex; box-shadow: var(--ring); border-radius: var(--radius); overflow: hidden; }
   /* 누른 뒤 새 탭이 그려지기까지 한 프레임이 빈다. 그동안 아무 반응이 없으면
      느리게 느껴지므로 버튼 자체는 즉시 반응하게 둔다. */
@@ -517,6 +548,33 @@
         <label><input type="checkbox" data-ind="mfi"><i class="k" style="background:var(--mfi)"></i>매수/매도 압력</label>
         <label><input type="checkbox" data-ind="wm"><i class="k" style="background:var(--neg)"></i>곡소리 MACD</label>
       </div>
+    </div>
+  </div>
+
+  <div class="card pulse" id="pulseCard">
+    <div class="prow">
+      <div class="plab">오늘 <b id="pulseSym">—</b> 어디로</div>
+      <div class="vote" id="pulseVote">
+        <button id="voteU" data-v="U"><i>&#9650;</i> 오른다 <em id="voteUn">—</em></button>
+        <button id="voteD" data-v="D"><i>&#9660;</i> 내린다 <em id="voteDn">—</em></button>
+      </div>
+      <span class="pnote" id="pulseCount"></span>
+    </div>
+
+    <div class="prow">
+      <div class="plab">기분 <b id="moodFace">&#128528;</b> <span id="moodHappy">0</span></div>
+      <div class="mood" id="pulseMood">
+        <button id="moodPet" data-v="pet">쓰담 <em id="moodPetN">0</em></button>
+        <button id="moodHit" data-v="hit">한 대 <em id="moodHitN">0</em></button>
+      </div>
+      <span class="pnote" id="moodNote">30초에 한 번</span>
+    </div>
+
+    <div class="prow">
+      <label class="plab" for="avgIn">내 평단</label>
+      <input id="avgIn" class="fld avg" inputmode="decimal" placeholder="예: 1420.00">
+      <span class="pnl" id="avgPnl"></span>
+      <label class="pnote"><input type="checkbox" id="avgLine" checked> 차트에 선</label>
     </div>
   </div>
 
@@ -1291,6 +1349,19 @@ function drawBars() {
       color: lastC >= cur(rows[0][1] ?? rows[rows.length-1][4]) ? 'var(--up)' : 'var(--down)' });
   }
 
+  // 내 평단. 눈금 범위 밖이면 안 그린다 — 칸 끝에 붙여 그리면 거기 있는 것처럼 보인다.
+  if ($('avgLine').checked) {
+    const a = avgOf(UI.ticker);
+    const ay = a === null ? null : cur(a);
+    if (ay !== null && ay >= lo && ay <= hi) {
+      svg.appendChild(svgEl('line', { class: 'avgl', x1: BP.l, x2: BW - BP.r, y1: yAt(ay), y2: yAt(ay),
+        stroke: 'var(--ma20)', 'stroke-width': 1, 'stroke-dasharray': '4 3', opacity: .9 }));
+      const tag = svgEl('text', { class: 'cavg', x: BW - BP.r - 2, y: yAt(ay) - 3, 'text-anchor': 'end' });
+      tag.textContent = '평단 ' + moneyShort(ay);
+      svg.appendChild(tag);
+    }
+  }
+
   // 가로축. 정각·자정 같은 경계에만 세운다.
   const dayOnly = BAR.unit === 'day:1';
   const ticks = timeTicks(rows.map(r => r[0]));
@@ -1453,6 +1524,8 @@ function paint(d) {
     // 쌍 순서대로: 본주 다음 레버리지
     const order = (d.list ?? []).filter(t => d.tickers[t]);
     if (!order.includes(UI.ticker)) UI.ticker = order[0];
+
+    avgPaint();          // 새 값이 왔으니 평단 손익도 다시 낸다
 
       // 탭의 붉은 점도 같은 기준 — 지수가 경보선을 넘었나
     const feary = order.filter(t => (d.tickers[t].w60.idx ?? 0) >= ALERT);
@@ -2034,6 +2107,126 @@ $('masBox').onchange = ev => {
 };
 paintUnitSeg();                        // 첫 스냅샷이 오기 전에도 버튼은 보여야 한다
 
+// ── 누른 것 (투표 · 기분 · 평단) ──────────────────────────────
+// 곡소리 지수는 글에서 캐낸 추론값인데 맞는지 견줄 자리가 없다. 한 번 누르는
+// 투표가 그 자리에서 사람이 붙인 답이 된다 — 지수와 나란히 두면 서로 검산이 된다.
+//
+// 계정이 없으니 누구인지는 브라우저가 스스로 만든다. 막으려고 두는 게 아니라
+// 같은 사람을 두 번 세지 않으려고 둔다. 지우면 새 사람이 되는데, 그래도 된다.
+function whoId() {
+  let w = store.get('who', null);
+  if (!w) {
+    w = Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
+    store.set('who', w);
+  }
+  return w;
+}
+
+let PULSE = null;          // 마지막으로 받은 값
+let PULSE_TICK = null;     // 쿨다운을 세는 타이머
+
+async function pulseLoad() {
+  if (!UI.ticker) return;
+  try {
+    const r = await fetch(`/api/pulse?t=${encodeURIComponent(UI.ticker)}&who=${encodeURIComponent(whoId())}`);
+    if (!r.ok) return;
+    const d = await r.json();
+    if (d.ticker !== UI.ticker) return;     // 늦게 온 답이 새 종목을 덮으면 안 된다
+    pulseRender(d);
+  } catch { /* 서버가 잠깐 없어도 화면은 남는다 */ }
+}
+
+function pulseRender(d) {
+  PULSE = d;
+  $('pulseSym').textContent = d.ticker ?? UI.ticker ?? '—';
+
+  const { up, down, mine } = d.vote;
+  const n = up + down;
+  for (const [id, v, c] of [['voteU', 'U', up], ['voteD', 'D', down]]) {
+    // 아무도 안 눌렀으면 50:50 으로 채우지 않는다 — 없는 합의를 그리는 셈이다.
+    $(id).style.setProperty('--fill', n ? (100 * c / n).toFixed(0) + '%' : '0%');
+    $(id + 'n').textContent = n ? `${Math.round(100 * c / n)}% (${c})` : '—';
+    $(id).setAttribute('aria-pressed', String(mine === v));
+  }
+  $('pulseCount').textContent = n ? `${n}명 · 미 동부 ${d.day}` : '아직 아무도 안 눌렀습니다';
+
+  const { hit, pet, happy } = d.mood;
+  $('moodHappy').textContent = (happy > 0 ? '+' : '') + happy.toLocaleString();
+  // 얼굴은 세 단계면 된다. 눈금을 더 쪼개도 읽는 사람이 못 가른다.
+  $('moodFace').textContent = happy > 0 ? '\uD83D\uDE0A' : happy < 0 ? '\uD83D\uDE21' : '\uD83D\uDE10';
+  $('moodPetN').textContent = pet.toLocaleString();
+  $('moodHitN').textContent = hit.toLocaleString();
+  pulseWait(d.wait);
+}
+
+// 쿨다운이 남은 동안 버튼을 잠그고 남은 초를 센다. 눌러도 안 먹는데 눌리는 것보다
+// 몇 초 남았는지 보이는 편이 낫다.
+function pulseWait(ms) {
+  clearInterval(PULSE_TICK); PULSE_TICK = null;
+  const note = $('moodNote'), btns = [$('moodPet'), $('moodHit')];
+  const show = left => {
+    const on = left > 0;
+    for (const b of btns) b.disabled = on;
+    note.textContent = on ? `${Math.ceil(left / 1000)}초 뒤에 다시` : '30초에 한 번';
+  };
+  show(ms);
+  if (ms <= 0) return;
+  const until = Date.now() + ms;
+  PULSE_TICK = setInterval(() => {
+    const left = until - Date.now();
+    show(left);
+    if (left <= 0) { clearInterval(PULSE_TICK); PULSE_TICK = null; }
+  }, 500);
+}
+
+async function pulseSend(k, v) {
+  if (!UI.ticker) return;
+  try {
+    const r = await fetch('/api/pulse', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ t: UI.ticker, k, v, who: whoId() }),
+    });
+    const d = await r.json();
+    if (d.ticker === UI.ticker) pulseRender(d);
+  } catch { /* 다음 새로고침에 맞춰진다 */ }
+}
+
+$('pulseVote').onclick = ev => {
+  const b = ev.target.closest('button'); if (!b) return;
+  // 같은 걸 또 누르면 무른다. 잘못 눌렀을 때 되돌릴 자리가 있어야 한다.
+  pulseSend('vote', PULSE?.vote?.mine === b.dataset.v ? null : b.dataset.v);
+};
+$('pulseMood').onclick = ev => {
+  const b = ev.target.closest('button'); if (!b || b.disabled) return;
+  pulseSend('mood', b.dataset.v);
+};
+
+// ── 내 평단 ──────────────────────────────────────────────────
+// 서버에 안 보낸다. 남의 평단을 알 이유도, 우리가 가지고 있을 이유도 없다.
+const avgKey = t => 'avg.' + t;
+function avgOf(t) {
+  const v = parseFloat(store.get(avgKey(t), ''));
+  return Number.isFinite(v) && v > 0 ? v : null;
+}
+function avgPaint() {
+  const t = UI.ticker, box = $('avgIn'), out = $('avgPnl');
+  if (!t) return;
+  if (document.activeElement !== box) box.value = store.get(avgKey(t), '');
+  const a = avgOf(t), last = LAST?.tickers?.[t]?.price?.close ?? null;
+  out.className = 'pnl';
+  if (a === null || !Number.isFinite(last)) { out.textContent = ''; return; }
+  const r = (last - a) / a;
+  out.classList.add(r >= 0 ? 'up' : 'down');
+  // money() 는 부호를 값 앞에 붙여 $-29.00 처럼 나온다. 부호를 통화 기호 앞으로 뺀다.
+  out.textContent = `${sgn(r * 100)}%  ${r < 0 ? '-' : '+'}${money(Math.abs(last - a))}`;
+}
+$('avgIn').oninput = () => {
+  store.set(avgKey(UI.ticker), $('avgIn').value.replace(/[^\d.]/g, ''));
+  avgPaint(); drawBars();
+};
+$('avgLine').onchange = () => { store.set('avgLine', $('avgLine').checked ? '1' : '0'); drawBars(); };
+$('avgLine').checked = store.get('avgLine', '1') === '1';
+
 // ── 컨트롤 ──
 // 값만 바꾸고 마지막 스냅샷으로 다시 그린다. 서버에 되묻지 않는다.
 function pickTicker(t) {
@@ -2042,6 +2235,7 @@ function pickTicker(t) {
   if (LAST) paint(LAST);
   paintPTicker();
   if (pOpened) loadPosts(true);          // 글 탭도 같은 종목을 보게 맞춘다
+  pulseLoad(); avgPaint();               // 투표·기분·평단도 그 종목 것으로
   BAR.rows = []; BAR.err = null; BAR.view = null; BAR.fear = []; loadBars();
 }
 
@@ -2214,7 +2408,7 @@ let showTab = () => {};
       if (name === 'analysis') openAnalysis();
       if (name === 'board') tkLoad();     // 종목 관리가 메인으로 옮겨졌다
       // 숨어 있는 동안 그린 차트는 폭이 0 이라 선이 뭉개진다. 나올 때 다시 그린다.
-      if (name === 'main') { drawBars(); drawFear(); }
+      if (name === 'main') { drawBars(); drawFear(); pulseLoad(); avgPaint(); }
     };
     if (typeof requestAnimationFrame === 'function')
       requestAnimationFrame(() => requestAnimationFrame(heavy));
