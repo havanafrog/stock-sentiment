@@ -25,3 +25,4 @@ data/*.live.jsonl
 # 장부는 두 세션이 같이 쓴다. 커밋하면 충돌만 난다.
 ops/ledger.jsonl
 ops/.selftest-*.jsonl
+ops/.env

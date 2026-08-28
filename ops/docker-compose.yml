@@ -1,0 +1,54 @@
+# 재는 쪽 한 통.
+#
+#   docker compose -f ops/docker-compose.yml run --rm verifier
+#
+# 붙으면 Claude 가 뜬다. 거기서 /ops verify 를 치면 된다.
+#
+# 마운트가 규칙을 대신한다. 스킬에 "재는 쪽은 고치지 않는다" 고 적어 놨지만
+# 그건 부탁이다. 저장소를 읽기 전용으로 걸면 부탁이 아니라 사실이 된다:
+#
+#   /repo      읽기 전용   — 고칠 수 없다. 커밋도 푸시도 못 한다. (실측 확인)
+#   /ops       쓰기 가능   — 장부만 열어 준다
+#   /scratch   쓰기 가능   — 서버를 띄워 보거나 복사해 부러뜨릴 자리
+#   /tmp       메모리      — 나가면 사라진다
+#
+# 장부를 /repo/ops 에 겹쳐 걸어도 되지만 그러지 않는다. 읽기 전용 위에 마운트를
+# 겹치면 그 폴더가 원본에 없을 때 통이 아예 안 뜬다. 따로 거는 게 안 깨진다.
+
+services:
+  verifier:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ops-verifier
+    init: true                       # Ctrl+C 가 제대로 먹게
+    stdin_open: true
+    tty: true
+    working_dir: /repo
+    # 리눅스에서는 이게 있어야 장부에 쓸 수 있다. 통 안의 node 는 1000 인데
+    # 호스트 사용자가 1001 이면 "Permission denied" 가 난다 — 실제로 겪었다.
+    # 윈도우 Docker Desktop 에서는 상관없다. .env 에서 맞춰 준다.
+    user: "${OPS_UID:-1000}:${OPS_GID:-1000}"
+    environment:
+      OPS_LEDGER: /ops/ledger.jsonl
+      OPS_SCRATCH: /scratch
+      # 저장소가 읽기 전용이라 진짜 글은 읽기만 된다. 서버를 띄워 봐야 하면
+      # /scratch 로 복사해서 STOCK_DATA_DIR 을 거기로 돌려 쓴다.
+      STOCK_DATA_DIR: /repo/data
+      HOME: /home/node
+    volumes:
+      # 저장소 전체를 읽기 전용으로. 이게 이 통의 존재 이유다.
+      - ..:/repo:ro
+      # 장부. 호스트의 ops/ 를 그대로 본다 — 만드는 쪽과 같은 파일이다.
+      - ./:/ops:rw
+      # 자격증명. 없으면 통 안의 Claude 가 로그인을 못 한다.
+      # 이 폴더에는 다른 프로젝트의 기록도 들어 있다 — 통에 그걸 다 보여 주는 셈이다.
+      - ${CLAUDE_HOME}/.claude:/home/node/.claude:rw
+      - ${CLAUDE_HOME}/.claude.json:/home/node/.claude.json:rw
+      # 부러뜨려 볼 자리. 나가면 사라진다.
+      - ops-scratch:/scratch
+    tmpfs:
+      - /tmp
+
+volumes:
+  ops-scratch:
