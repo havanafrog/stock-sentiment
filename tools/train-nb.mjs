@@ -231,6 +231,29 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       console.log(report(human, t => bySlm.get(t), 'SLM(정답지 자신)').text, '\n');
       console.log(report(human, t => predict(full, t).y, '분류기').text, '\n');
       console.log(report(human, lex, '사전').text);
+
+      // 위 240건은 SLM 라벨 기준 P·N·X 를 고르게 뽑은 것이라 실제 글 분포가 아니다.
+      // 층별 정확도에 실제 비율을 곱해 다시 맞춘다. 안 하면 아무 글에나 X 를 찍는
+      // 사전이 실제보다 잘해 보이고 분류기는 못해 보인다.
+      //
+      // ponytail: 층을 SLM 라벨로 잡고 홀드아웃을 코퍼스 대신 쓴 추정이다.
+      // 사람 라벨 기준의 실제 분포를 세면 그걸로 바꾼다.
+      const prior = {};
+      for (const r of held) prior[r.y] = (prior[r.y] ?? 0) + 1 / held.length;
+      const reweigh = pred => {
+        const per = {};
+        for (const r of human) {
+          const c = (per[r.slm] ??= { n: 0, k: 0 });
+          c.n++; if (pred(r.text) === r.y) c.k++;
+        }
+        return Object.entries(per).reduce((s, [y, c]) => s + (prior[y] ?? 0) * c.k / c.n, 0);
+      };
+      const pct = x => (x * 100).toFixed(1) + '%';
+      console.log(`\n\n실제 글 분포로 다시 맞춤 — 홀드아웃 ${held.length.toLocaleString()}건 기준 `
+        + Object.entries(prior).map(([y, p]) => `${y} ${pct(p)}`).join(' · '));
+      for (const [tag, pred] of [['SLM', t => bySlm.get(t)],
+                                 ['분류기', t => predict(full, t).y], ['사전', lex]])
+        console.log(`  ${tag.padEnd(4)} ${pct(reweigh(pred))}`);
     }
   }
 }
