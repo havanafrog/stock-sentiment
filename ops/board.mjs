@@ -17,6 +17,7 @@ import { join, dirname, basename } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { read as readLedger, open as openClaims } from './ledger.mjs';
+import { repo, model, corpus, service, measure, parseMeasure } from './facts.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = dirname(HERE);
@@ -166,6 +167,10 @@ export function board(now = Date.now()) {
   return {
     now,
     sessions: sessions(LOG_DIR, now),
+    repo: repo(),
+    model: model(),
+    corpus: corpus(),
+    service: service(now),
     open: claims,
     recent: all.slice(-12).reverse(),
     counts: {
@@ -256,8 +261,19 @@ function selftest() {
      && askedByHuman({ role: 'user', kind: 'text', text: '이거 고쳐줘' }));
   ok('도구 결과는 사람이 친 게 아니다', !askedByHuman({ role: 'user', kind: 'result', text: '' }));
 
+  // 잰 값을 적어 두는 자리 — 출력 꼴이 바뀌면 여기서 걸린다.
+  const M = parseMeasure('실제 글 분포로 다시 맞춤 — 홀드아웃 11,442건 기준 X 21.8%\n'
+    + '  SLM  71.6%\n  분류기  61.5%\n  사전   39.9%');
+  ok('잰 값을 뽑는다', M.SLM === 71.6 && M['분류기'] === 61.5 && M['사전'] === 39.9, JSON.stringify(M));
+  ok('못 찾으면 null', parseMeasure('아무 말') === null);
+
   const b = board();
   ok('판을 만든다', Array.isArray(b.sessions) && Array.isArray(b.open) && b.counts);
+  ok('저장소도 담는다', b.repo && typeof b.repo.branch === 'string' && Array.isArray(b.repo.dirty));
+  ok('분류기도 담는다', b.model && b.model.labels && typeof b.model.labels.slm === 'number');
+  ok('글도 담는다', b.corpus && Array.isArray(b.corpus.rows));
+  // ssh 는 뒤에서 물어본다. 첫 부름은 아직 답이 없어도 화면이 서야 한다.
+  ok('서비스는 없어도 안 죽는다', b.service && 'checkedAt' in b.service);
 
   console.log(`\n${n}개 점검 통과\n`);
 }
@@ -265,5 +281,11 @@ function selftest() {
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const argv = process.argv.slice(2);
   if (argv.includes('--selftest')) { console.log('\n자체 점검\n'); selftest(); process.exit(0); }
+  // 정확도는 재는 데 몇십 초 걸린다. 판이 부를 때마다 잴 수 없어서 따로 재고 적어 둔다.
+  if (argv.includes('--measure')) {
+    console.log('\n재는 중 — tools/train-nb.mjs\n');
+    console.log(JSON.stringify(measure(), null, 2));
+    process.exit(0);
+  }
   main(argv);
 }

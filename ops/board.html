@@ -30,6 +30,17 @@
        letter-spacing: .02em; }
 
   .cards { display: grid; gap: 9px; }
+  .grid { display: grid; gap: 9px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+  h3 { font-size: 12px; font-weight: 600; color: var(--faint); margin: 0 0 9px; }
+  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px;
+       font-size: 12.5px; align-items: baseline; }
+  dt { color: var(--faint); font-size: 11.5px; white-space: nowrap; }
+  dd { margin: 0; font-variant-numeric: tabular-nums; overflow: hidden;
+       text-overflow: ellipsis; white-space: nowrap; }
+  dd.big { font-weight: 650; white-space: normal; }
+  .warn { color: var(--warn); }
+  .bad { color: var(--live); }
+  .good { color: var(--calm); }
   .card { background: var(--surface); box-shadow: var(--ring); border-radius: 14px;
           padding: 13px 15px; }
 
@@ -75,6 +86,13 @@
 <div class="wrap">
   <h1>ops</h1>
   <p class="sub" id="head">불러오는 중…</p>
+
+  <div class="grid">
+    <div class="card"><h3>저장소</h3><div id="repo"></div></div>
+    <div class="card"><h3>분류기</h3><div id="model"></div></div>
+    <div class="card"><h3>글 <span class="meta">이 PC</span></h3><div id="corpus"></div></div>
+    <div class="card"><h3>서비스</h3><div id="service"></div></div>
+  </div>
 
   <h2>세션</h2>
   <div class="cards" id="sessions"></div>
@@ -141,6 +159,58 @@ function logRows(rows) {
   }).join('') + '</table>';
 }
 
+const dl = pairs => '<dl>' + pairs.filter(Boolean)
+  .map(([k, v, c]) => `<dt>${esc(k)}</dt><dd class="${c ?? ''}">${v}</dd>`).join('') + '</dl>';
+const num = n => (n ?? 0).toLocaleString();
+const mb = b => (b >= 1e6 ? (b / 1e6).toFixed(1) + 'MB' : Math.round(b / 1e3) + 'KB');
+
+function paintRepo(r) {
+  const d = r.dirty.length;
+  $('repo').innerHTML = dl([
+    ['가지', esc(r.branch ?? '—')],
+    r.head && ['마지막', esc(cut(r.head.subject, 60))],
+    r.head && ['', `<span class="meta">${esc(r.head.hash)} · ${ago(Date.now() - Date.parse(r.head.when))}</span>`],
+    ['안 올린 것', d ? `${d}개 파일` : '없음', d ? 'warn' : ''],
+    r.ahead ? ['안 민 커밋', r.ahead + '개', 'warn'] : null,
+  ]);
+}
+
+function paintModel(m) {
+  const t = m.labels.slm + m.labels.read + m.labels.audit + m.labels.mine;
+  const a = m.measured;
+  $('model').innerHTML = dl([
+    ['어휘', num(m.vocab) + '개'],
+    ['크기', mb(m.bytes) + (m.at ? ` · ${ago(Date.now() - m.at)}` : '')],
+    ['라벨', `${num(t)}건`],
+    ['', `<span class="meta">SLM ${num(m.labels.slm)} · 읽음 ${num(m.labels.read)}`
+      + ` · 사람 자 ${num(m.labels.audit)} · 손 ${num(m.labels.mine)}</span>`],
+    a ? ['정확도', `분류기 <b>${a['분류기']}%</b> · 사전 ${a['사전']}% · SLM ${a.SLM}%`, 'big'] : null,
+    a ? ['', `<span class="meta">${ago(Date.now() - Date.parse(a.at))}에 잼 · 사람 자 240건을 실제 분포로 맞춘 값</span>`] : null,
+    a ? null : ['정확도', '<span class="meta">아직 안 쟀습니다 — node ops/board.mjs --measure</span>'],
+  ]);
+}
+
+function paintCorpus(c) {
+  const rows = c.rows.map(r => `<tr><td class="id">${esc(r.t)}</td>`
+    + `<td>${mb(r.bytes)}</td>`
+    + `<td class="by">${r.at ? ago(Date.now() - r.at) : '—'}</td></tr>`).join('');
+  $('corpus').innerHTML = `<table>${rows}</table>`
+    + dl([['기준선', c.builtAt ? `${mb(c.builtBytes)} · ${ago(Date.now() - c.builtAt)}` : '없음',
+      c.builtAt ? '' : 'bad']]);
+}
+
+function paintService(s) {
+  if (s.error) {
+    $('service').innerHTML = dl([['오라클', esc(s.error), 'bad'],
+      s.checkedAt ? ['', `<span class="meta">${ago(Date.now() - s.checkedAt)}에 물어봄</span>`] : null]);
+    return;
+  }
+  if (!s.rows) { $('service').innerHTML = '<p class="empty">물어보는 중…</p>'; return; }
+  $('service').innerHTML = dl(s.rows.map(r => [r.name.replace(/^stock-docker-/, ''),
+    esc(r.status), r.healthy ? 'good' : r.up ? 'warn' : 'bad'])
+    .concat([['', `<span class="meta">${ago(Date.now() - s.checkedAt)}에 물어봄 · 30초마다</span>`]]));
+}
+
 let stale = 0;
 async function tick() {
   try {
@@ -151,6 +221,7 @@ async function tick() {
       + ` · 주장 ${d.counts.claims} (닫힘 ${d.counts.closed}) · 판정 ${d.counts.verdicts}`;
     $('sessions').innerHTML = d.sessions.map(card).join('')
       || '<p class="empty">이 저장소에서 도는 세션이 없습니다.</p>';
+    paintRepo(d.repo); paintModel(d.model); paintCorpus(d.corpus); paintService(d.service);
     $('open').innerHTML = openRows(d.open);
     $('log').innerHTML = logRows(d.recent);
   } catch {
