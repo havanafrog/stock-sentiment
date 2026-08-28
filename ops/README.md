@@ -45,11 +45,25 @@ docker compose -f ops/docker-compose.yml run --rm verifier
 
 ## 필요한 것
 
-- **Docker 엔진.** 윈도우면 Docker Desktop 입니다. 이 저장소에 있는 Docker CLI 는
-  오라클 서버를 보고 있어서 로컬 통을 못 띄웁니다.
+- **Docker 엔진.** 윈도우면 Docker Desktop 입니다. 이 기계에는 4.88.1 을 깔았고
+  WSL 2.7.12 도 같이 들어갔습니다 — Windows 11 Home 이라 WSL2 백엔드가 필수입니다.
+  Hyper-V 백엔드는 Home 에 없습니다.
 - `ops/.env` 의 `CLAUDE_HOME`. 통 안의 Claude 가 로그인할 자격증명 자리입니다.
 - 리눅스·맥이면 `OPS_UID` / `OPS_GID` 도 `id -u` `id -g` 로 맞추세요.
   안 맞으면 장부에 못 씁니다 — 실제로 uid 1000 대 1001 로 겪었습니다.
+
+## 걸렸던 자리
+
+**PATH 에 docker 가 둘입니다.** winget 으로 깐 Docker CLI 가 사용자 PATH 에,
+Docker Desktop 이 시스템 PATH 에 있습니다. 시스템이 먼저라 **새로 연 셸**은
+Desktop 쪽을 고릅니다 — 그쪽에만 compose 플러그인이 있습니다. 이미 열려 있던
+셸에서는 옛 CLI 가 잡혀 compose 가 없다고 나옵니다. 셸을 새로 여세요.
+
+같은 이유로 자격증명 도우미를 못 찾아 빌드가 한 번 죽었습니다.
+
+**현재 컨텍스트가 바뀌었습니다.** Docker Desktop 이 desktop-linux 를 만들고 그걸
+현재로 잡습니다. 전에는 oracle 이었습니다. 오라클 배포는 ssh 로 서버에서 직접
+돌리므로 영향이 없지만, 로컬에서 맨 docker 를 치면 이제 로컬 엔진을 봅니다.
 
 ## 조심할 것
 
