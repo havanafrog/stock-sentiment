@@ -50,5 +50,36 @@ services:
     tmpfs:
       - /tmp
 
+  # 판. 계속 떠 있는 쪽이라 Docker Desktop 에도 이게 보인다.
+  #
+  #   docker compose -f ops/docker-compose.yml up -d board
+  #   http://127.0.0.1:8730
+  #
+  # 판은 읽기만 한다 — 저장소도 장부도 기록도 전부 읽기 전용이다.
+  board:
+    build:
+      context: .
+      dockerfile: board.Dockerfile
+    container_name: ops-board
+    init: true
+    restart: unless-stopped
+    environment:
+      OPS_LEDGER: /ops/ledger.jsonl
+      OPS_LOG_DIR: /logs
+      STOCK_DATA_DIR: /repo/data
+      # 오라클을 보려면 ssh 열쇠를 통에 넣어야 한다. 그 자체가 위험이라 꺼 둔다.
+      # 보고 싶으면 이 줄과 아래 .ssh 마운트를 같이 켜세요.
+      # OPS_SSH_HOST: oracle-stock
+    ports:
+      # 127.0.0.1 에만 건다. 기록에는 대화가 통째로 들어 있다.
+      - "127.0.0.1:8730:8730"
+    volumes:
+      - ..:/repo:ro
+      - ./:/ops:ro
+      # 세션 기록. 이 저장소 폴더 하나만 건다 — projects 전체를 걸면 다른 프로젝트
+      # 대화까지 통에 보인다. 경로는 .env 의 OPS_LOG_DIR_HOST 에 있다.
+      - ${OPS_LOG_DIR_HOST}:/logs:ro
+      # - ${CLAUDE_HOME}/.ssh:/home/node/.ssh:ro
+
 volumes:
   ops-scratch:

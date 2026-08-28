@@ -27,7 +27,9 @@ export function projectSlug(cwd) {
   return cwd.replace(/[:\\/]/g, '-');
 }
 
-export const LOG_DIR = join(homedir(), '.claude', 'projects', projectSlug(REPO));
+// 통 안에서는 작업 경로가 /repo 라 폴더 이름이 안 맞는다. 밖에서 정해 준다.
+export const LOG_DIR = process.env.OPS_LOG_DIR
+  || join(homedir(), '.claude', 'projects', projectSlug(REPO));
 
 /** 한 줄에서 "무엇을 했나" 한 마디를 뽑는다. */
 export function describe(row) {
@@ -185,8 +187,11 @@ export function board(now = Date.now()) {
 const PAGE = readFileSync(join(HERE, 'board.html'), 'utf8');
 
 function main(argv) {
-  const pi = argv.indexOf('--port');
-  const port = pi >= 0 ? Number(argv[pi + 1]) : 8730;
+  const flag = (k, dflt) => { const i = argv.indexOf('--' + k); return i >= 0 ? argv[i + 1] : dflt; };
+  const port = Number(flag('port', 8730));
+  // 기본은 127.0.0.1 이다. 통 안에서만 0.0.0.0 으로 듣고, 밖으로는 compose 가
+  // 127.0.0.1 에만 건다 — 기록에는 대화가 통째로 들어 있다.
+  const host = flag('host', '127.0.0.1');
 
   createServer((req, res) => {
     const path = req.url.split('?')[0];
@@ -200,8 +205,8 @@ function main(argv) {
     }
     res.writeHead(404).end();
     // 127.0.0.1 로만 듣는다. 기록에는 대화가 통째로 들어 있어서 밖에 열면 안 된다.
-  }).listen(port, '127.0.0.1', () => {
-    console.log(`\n  http://127.0.0.1:${port}\n`);
+  }).listen(port, host, () => {
+    console.log(`\n  http://${host === '0.0.0.0' ? '127.0.0.1' : host}:${port}\n`);
     console.log(`  기록  ${LOG_DIR}`);
     console.log(`  장부  ${readLedger().length}줄\n`);
   });
@@ -272,8 +277,13 @@ function selftest() {
   ok('저장소도 담는다', b.repo && typeof b.repo.branch === 'string' && Array.isArray(b.repo.dirty));
   ok('분류기도 담는다', b.model && b.model.labels && typeof b.model.labels.slm === 'number');
   ok('글도 담는다', b.corpus && Array.isArray(b.corpus.rows));
-  // ssh 는 뒤에서 물어본다. 첫 부름은 아직 답이 없어도 화면이 서야 한다.
-  ok('서비스는 없어도 안 죽는다', b.service && 'checkedAt' in b.service);
+  // ssh 는 켜야 본다. 안 켰으면 안 본다고, 켰으면 아직 답이 없어도 화면이 서야 한다.
+  ok('안 켰으면 안 본다고 한다', b.service.off === true || 'checkedAt' in b.service,
+     JSON.stringify(b.service));
+  process.env.OPS_SSH_HOST = 'nowhere-zz';
+  const withSsh = board().service;
+  ok('켜면 물어보러 간다', 'checkedAt' in withSsh, JSON.stringify(withSsh));
+  delete process.env.OPS_SSH_HOST;
 
   console.log(`\n${n}개 점검 통과\n`);
 }

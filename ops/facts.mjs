@@ -123,11 +123,17 @@ export function corpus() {
 let svc = { state: null, at: 0, asking: false };
 const SVC_EVERY = 30_000;
 
+/**
+ * 오라클을 보려면 ssh 열쇠가 있어야 한다. 통 안에 열쇠를 넣는 건 그 자체로 위험이라
+ * 켜야 본다 — OPS_SSH_HOST 를 주면 그 이름으로 물어보고, 없으면 안 본다.
+ */
 export function service(now = Date.now()) {
+  const target = process.env.OPS_SSH_HOST;
+  if (!target) return { off: true };
   if (!svc.asking && now - svc.at > SVC_EVERY) {
     svc.asking = true;
     import('node:child_process').then(({ execFile }) => {
-      execFile('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=6', 'oracle-stock',
+      execFile('ssh', ['-o', 'BatchMode=yes', '-o', 'ConnectTimeout=6', target,
         "sudo docker ps --format '{{.Names}}\\t{{.Status}}'"],
       { timeout: 15_000 }, (err, out) => {
         svc = { state: err ? { error: '안 닿음' } : parseDocker(out), at: Date.now(), asking: false };
