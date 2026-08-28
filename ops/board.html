@@ -200,6 +200,11 @@ function paintCorpus(c) {
 }
 
 function paintService(s) {
+  if (s.off) {
+    $('service').innerHTML = dl([['오라클',
+      '<span class="meta">안 봅니다 — OPS_SSH_HOST 를 주면 봅니다</span>']]);
+    return;
+  }
   if (s.error) {
     $('service').innerHTML = dl([['오라클', esc(s.error), 'bad'],
       s.checkedAt ? ['', `<span class="meta">${ago(Date.now() - s.checkedAt)}에 물어봄</span>`] : null]);
