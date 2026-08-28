@@ -30,6 +30,19 @@
        letter-spacing: .02em; }
 
   .cards { display: grid; gap: 9px; }
+  .mapwrap { overflow-x: auto; }
+  #map { width: 100%; min-width: 700px; height: auto; display: block; }
+  .nb { fill: var(--page); stroke: var(--hair); stroke-width: 1; }
+  .nb.on   { stroke: var(--calm); }
+  .nb.warn { stroke: var(--warn); }
+  .nb.bad  { stroke: var(--live); }
+  .nb.live { stroke: var(--live); stroke-width: 1.8; }
+  .nt { font-size: 12px; font-weight: 650; fill: var(--text); }
+  .ns { font-size: 10.5px; fill: var(--faint); }
+  .ns.on { fill: var(--calm); } .ns.warn { fill: var(--warn); } .ns.bad { fill: var(--live); }
+  .ed { stroke: var(--hair); stroke-width: 1.4; fill: none; marker-end: url(#tip); }
+  .ed.soft { stroke-dasharray: 3 3; }
+  .lane { font-size: 10.5px; fill: var(--faint); font-weight: 600; }
   .grid { display: grid; gap: 9px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
   h3 { font-size: 12px; font-weight: 600; color: var(--faint); margin: 0 0 9px; }
   dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px;
@@ -86,6 +99,11 @@
 <div class="wrap">
   <h1>ops</h1>
   <p class="sub" id="head">불러오는 중…</p>
+
+  <h2>구성</h2>
+  <div class="card mapwrap">
+    <svg id="map" viewBox="0 0 960 310" role="img" aria-label="시스템 구성도"></svg>
+  </div>
 
   <div class="grid">
     <div class="card"><h3>저장소</h3><div id="repo"></div></div>
@@ -216,6 +234,118 @@ function paintService(s) {
     .concat([['', `<span class="meta">${ago(Date.now() - s.checkedAt)}에 물어봄 · 30초마다</span>`]]));
 }
 
+// ── 구성도 ────────────────────────────────────────────────
+// 줄 셋. 위는 글이 흘러가는 길, 가운데는 채점기가 만들어지는 길, 아래는 ops.
+// 자리는 여기 한 곳에만 적는다 — 마크업과 좌표가 갈리면 둘 다 못 믿는다.
+const W = 132, H = 46;
+const NODES = [
+  { id: 'toss',   x:  14, y:  26, t: '토스 API' },
+  { id: 'fetch',  x: 172, y:  26, t: '글 수집' },
+  { id: 'posts',  x: 330, y:  26, t: 'posts.json' },
+  { id: 'build',  x: 488, y:  26, t: 'build.mjs' },
+  { id: 'server', x: 646, y:  26, t: 'server.mjs' },
+  { id: 'live',   x: 804, y:  26, t: 'live.html' },
+
+  { id: 'slm',    x:  14, y: 122, t: 'SLM 라벨' },
+  { id: 'train',  x: 172, y: 122, t: 'train-nb' },
+  { id: 'model',  x: 330, y: 122, t: 'model.json' },
+  { id: 'lex',    x: 488, y: 122, t: 'lexicon.js' },
+  { id: 'ruler',  x: 646, y: 122, t: '사람 자 240' },
+
+  { id: 'maker',  x:  14, y: 214, t: '만드는 쪽' },
+  { id: 'ledger', x: 330, y: 214, t: '장부' },
+  { id: 'checker',x: 646, y: 214, t: '재는 쪽' },
+  { id: 'board',  x: 804, y: 214, t: '판' },
+];
+const AT = Object.fromEntries(NODES.map(n => [n.id, n]));
+
+/**
+ * 두 칸을 잇는다. 마주 보는 면끼리 붙인다 — 뒤로 가는 선(재는 쪽 → 장부)도
+ * 화살촉이 제 방향을 보게 하려면 시작 면을 목적지 쪽으로 잡아야 한다.
+ */
+function edge(a, b, soft) {
+  const p = AT[a], q = AT[b];
+  const fwd = q.x >= p.x;
+  const x1 = fwd ? p.x + W : p.x;
+  const x2 = fwd ? q.x : q.x + W;
+  const y1 = p.y + H / 2, y2 = q.y + H / 2;
+  const gap = fwd ? -6 : 6;
+  const cls = 'ed' + (soft ? ' soft' : '');
+  if (y1 === y2) return `<path class="${cls}" d="M${x1} ${y1}H${x2 + gap}"/>`;
+  const mx = (x1 + x2) / 2;
+  return `<path class="${cls}" d="M${x1} ${y1}H${mx}V${y2}H${x2 + gap}"/>`;
+}
+
+/** 아래로 돌아가는 선. 사이에 낀 칸을 밟지 않고 지나간다. */
+function dip(a, b, drop = 34) {
+  const p = AT[a], q = AT[b];
+  const x1 = p.x + W / 2, y1 = p.y + H, x2 = q.x + W / 2, y2 = q.y + H;
+  const my = Math.max(y1, y2) + drop;
+  return `<path class="ed soft" d="M${x1} ${y1}V${my}H${x2}V${y2 + 6}"/>`;
+}
+// 위로 올려 붙이는 선. 채점기가 빌드·서버로 들어가는 자리다.
+function up(a, b, soft) {
+  const p = AT[a], q = AT[b];
+  const x1 = p.x + W / 2, y1 = p.y, x2 = q.x + W / 2, y2 = q.y + H;
+  const my = (y1 + y2) / 2;
+  return `<path class="ed${soft ? ' soft' : ''}" d="M${x1} ${y1}V${my}H${x2}V${y2 + 6}"/>`;
+}
+
+// 장부가 가운데다. 만드는 쪽은 주장을 넣고, 재는 쪽은 판정을 넣는다 — 둘 다 들어가는
+// 방향이다. 판은 장부를 읽기만 하므로 아래로 돌려 잇는다(사이에 재는 쪽이 껴 있다).
+const EDGES = [
+  ['toss','fetch'], ['fetch','posts'], ['posts','build'], ['build','server'], ['server','live'],
+  ['slm','train'], ['train','model'],
+  ['maker','ledger'],
+].map(([a, b]) => edge(a, b)).join('')
+  + edge('checker', 'ledger')
+  + dip('ledger', 'board')
+  + up('model', 'server', true) + up('lex', 'build', true)
+  // 사람 자와 모델은 같은 줄이다. up() 은 줄이 다를 때 쓰는 것이라 여기선 옆으로 잇는다.
+  + edge('ruler', 'model', true);
+
+function node(n, sub, cls) {
+  return `<g><rect class="nb ${cls ?? ''}" x="${n.x}" y="${n.y}" width="${W}" height="${H}" rx="9"/>`
+    + `<text class="nt" x="${n.x + 11}" y="${n.y + 19}">${esc(n.t)}</text>`
+    + `<text class="ns ${cls ?? ''}" x="${n.x + 11}" y="${n.y + 35}">${esc(sub ?? '')}</text></g>`;
+}
+
+function paintMap(d) {
+  const now = Date.now();
+  const c = d.corpus, m = d.model, s = d.service;
+  const newest = Math.max(0, ...c.rows.map(r => r.at ?? 0));
+  const bytes = c.rows.reduce((a, r) => a + r.bytes, 0);
+  const live = d.sessions.filter(x => x.moving).length;
+  const svc = s.rows?.[0];
+
+  const sub = {
+    toss:   ['댓글·시세 API', ''],
+    fetch:  [newest ? ago(now - newest) : '기록 없음', newest && now - newest > 2 * 864e5 ? 'warn' : ''],
+    posts:  [`${c.rows.length}종목 · ${mb(bytes)}`, ''],
+    build:  [c.builtAt ? `기준선 ${ago(now - c.builtAt)}` : '기준선 없음', c.builtAt ? '' : 'bad'],
+    server: [svc ? svc.status : (s.off ? '오라클 · 안 봄' : '물어보는 중'), svc?.healthy ? 'on' : ''],
+    live:   ['곡소리 지수 · 판', ''],
+    slm:    [`${num(m.labels.slm)}건`, ''],
+    train:  ['글자 n-gram NB', ''],
+    model:  [`어휘 ${num(m.vocab)}`, ''],
+    lex:    ['공포어 · 사전', ''],
+    ruler:  [m.measured ? `분류기 ${m.measured['분류기']}%` : '아직 안 쟀음', m.measured ? 'on' : 'warn'],
+    maker:  [live ? `${live}개 일하는 중` : `세션 ${d.sessions.length}개`, live ? 'live' : ''],
+    ledger: [`열림 ${d.open.length} · 닫힘 ${d.counts.closed}`, d.open.some(x => x.stuck) ? 'bad' : ''],
+    checker:['읽기 전용 통', ''],
+    board:  ['127.0.0.1:8730', 'on'],
+  };
+
+  $('map').innerHTML = `<defs><marker id="tip" viewBox="0 0 8 8" refX="7" refY="4"`
+    + ` markerWidth="7" markerHeight="7" orient="auto">`
+    + `<path d="M0 0L8 4L0 8z" fill="var(--hair)"/></marker></defs>`
+    + `<text class="lane" x="14" y="17">글이 흐르는 길</text>`
+    + `<text class="lane" x="14" y="113">채점기를 만드는 길</text>`
+    + `<text class="lane" x="14" y="205">ops — 만들고 재는 짝</text>`
+    + EDGES
+    + NODES.map(n => node(n, sub[n.id][0], sub[n.id][1])).join('');
+}
+
 let stale = 0;
 async function tick() {
   try {
@@ -226,6 +356,7 @@ async function tick() {
       + ` · 주장 ${d.counts.claims} (닫힘 ${d.counts.closed}) · 판정 ${d.counts.verdicts}`;
     $('sessions').innerHTML = d.sessions.map(card).join('')
       || '<p class="empty">이 저장소에서 도는 세션이 없습니다.</p>';
+    paintMap(d);
     paintRepo(d.repo); paintModel(d.model); paintCorpus(d.corpus); paintService(d.service);
     $('open').innerHTML = openRows(d.open);
     $('log').innerHTML = logRows(d.recent);
