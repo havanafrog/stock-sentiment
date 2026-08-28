@@ -155,6 +155,10 @@ const intensity = (n, base) => LEX.fearIntensity(n, base);
 const hasFear = t => LEX.hasFear(t);
 const isWail = t => LEX.isWail(t);
 
+// --selftest 가 fearSeries 를 때리므로 점검보다 위에 있어야 한다.
+const ET_HOUR = new Intl.DateTimeFormat('en-CA', {
+  timeZone: 'America/New_York', hour: '2-digit', hourCycle: 'h23' });
+
 // ── 기준선 (data.js 에서) ────────────────────────────────────
 function loadBaselines() {
   // 볼륨에 새로 만든 게 있으면 그걸, 없으면 이미지에 딸려 온 것을 쓴다
@@ -676,6 +680,21 @@ function selftest() {
     }
   }
 
+  // 봉의 시각 칸이 기준선과 같은 칸을 가리키는지. 봉 시각(구간 끝)을 쓰면 한 칸 밀린다.
+  // 이웃 두 시각에 서로 다른 기준선을 물려 두고, 어느 쪽이 나오는지로 잰다.
+  {
+    const keep = SNAPSHOT;
+    try {
+      SNAPSHOT = { ZZTEST: { baseline: {
+        counts: { 'min:60': { hourly: { 15: { mean: 10, sd: 5 }, 16: { mean: 0, sd: 1 } } } },
+        wailCounts: null } } };
+      // ET 16:00 봉(=20:00Z, EDT)이 덮는 구간은 15:00~16:00 이다.
+      const bars = [['2026-06-10T19:00:00Z'], ['2026-06-10T20:00:00Z']].map(([s]) => [Date.parse(s)]);
+      const idx = fearSeries('ZZTEST', 'min:60', bars).rows[1][3];
+      ok('시각 칸은 봉 시각이 아니라 구간 시작', idx === 10, `기준선 15시대면 10, 16시대면 50 — 나온 값 ${idx}`);
+    } finally { SNAPSHOT = keep; }
+  }
+
   console.log(`\n${n}개 점검 통과\n`);
 }
 
@@ -766,9 +785,6 @@ async function getBars(ticker, unit) {
 //
 // 각 봉의 값 = 그 봉이 덮는 구간에 온 공포 글 수 → 그 종목·그 ET 시각 기준선 대비 z.
 // 비율을 안 쓰는 이유는 lexicon.js 의 fearIntensity 주석에 있다.
-const ET_HOUR = new Intl.DateTimeFormat('en-CA', {
-  timeZone: 'America/New_York', hour: '2-digit', hourCycle: 'h23' });
-
 function fearSeries(ticker, unit, bars) {
   // 차트는 시각·공포·곡소리 셋만 쓴다. 글 줄을 통째로 들 이유가 없다.
   const idx = chartIndex(ticker);
@@ -800,7 +816,15 @@ function fearSeries(ticker, unit, bars) {
     let k = j;
     while (k < stamps.length && stamps[k] <= at) { n++; if (idx.f[k]) f++; if (idx.g[k]) g++; k++; }
     j = k;
-    const h = +ET_HOUR.format(new Date(at));
+    // ponytail: step 이 unit 이 아니라 실제로 온 봉들의 최빈 간격이다. 토스가 unit 대로
+    // 봉을 주는 동안만 맞다 — 간격이 unit 과 어긋나 오면 세는 창과 시각 칸이 같이 밀린다.
+    // 어긋나기 시작하면 COUNT_UNITS[unit] 을 server 로 끌어와 그걸 쓴다.
+    //
+    // 시각 칸은 봉 시각이 아니라 봉이 덮는 구간의 시작으로 잡는다.
+    // build.mjs countBaseline 이 버킷을 [k*step, k*step+step) 로 담고 시각 칸을
+    // 그 시작(k*step)으로 잡기 때문이다. 봉 시각은 구간 끝이라 그대로 쓰면
+    // 60분봉이 통째로 한 시간씩 어긋난 기준선과 견주게 된다.
+    const h = +ET_HOUR.format(new Date(at - step));
     const b = bl?.hourly?.[h] ?? bl?.overall ?? null;
     const bw = wbl?.hourly?.[h] ?? wbl?.overall ?? null;
     // [시각, 공포글, 전체글, 공포지수, 곡소리글, 곡소리지수]
