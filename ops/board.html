@@ -1,0 +1,163 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ops</title>
+<style>
+  :root {
+    --page: #f4f5f8; --surface: #fbfcfd;
+    --text: #191f28; --sub: #4e5968; --faint: #8b95a1;
+    --hair: #e5e8eb; --ring: inset 0 0 0 1px rgba(2,32,71,.05);
+    --live: #f04452; --calm: #3182f6; --warn: #f5a623;
+    --code: #f2f4f6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --page: #17171c; --surface: #1f2027;
+      --text: #e9ecef; --sub: #adb5bd; --faint: #6b7280;
+      --hair: #2b2d36; --ring: inset 0 0 0 1px rgba(255,255,255,.06);
+      --code: #24262e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--text);
+    font: 14px/1.55 -apple-system, "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1100px; margin: 0 auto; padding: 22px 18px 60px; }
+
+  h1 { font-size: 18px; margin: 0 0 3px; letter-spacing: -.01em; }
+  .sub { font-size: 12px; color: var(--faint); margin: 0 0 20px; }
+  h2 { font-size: 12px; font-weight: 600; color: var(--faint); margin: 26px 0 9px;
+       letter-spacing: .02em; }
+
+  .cards { display: grid; gap: 9px; }
+  .card { background: var(--surface); box-shadow: var(--ring); border-radius: 14px;
+          padding: 13px 15px; }
+
+  .top { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: 0 0 auto; }
+  .moving .dot { background: var(--live); animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
+  @media (prefers-reduced-motion: reduce) { .moving .dot { animation: none } }
+
+  .who { font-weight: 650; font-size: 14px; }
+  .me { font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 20px;
+        background: var(--calm); color: #fff; }
+  .when { margin-left: auto; font-size: 11.5px; color: var(--faint);
+          font-variant-numeric: tabular-nums; }
+  .meta { font-size: 11.5px; color: var(--faint); }
+
+  .doing { margin: 9px 0 0; display: flex; gap: 8px; align-items: baseline; }
+  .tool { flex: 0 0 auto; font-size: 11px; font-weight: 600; padding: 1px 7px;
+          border-radius: 5px; background: var(--code); color: var(--sub); }
+  .what { font-size: 12.5px; color: var(--sub); overflow: hidden;
+          display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .asked { margin: 7px 0 0; font-size: 12px; color: var(--faint);
+           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .asked b { font-weight: 600; color: var(--sub); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  td { padding: 7px 9px; border-top: 1px solid var(--hair); vertical-align: top; }
+  tr:first-child td { border-top: 0; }
+  .id { font-weight: 700; width: 42px; color: var(--sub); font-variant-numeric: tabular-nums; }
+  .v { width: 52px; font-weight: 600; }
+  .v.확인 { color: var(--calm); }
+  .v.반박 { color: var(--live); }
+  .v.보류 { color: var(--warn); }
+  .by { width: 66px; color: var(--faint); font-size: 11.5px; }
+  .stuck { font-size: 11px; color: var(--live); font-weight: 600; }
+  .how { color: var(--faint); font-size: 11.5px; margin-top: 2px; }
+
+  .tally { display: flex; gap: 16px; font-size: 12px; color: var(--faint); margin-bottom: 9px; }
+  .tally b { color: var(--text); font-weight: 650; }
+  .empty { color: var(--faint); font-size: 12.5px; padding: 4px 2px; }
+</style>
+
+<div class="wrap">
+  <h1>ops</h1>
+  <p class="sub" id="head">불러오는 중…</p>
+
+  <h2>세션</h2>
+  <div class="cards" id="sessions"></div>
+
+  <h2>열린 주장</h2>
+  <div class="card"><div id="open"></div></div>
+
+  <h2>장부</h2>
+  <div class="card"><div id="log"></div></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
+const cut = (s, n) => { s = String(s ?? '').replace(/\s+/g, ' ').trim();
+  return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+
+// 몇 초 · 몇 분 · 몇 시간. 그 위로는 날짜를 세도 못 읽는다.
+function ago(ms) {
+  const s = Math.round(ms / 1000);
+  if (s < 5) return '방금';
+  if (s < 60) return s + '초 전';
+  const m = Math.round(s / 60);
+  if (m < 60) return m + '분 전';
+  const h = Math.round(m / 60);
+  return h < 24 ? h + '시간 전' : Math.round(h / 24) + '일 전';
+}
+
+// 이 창을 띄운 세션이 어느 것인지는 모른다. 이름이 있으면 그걸 쓴다.
+function card(s) {
+  const doing = s.last
+    ? `<div class="doing">${s.last.kind === 'tool' ? `<span class="tool">${esc(s.last.tool)}</span>` : ''}`
+      + `<span class="what">${esc(cut(s.last.text, 240)) || '<i>말 없음</i>'}</span></div>`
+    : '';
+  const asked = s.asked ? `<p class="asked"><b>시킨 것</b> ${esc(cut(s.asked, 120))}</p>` : '';
+  return `<div class="card${s.moving ? ' moving' : ''}">
+    <div class="top">
+      <span class="dot"></span>
+      <span class="who">${esc(s.name || s.id.slice(0, 8))}</span>
+      ${s.moving ? '<span class="me">일하는 중</span>' : ''}
+      <span class="meta">${esc(s.branch ?? '')} · ${s.turns}턴</span>
+      <span class="when">${ago(s.idleMs)}</span>
+    </div>${doing}${asked}</div>`;
+}
+
+function openRows(rows) {
+  if (!rows.length) return '<p class="empty">열린 주장이 없습니다.</p>';
+  return '<table>' + rows.map(c => `<tr>
+    <td class="id">${esc(c.id)}</td>
+    <td>${esc(c.what)}<div class="how">재는 법: ${esc(cut(c.how, 150))}</div>
+      ${c.last ? `<div class="how"><span class="v ${esc(c.last.v)}">${esc(c.last.v)}</span> ${esc(cut(c.last.note, 150))}</div>` : ''}
+      ${c.stuck ? `<div class="stuck">${c.rounds}번 오갔습니다 — 사람에게 넘길 자리</div>` : ''}</td>
+  </tr>`).join('') + '</table>';
+}
+
+function logRows(rows) {
+  if (!rows.length) return '<p class="empty">아직 아무것도 없습니다.</p>';
+  return '<table>' + rows.map(r => {
+    const what = r.kind === 'claim' ? r.what : r.kind === 'verdict' ? r.note : r.text;
+    const tag = r.kind === 'verdict' ? `<span class="v ${esc(r.v)}">${esc(r.v)}</span>`
+      : r.kind === 'claim' ? '<span class="v">주장</span>' : '<span class="v">메모</span>';
+    return `<tr><td class="id">${esc(r.id ?? '')}</td><td class="v">${tag}</td>
+      <td class="by">${esc(r.by ?? '')}</td><td>${esc(cut(what, 220))}</td></tr>`;
+  }).join('') + '</table>';
+}
+
+let stale = 0;
+async function tick() {
+  try {
+    const d = await (await fetch('/api/board')).json();
+    stale = 0;
+    const live = d.sessions.filter(s => s.moving).length;
+    $('head').textContent = `세션 ${d.sessions.length}개 · 일하는 중 ${live}개`
+      + ` · 주장 ${d.counts.claims} (닫힘 ${d.counts.closed}) · 판정 ${d.counts.verdicts}`;
+    $('sessions').innerHTML = d.sessions.map(card).join('')
+      || '<p class="empty">이 저장소에서 도는 세션이 없습니다.</p>';
+    $('open').innerHTML = openRows(d.open);
+    $('log').innerHTML = logRows(d.recent);
+  } catch {
+    // 서버가 잠깐 없어도 화면은 남긴다. 계속 못 받으면 그때 말한다.
+    if (++stale > 3) $('head').textContent = '서버가 안 보입니다 — node ops/board.mjs 가 떠 있나요?';
+  }
+}
+tick();
+setInterval(tick, 2000);
+</script>
