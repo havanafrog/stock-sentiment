@@ -13,7 +13,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-export const LEDGER = join(HERE, 'ledger.jsonl');
+// 통 안에서는 저장소가 읽기 전용이라 장부만 따로 걸어 준다. 그때 경로가 달라진다.
+export const LEDGER = process.env.OPS_LEDGER || join(HERE, 'ledger.jsonl');
 
 export const VERDICTS = new Set(['확인', '반박', '보류']);
 const ROLES = new Set(['builder', 'verifier']);
