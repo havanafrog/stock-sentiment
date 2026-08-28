@@ -30,3 +30,5 @@ ops/.env
 # 훅이 흘린 세션 메타데이터
 .json
 ops/facts.json
+ops/.handoff.json
+ops/.ho-*
