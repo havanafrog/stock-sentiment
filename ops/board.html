@@ -8,118 +8,54 @@
     --text: #191f28; --sub: #4e5968; --faint: #8b95a1;
     --hair: #e5e8eb; --ring: inset 0 0 0 1px rgba(2,32,71,.05);
     --live: #f04452; --calm: #3182f6; --warn: #f5a623;
-    --code: #f2f4f6;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --page: #17171c; --surface: #1f2027;
       --text: #e9ecef; --sub: #adb5bd; --faint: #6b7280;
       --hair: #2b2d36; --ring: inset 0 0 0 1px rgba(255,255,255,.06);
-      --code: #24262e;
     }
   }
   * { box-sizing: border-box; }
   body { margin: 0; background: var(--page); color: var(--text);
-    font: 14px/1.55 -apple-system, "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+    font: 14px/1.5 -apple-system, "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased; }
-  .wrap { max-width: 1100px; margin: 0 auto; padding: 22px 18px 60px; }
+  .wrap { max-width: 1160px; margin: 0 auto; padding: 20px 16px 40px; }
 
-  h1 { font-size: 18px; margin: 0 0 3px; letter-spacing: -.01em; }
-  .sub { font-size: 12px; color: var(--faint); margin: 0 0 20px; }
-  h2 { font-size: 12px; font-weight: 600; color: var(--faint); margin: 26px 0 9px;
-       letter-spacing: .02em; }
+  .bar { display: flex; align-items: baseline; gap: 12px; margin: 0 2px 12px; }
+  h1 { font-size: 15px; margin: 0; letter-spacing: -.01em; }
+  .tally { font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .tally b { color: var(--text); font-weight: 650; }
+  .tally .hot { color: var(--live); }
+  .tally .cool { color: var(--warn); }
 
-  .cards { display: grid; gap: 9px; }
-  .mapwrap { overflow-x: auto; }
-  #map { width: 100%; min-width: 700px; height: auto; display: block; }
+  .card { background: var(--surface); box-shadow: var(--ring); border-radius: 14px;
+          padding: 14px 16px; overflow-x: auto; }
+  #map { width: 100%; min-width: 720px; height: auto; display: block; }
+
   .nb { fill: var(--page); stroke: var(--hair); stroke-width: 1; }
-  .nb.on   { stroke: var(--calm); }
-  .nb.warn { stroke: var(--warn); }
-  .nb.bad  { stroke: var(--live); }
+  .nb.on   { stroke: var(--calm); stroke-width: 1.5; }
+  .nb.warn { stroke: var(--warn); stroke-width: 1.5; }
+  .nb.bad  { stroke: var(--live); stroke-width: 1.5; }
   .nb.live { stroke: var(--live); stroke-width: 1.8; }
   .nt { font-size: 12px; font-weight: 650; fill: var(--text); }
   .ns { font-size: 10.5px; fill: var(--faint); }
-  .ns.on { fill: var(--calm); } .ns.warn { fill: var(--warn); } .ns.bad { fill: var(--live); }
+  .ns.on { fill: var(--calm); } .ns.warn { fill: var(--warn); }
+  .ns.bad, .ns.live { fill: var(--live); }
+  .pulse { fill: var(--live); animation: blink 1.4s ease-in-out infinite; }
+  @keyframes blink { 0%,100% { opacity: 1 } 50% { opacity: .2 } }
+  @media (prefers-reduced-motion: reduce) { .pulse { animation: none } }
   .ed { stroke: var(--hair); stroke-width: 1.4; fill: none; marker-end: url(#tip); }
   .ed.soft { stroke-dasharray: 3 3; }
   .lane { font-size: 10.5px; fill: var(--faint); font-weight: 600; }
-  .grid { display: grid; gap: 9px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-  h3 { font-size: 12px; font-weight: 600; color: var(--faint); margin: 0 0 9px; }
-  dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px;
-       font-size: 12.5px; align-items: baseline; }
-  dt { color: var(--faint); font-size: 11.5px; white-space: nowrap; }
-  dd { margin: 0; font-variant-numeric: tabular-nums; overflow: hidden;
-       text-overflow: ellipsis; white-space: nowrap; }
-  dd.big { font-weight: 650; white-space: normal; }
-  .warn { color: var(--warn); }
-  .bad { color: var(--live); }
-  .good { color: var(--calm); }
-  .card { background: var(--surface); box-shadow: var(--ring); border-radius: 14px;
-          padding: 13px 15px; }
-
-  .top { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--faint); flex: 0 0 auto; }
-  .moving .dot { background: var(--live); animation: pulse 1.4s ease-in-out infinite; }
-  @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .25 } }
-  @media (prefers-reduced-motion: reduce) { .moving .dot { animation: none } }
-
-  .who { font-weight: 650; font-size: 14px; }
-  .me { font-size: 10.5px; font-weight: 600; padding: 1px 6px; border-radius: 20px;
-        background: var(--calm); color: #fff; }
-  .when { margin-left: auto; font-size: 11.5px; color: var(--faint);
-          font-variant-numeric: tabular-nums; }
-  .meta { font-size: 11.5px; color: var(--faint); }
-
-  .doing { margin: 9px 0 0; display: flex; gap: 8px; align-items: baseline; }
-  .tool { flex: 0 0 auto; font-size: 11px; font-weight: 600; padding: 1px 7px;
-          border-radius: 5px; background: var(--code); color: var(--sub); }
-  .what { font-size: 12.5px; color: var(--sub); overflow: hidden;
-          display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
-  .asked { margin: 7px 0 0; font-size: 12px; color: var(--faint);
-           overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .asked b { font-weight: 600; color: var(--sub); }
-
-  table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  td { padding: 7px 9px; border-top: 1px solid var(--hair); vertical-align: top; }
-  tr:first-child td { border-top: 0; }
-  .id { font-weight: 700; width: 42px; color: var(--sub); font-variant-numeric: tabular-nums; }
-  .v { width: 52px; font-weight: 600; }
-  .v.확인 { color: var(--calm); }
-  .v.반박 { color: var(--live); }
-  .v.보류 { color: var(--warn); }
-  .by { width: 66px; color: var(--faint); font-size: 11.5px; }
-  .stuck { font-size: 11px; color: var(--live); font-weight: 600; }
-  .how { color: var(--faint); font-size: 11.5px; margin-top: 2px; }
-
-  .tally { display: flex; gap: 16px; font-size: 12px; color: var(--faint); margin-bottom: 9px; }
-  .tally b { color: var(--text); font-weight: 650; }
-  .empty { color: var(--faint); font-size: 12.5px; padding: 4px 2px; }
 </style>
 
 <div class="wrap">
-  <h1>ops</h1>
-  <p class="sub" id="head">불러오는 중…</p>
-
-  <h2>구성</h2>
-  <div class="card mapwrap">
-    <svg id="map" viewBox="0 0 960 310" role="img" aria-label="시스템 구성도"></svg>
+  <div class="bar">
+    <h1>ops</h1>
+    <span class="tally" id="tally">불러오는 중…</span>
   </div>
-
-  <div class="grid">
-    <div class="card"><h3>저장소</h3><div id="repo"></div></div>
-    <div class="card"><h3>분류기</h3><div id="model"></div></div>
-    <div class="card"><h3>글 <span class="meta">이 PC</span></h3><div id="corpus"></div></div>
-    <div class="card"><h3>서비스</h3><div id="service"></div></div>
-  </div>
-
-  <h2>세션</h2>
-  <div class="cards" id="sessions"></div>
-
-  <h2>열린 주장</h2>
-  <div class="card"><div id="open"></div></div>
-
-  <h2>장부</h2>
-  <div class="card"><div id="log"></div></div>
+  <div class="card"><svg id="map" role="img" aria-label="노드 상태"></svg></div>
 </div>
 
 <script>
@@ -127,6 +63,8 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s ?? '').replace(/[<>&]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;'}[c]));
 const cut = (s, n) => { s = String(s ?? '').replace(/\s+/g, ' ').trim();
   return s.length > n ? s.slice(0, n - 1) + '…' : s; };
+const num = n => (n ?? 0).toLocaleString();
+const mb = b => (b >= 1e6 ? (b / 1e6).toFixed(1) + 'MB' : Math.round(b / 1e3) + 'KB');
 
 // 몇 초 · 몇 분 · 몇 시간. 그 위로는 날짜를 세도 못 읽는다.
 function ago(ms) {
@@ -139,230 +77,156 @@ function ago(ms) {
   return h < 24 ? h + '시간 전' : Math.round(h / 24) + '일 전';
 }
 
-// 이 창을 띄운 세션이 어느 것인지는 모른다. 이름이 있으면 그걸 쓴다.
-function card(s) {
-  const doing = s.last
-    ? `<div class="doing">${s.last.kind === 'tool' ? `<span class="tool">${esc(s.last.tool)}</span>` : ''}`
-      + `<span class="what">${esc(cut(s.last.text, 240)) || '<i>말 없음</i>'}</span></div>`
-    : '';
-  const asked = s.asked ? `<p class="asked"><b>시킨 것</b> ${esc(cut(s.asked, 120))}</p>` : '';
-  return `<div class="card${s.moving ? ' moving' : ''}">
-    <div class="top">
-      <span class="dot"></span>
-      <span class="who">${esc(s.name || s.id.slice(0, 8))}</span>
-      ${s.moving ? '<span class="me">일하는 중</span>' : ''}
-      <span class="meta">${esc(s.branch ?? '')} · ${s.turns}턴</span>
-      <span class="when">${ago(s.idleMs)}</span>
-    </div>${doing}${asked}</div>`;
-}
+// ── 자리 ─────────────────────────────────────────────────────
+// 줄 넷. 위 셋은 늘 같은 자리에 서고, 넷째 줄만 세션 수에 따라 늘어난다.
+// 좌표는 여기 한 곳에만 적는다 — 마크업과 갈리면 둘 다 못 믿는다.
+const W = 132, H = 46, GAP = 26, ROW = 96, PER = 6;
+const COL = i => 14 + i * (W + GAP);
 
-function openRows(rows) {
-  if (!rows.length) return '<p class="empty">열린 주장이 없습니다.</p>';
-  return '<table>' + rows.map(c => `<tr>
-    <td class="id">${esc(c.id)}</td>
-    <td>${esc(c.what)}<div class="how">재는 법: ${esc(cut(c.how, 150))}</div>
-      ${c.last ? `<div class="how"><span class="v ${esc(c.last.v)}">${esc(c.last.v)}</span> ${esc(cut(c.last.note, 150))}</div>` : ''}
-      ${c.stuck ? `<div class="stuck">${c.rounds}번 오갔습니다 — 사람에게 넘길 자리</div>` : ''}</td>
-  </tr>`).join('') + '</table>';
-}
+const FIXED = [
+  { id: 'toss',   c: 0, r: 0, t: '토스 API' },
+  { id: 'fetch',  c: 1, r: 0, t: '글 수집' },
+  { id: 'posts',  c: 2, r: 0, t: 'posts.json' },
+  { id: 'build',  c: 3, r: 0, t: 'build.mjs' },
+  { id: 'server', c: 4, r: 0, t: 'server.mjs' },
+  { id: 'live',   c: 5, r: 0, t: 'live.html' },
 
-function logRows(rows) {
-  if (!rows.length) return '<p class="empty">아직 아무것도 없습니다.</p>';
-  return '<table>' + rows.map(r => {
-    const what = r.kind === 'claim' ? r.what : r.kind === 'verdict' ? r.note : r.text;
-    const tag = r.kind === 'verdict' ? `<span class="v ${esc(r.v)}">${esc(r.v)}</span>`
-      : r.kind === 'claim' ? '<span class="v">주장</span>' : '<span class="v">메모</span>';
-    return `<tr><td class="id">${esc(r.id ?? '')}</td><td class="v">${tag}</td>
-      <td class="by">${esc(r.by ?? '')}</td><td>${esc(cut(what, 220))}</td></tr>`;
-  }).join('') + '</table>';
-}
+  { id: 'slm',    c: 0, r: 1, t: 'SLM 라벨' },
+  { id: 'train',  c: 1, r: 1, t: 'train-nb' },
+  { id: 'model',  c: 2, r: 1, t: 'model.json' },
+  { id: 'lex',    c: 3, r: 1, t: 'lexicon.js' },
+  { id: 'ruler',  c: 4, r: 1, t: '사람 자' },
 
-const dl = pairs => '<dl>' + pairs.filter(Boolean)
-  .map(([k, v, c]) => `<dt>${esc(k)}</dt><dd class="${c ?? ''}">${v}</dd>`).join('') + '</dl>';
-const num = n => (n ?? 0).toLocaleString();
-const mb = b => (b >= 1e6 ? (b / 1e6).toFixed(1) + 'MB' : Math.round(b / 1e3) + 'KB');
-
-function paintRepo(r) {
-  const d = r.dirty.length;
-  $('repo').innerHTML = dl([
-    ['가지', esc(r.branch ?? '—')],
-    r.head && ['마지막', esc(cut(r.head.subject, 60))],
-    r.head && ['', `<span class="meta">${esc(r.head.hash)} · ${ago(Date.now() - Date.parse(r.head.when))}</span>`],
-    ['안 올린 것', d ? `${d}개 파일` : '없음', d ? 'warn' : ''],
-    r.ahead ? ['안 민 커밋', r.ahead + '개', 'warn'] : null,
-  ]);
-}
-
-function paintModel(m) {
-  const t = m.labels.slm + m.labels.read + m.labels.audit + m.labels.mine;
-  const a = m.measured;
-  $('model').innerHTML = dl([
-    ['어휘', num(m.vocab) + '개'],
-    ['크기', mb(m.bytes) + (m.at ? ` · ${ago(Date.now() - m.at)}` : '')],
-    ['라벨', `${num(t)}건`],
-    ['', `<span class="meta">SLM ${num(m.labels.slm)} · 읽음 ${num(m.labels.read)}`
-      + ` · 사람 자 ${num(m.labels.audit)} · 손 ${num(m.labels.mine)}</span>`],
-    a ? ['정확도', `분류기 <b>${a['분류기']}%</b> · 사전 ${a['사전']}% · SLM ${a.SLM}%`, 'big'] : null,
-    a ? ['', `<span class="meta">${ago(Date.now() - Date.parse(a.at))}에 잼 · 사람 자 240건을 실제 분포로 맞춘 값</span>`] : null,
-    a ? null : ['정확도', '<span class="meta">아직 안 쟀습니다 — node ops/board.mjs --measure</span>'],
-  ]);
-}
-
-function paintCorpus(c) {
-  const rows = c.rows.map(r => `<tr><td class="id">${esc(r.t)}</td>`
-    + `<td>${mb(r.bytes)}</td>`
-    + `<td class="by">${r.at ? ago(Date.now() - r.at) : '—'}</td></tr>`).join('');
-  $('corpus').innerHTML = `<table>${rows}</table>`
-    + dl([['기준선', c.builtAt ? `${mb(c.builtBytes)} · ${ago(Date.now() - c.builtAt)}` : '없음',
-      c.builtAt ? '' : 'bad']]);
-}
-
-function paintService(s) {
-  if (s.off) {
-    $('service').innerHTML = dl([['오라클',
-      '<span class="meta">안 봅니다 — OPS_SSH_HOST 를 주면 봅니다</span>']]);
-    return;
-  }
-  if (s.error) {
-    $('service').innerHTML = dl([['오라클', esc(s.error), 'bad'],
-      s.checkedAt ? ['', `<span class="meta">${ago(Date.now() - s.checkedAt)}에 물어봄</span>`] : null]);
-    return;
-  }
-  if (!s.rows) { $('service').innerHTML = '<p class="empty">물어보는 중…</p>'; return; }
-  $('service').innerHTML = dl(s.rows.map(r => [r.name.replace(/^stock-docker-/, ''),
-    esc(r.status), r.healthy ? 'good' : r.up ? 'warn' : 'bad'])
-    .concat([['', `<span class="meta">${ago(Date.now() - s.checkedAt)}에 물어봄 · 30초마다</span>`]]));
-}
-
-// ── 구성도 ────────────────────────────────────────────────
-// 줄 셋. 위는 글이 흘러가는 길, 가운데는 채점기가 만들어지는 길, 아래는 ops.
-// 자리는 여기 한 곳에만 적는다 — 마크업과 좌표가 갈리면 둘 다 못 믿는다.
-const W = 132, H = 46;
-const NODES = [
-  { id: 'toss',   x:  14, y:  26, t: '토스 API' },
-  { id: 'fetch',  x: 172, y:  26, t: '글 수집' },
-  { id: 'posts',  x: 330, y:  26, t: 'posts.json' },
-  { id: 'build',  x: 488, y:  26, t: 'build.mjs' },
-  { id: 'server', x: 646, y:  26, t: 'server.mjs' },
-  { id: 'live',   x: 804, y:  26, t: 'live.html' },
-
-  { id: 'slm',    x:  14, y: 122, t: 'SLM 라벨' },
-  { id: 'train',  x: 172, y: 122, t: 'train-nb' },
-  { id: 'model',  x: 330, y: 122, t: 'model.json' },
-  { id: 'lex',    x: 488, y: 122, t: 'lexicon.js' },
-  { id: 'ruler',  x: 646, y: 122, t: '사람 자 240' },
-
-  { id: 'maker',  x:  14, y: 214, t: '만드는 쪽' },
-  { id: 'ledger', x: 330, y: 214, t: '장부' },
-  { id: 'checker',x: 646, y: 214, t: '재는 쪽' },
-  { id: 'board',  x: 804, y: 214, t: '판' },
+  { id: 'ledger', c: 2, r: 2, t: '장부' },
+  { id: 'checker',c: 4, r: 2, t: '재는 쪽' },
+  { id: 'board',  c: 5, r: 2, t: '판' },
 ];
-const AT = Object.fromEntries(NODES.map(n => [n.id, n]));
 
-/**
- * 두 칸을 잇는다. 마주 보는 면끼리 붙인다 — 뒤로 가는 선(재는 쪽 → 장부)도
- * 화살촉이 제 방향을 보게 하려면 시작 면을 목적지 쪽으로 잡아야 한다.
- */
+const LANES = ['글이 흐르는 길', '채점기를 만드는 길', 'ops', '세션'];
+
+let AT = {};
+function place(sessions) {
+  AT = {};
+  for (const n of FIXED) AT[n.id] = { ...n, x: COL(n.c), y: 26 + n.r * ROW };
+  sessions.forEach((s, i) => {
+    AT['s' + i] = { id: 's' + i, t: cut(s.name || s.id.slice(0, 8), 9),
+      x: COL(i % PER), y: 26 + (3 + Math.floor(i / PER)) * ROW };
+  });
+}
+
+/** 마주 보는 면끼리 잇는다. 뒤로 가는 선도 화살촉이 제 방향을 보게. */
 function edge(a, b, soft) {
   const p = AT[a], q = AT[b];
+  if (!p || !q) return '';
   const fwd = q.x >= p.x;
-  const x1 = fwd ? p.x + W : p.x;
-  const x2 = fwd ? q.x : q.x + W;
-  const y1 = p.y + H / 2, y2 = q.y + H / 2;
-  const gap = fwd ? -6 : 6;
+  const x1 = fwd ? p.x + W : p.x, x2 = fwd ? q.x : q.x + W;
+  const y1 = p.y + H / 2, y2 = q.y + H / 2, gap = fwd ? -6 : 6;
   const cls = 'ed' + (soft ? ' soft' : '');
   if (y1 === y2) return `<path class="${cls}" d="M${x1} ${y1}H${x2 + gap}"/>`;
   const mx = (x1 + x2) / 2;
   return `<path class="${cls}" d="M${x1} ${y1}H${mx}V${y2}H${x2 + gap}"/>`;
 }
-
-/** 아래로 돌아가는 선. 사이에 낀 칸을 밟지 않고 지나간다. */
-function dip(a, b, drop = 34) {
+/** 아래 줄에서 위로 올려 붙인다. */
+function up(a, b, soft) {
   const p = AT[a], q = AT[b];
+  if (!p || !q) return '';
+  const x1 = p.x + W / 2, y1 = p.y, x2 = q.x + W / 2, y2 = q.y + H;
+  return `<path class="ed${soft ? ' soft' : ''}" d="M${x1} ${y1}V${(y1 + y2) / 2}H${x2}V${y2 + 6}"/>`;
+}
+/** 사이에 낀 칸을 밟지 않게 아래로 돌아간다. */
+function dip(a, b, drop = 32) {
+  const p = AT[a], q = AT[b];
+  if (!p || !q) return '';
   const x1 = p.x + W / 2, y1 = p.y + H, x2 = q.x + W / 2, y2 = q.y + H;
   const my = Math.max(y1, y2) + drop;
   return `<path class="ed soft" d="M${x1} ${y1}V${my}H${x2}V${y2 + 6}"/>`;
 }
-// 위로 올려 붙이는 선. 채점기가 빌드·서버로 들어가는 자리다.
-function up(a, b, soft) {
-  const p = AT[a], q = AT[b];
-  const x1 = p.x + W / 2, y1 = p.y, x2 = q.x + W / 2, y2 = q.y + H;
-  const my = (y1 + y2) / 2;
-  return `<path class="ed${soft ? ' soft' : ''}" d="M${x1} ${y1}V${my}H${x2}V${y2 + 6}"/>`;
-}
 
-// 장부가 가운데다. 만드는 쪽은 주장을 넣고, 재는 쪽은 판정을 넣는다 — 둘 다 들어가는
-// 방향이다. 판은 장부를 읽기만 하므로 아래로 돌려 잇는다(사이에 재는 쪽이 껴 있다).
-const EDGES = [
-  ['toss','fetch'], ['fetch','posts'], ['posts','build'], ['build','server'], ['server','live'],
-  ['slm','train'], ['train','model'],
-  ['maker','ledger'],
-].map(([a, b]) => edge(a, b)).join('')
-  + edge('checker', 'ledger')
-  + dip('ledger', 'board')
-  + up('model', 'server', true) + up('lex', 'build', true)
-  // 사람 자와 모델은 같은 줄이다. up() 은 줄이 다를 때 쓰는 것이라 여기선 옆으로 잇는다.
-  + edge('ruler', 'model', true);
-
-function node(n, sub, cls) {
-  return `<g><rect class="nb ${cls ?? ''}" x="${n.x}" y="${n.y}" width="${W}" height="${H}" rx="9"/>`
+function box(n, sub, cls, live) {
+  const dot = live ? `<circle class="pulse" cx="${n.x + W - 14}" cy="${n.y + 15}" r="3.5"/>` : '';
+  return `<g><rect class="nb ${cls}" x="${n.x}" y="${n.y}" width="${W}" height="${H}" rx="9"/>`
     + `<text class="nt" x="${n.x + 11}" y="${n.y + 19}">${esc(n.t)}</text>`
-    + `<text class="ns ${cls ?? ''}" x="${n.x + 11}" y="${n.y + 35}">${esc(sub ?? '')}</text></g>`;
+    + `<text class="ns ${cls}" x="${n.x + 11}" y="${n.y + 35}">${esc(sub)}</text>${dot}</g>`;
 }
 
-function paintMap(d) {
+function draw(d) {
   const now = Date.now();
-  const c = d.corpus, m = d.model, s = d.service;
+  const { corpus: c, model: m, service: s, sessions } = d;
+  place(sessions);
+
   const newest = Math.max(0, ...c.rows.map(r => r.at ?? 0));
   const bytes = c.rows.reduce((a, r) => a + r.bytes, 0);
-  const live = d.sessions.filter(x => x.moving).length;
   const svc = s.rows?.[0];
+  const stuck = d.open.some(x => x.stuck);
 
-  const sub = {
-    toss:   ['댓글·시세 API', ''],
-    fetch:  [newest ? ago(now - newest) : '기록 없음', newest && now - newest > 2 * 864e5 ? 'warn' : ''],
+  // [부제, 상태]. 상태가 곧 테두리 색이다.
+  const S = {
+    toss:   ['댓글 · 시세', ''],
+    fetch:  [newest ? ago(now - newest) : '기록 없음',
+             !newest ? 'bad' : now - newest > 2 * 864e5 ? 'warn' : ''],
     posts:  [`${c.rows.length}종목 · ${mb(bytes)}`, ''],
     build:  [c.builtAt ? `기준선 ${ago(now - c.builtAt)}` : '기준선 없음', c.builtAt ? '' : 'bad'],
-    server: [svc ? svc.status : (s.off ? '오라클 · 안 봄' : '물어보는 중'), svc?.healthy ? 'on' : ''],
-    live:   ['곡소리 지수 · 판', ''],
+    server: [svc ? svc.status : s.off ? '안 봄' : '물어보는 중', svc?.healthy ? 'on' : ''],
+    live:   ['곡소리 지수', ''],
     slm:    [`${num(m.labels.slm)}건`, ''],
-    train:  ['글자 n-gram NB', ''],
-    model:  [`어휘 ${num(m.vocab)}`, ''],
-    lex:    ['공포어 · 사전', ''],
-    ruler:  [m.measured ? `분류기 ${m.measured['분류기']}%` : '아직 안 쟀음', m.measured ? 'on' : 'warn'],
-    maker:  [live ? `${live}개 일하는 중` : `세션 ${d.sessions.length}개`, live ? 'live' : ''],
-    ledger: [`열림 ${d.open.length} · 닫힘 ${d.counts.closed}`, d.open.some(x => x.stuck) ? 'bad' : ''],
+    train:  ['글자 n-gram', ''],
+    model:  [`어휘 ${num(m.vocab)}`, m.vocab ? '' : 'bad'],
+    lex:    ['공포어 사전', ''],
+    ruler:  [m.measured ? `분류기 ${m.measured['분류기']}%` : '안 쟀음',
+             m.measured ? 'on' : 'warn'],
+    ledger: [`열림 ${d.open.length} · 닫힘 ${d.counts.closed}`, stuck ? 'bad' : ''],
     checker:['읽기 전용 통', ''],
     board:  ['127.0.0.1:8730', 'on'],
   };
 
-  $('map').innerHTML = `<defs><marker id="tip" viewBox="0 0 8 8" refX="7" refY="4"`
-    + ` markerWidth="7" markerHeight="7" orient="auto">`
-    + `<path d="M0 0L8 4L0 8z" fill="var(--hair)"/></marker></defs>`
-    + `<text class="lane" x="14" y="17">글이 흐르는 길</text>`
-    + `<text class="lane" x="14" y="113">채점기를 만드는 길</text>`
-    + `<text class="lane" x="14" y="205">ops — 만들고 재는 짝</text>`
-    + EDGES
-    + NODES.map(n => node(n, sub[n.id][0], sub[n.id][1])).join('');
+  const rows = 3 + Math.max(1, Math.ceil(sessions.length / PER));
+  $('map').setAttribute('viewBox', `0 0 ${14 + PER * (W + GAP)} ${26 + rows * ROW + 6}`);
+
+  const edges = [
+    ['toss','fetch'], ['fetch','posts'], ['posts','build'], ['build','server'], ['server','live'],
+    ['slm','train'], ['train','model'],
+  ].map(([a, b]) => edge(a, b)).join('')
+    + edge('ruler', 'model', true)
+    + edge('checker', 'ledger')
+    + dip('ledger', 'board')
+    + up('model', 'server', true) + up('lex', 'build', true)
+    // 세션은 장부에 주장을 넣는 쪽이다. 일하는 창만 잇는다 — 다 이으면 선이 숲이 된다.
+    + sessions.map((x, i) => (x.moving ? up('s' + i, 'ledger', true) : '')).join('');
+
+  const lanes = LANES.map((t, i) =>
+    `<text class="lane" x="14" y="${26 + i * ROW - 9}">${esc(t)}</text>`).join('');
+
+  const fixed = FIXED.map(n => box(AT[n.id], S[n.id][0], S[n.id][1])).join('');
+  const sess = sessions.length
+    ? sessions.map((x, i) => box(AT['s' + i],
+        x.last?.kind === 'tool' ? cut(x.last.tool.replace(/^mcp__[a-z-]+__/, ''), 13) : ago(x.idleMs),
+        x.moving ? 'live' : '', x.moving)).join('')
+    : `<text class="ns" x="14" y="${26 + 3 * ROW + 28}">도는 세션이 없습니다</text>`;
+
+  $('map').innerHTML = '<defs><marker id="tip" viewBox="0 0 8 8" refX="7" refY="4"'
+    + ' markerWidth="7" markerHeight="7" orient="auto">'
+    + '<path d="M0 0L8 4L0 8z" fill="var(--hair)"/></marker></defs>'
+    + lanes + edges + fixed + sess;
+
+  const vals = Object.values(S);
+  const bad = vals.filter(v => v[1] === 'bad').length;
+  const warn = vals.filter(v => v[1] === 'warn').length;
+  const live = sessions.filter(x => x.moving).length;
+  $('tally').innerHTML = `노드 <b>${FIXED.length + sessions.length}</b>`
+    + (bad ? ` · <span class="hot">막힘 ${bad}</span>` : '')
+    + (warn ? ` · <span class="cool">주의 ${warn}</span>` : '')
+    + (bad || warn ? '' : ' · 모두 정상')
+    + ` · 일하는 중 ${live}`;
 }
 
 let stale = 0;
 async function tick() {
   try {
-    const d = await (await fetch('/api/board')).json();
+    draw(await (await fetch('/api/board')).json());
     stale = 0;
-    const live = d.sessions.filter(s => s.moving).length;
-    $('head').textContent = `세션 ${d.sessions.length}개 · 일하는 중 ${live}개`
-      + ` · 주장 ${d.counts.claims} (닫힘 ${d.counts.closed}) · 판정 ${d.counts.verdicts}`;
-    $('sessions').innerHTML = d.sessions.map(card).join('')
-      || '<p class="empty">이 저장소에서 도는 세션이 없습니다.</p>';
-    paintMap(d);
-    paintRepo(d.repo); paintModel(d.model); paintCorpus(d.corpus); paintService(d.service);
-    $('open').innerHTML = openRows(d.open);
-    $('log').innerHTML = logRows(d.recent);
   } catch {
     // 서버가 잠깐 없어도 화면은 남긴다. 계속 못 받으면 그때 말한다.
-    if (++stale > 3) $('head').textContent = '서버가 안 보입니다 — node ops/board.mjs 가 떠 있나요?';
+    if (++stale > 3) $('tally').textContent = '서버가 안 보입니다';
   }
 }
 tick();
