@@ -1,8 +1,12 @@
 # 재는 쪽 한 통.
 #
-#   docker compose -f ops/docker-compose.yml run --rm verifier
+#   docker compose -f ops/docker-compose.yml run --rm --name ops-wail verifier
 #
 # 붙으면 Claude 가 뜬다. 거기서 /ops verify 를 치면 된다.
+#
+# --name 이 통 이름이다. 안 주면 compose 가 ops-verifier-run-<해시> 로 짓는다 —
+# Docker Desktop 에서 어느 통이 무엇을 재는지 알아볼 수 없다. 재는 대상 이름을
+# 그대로 주면 된다. 도커는 [a-zA-Z0-9][a-zA-Z0-9_.-] 만 받는다 — 한글은 거부한다.
 #
 # 마운트가 규칙을 대신한다. 스킬에 "재는 쪽은 고치지 않는다" 고 적어 놨지만
 # 그건 부탁이다. 저장소를 읽기 전용으로 걸면 부탁이 아니라 사실이 된다:
@@ -20,7 +24,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: ops-verifier
+    # container_name 은 일부러 안 박는다. 박으면 이름이 하나로 고정돼 두 번째
+    # 세션이 "name is already in use" 로 안 뜬다. ops 마다 통을 하나씩 올리는 게
+    # 이 통의 쓰임이라 --name 으로 그때그때 짓는다.
     init: true                       # Ctrl+C 가 제대로 먹게
     stdin_open: true
     tty: true
