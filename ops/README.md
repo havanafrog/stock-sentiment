@@ -52,10 +52,20 @@ node ops/board.mjs --measure
 
 ```
 cp ops/.env.example ops/.env      # CLAUDE_HOME 을 자기 경로로 고치세요
-docker compose -f ops/docker-compose.yml run --rm verifier
+docker compose -f ops/docker-compose.yml run --rm --name ops-wail verifier
 ```
 
 붙으면 Claude 가 뜹니다. `/ops verify` 를 치세요.
+
+`--name` 이 통 이름입니다. 재는 대상 이름을 그대로 주세요 — `ops-wail`,
+`ops-nb`. 안 주면 `ops-verifier-run-8f3c2a` 같은 이름이 붙어 Docker Desktop 에서
+어느 통이 무엇을 재는지 알아볼 수 없습니다. 도커는
+`[a-zA-Z0-9][a-zA-Z0-9_.-]` 만 받습니다 — **한글 이름은 거부합니다**
+(`Invalid container name`).
+
+ops 마다 통을 하나씩 올리므로 이름이 겹치면 안 됩니다. 그래서 verifier 에는
+`container_name` 을 박아 두지 않았습니다 — 박으면 두 번째 세션이
+"name is already in use" 로 안 뜹니다.
 
 이쪽은 **저장소가 읽기 전용으로 걸립니다.** 고치려 해도 못 고치고, 커밋도
 푸시도 안 됩니다. "재는 쪽은 고치지 않는다" 가 부탁이 아니라 사실이 됩니다.
