@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>본주 × 레버리지 커뮤니티 감정</title>
 <style>
-  :root { --r: 16px; }
+  :root { --r: 10px; }
   * { box-sizing: border-box; }
   body { margin: 0; }
 
@@ -13,19 +13,19 @@
     color-scheme: light;
     /* TASTE — tossinvest.com 실측 (2026-08-19). --wts-adaptive-* 418개를 읽고
        실렌더 값으로 확인했다. 값 근거는 대화의 TASTE BRIEF 참조. */
-    --page: #f4f5f8;            /* body 배경 */
-    --surface-1: #fbfcfd;       /* 패널. 순백이 아니라 살짝 띄운 흰색 */
-    --text-primary: #191f28;
-    --text-secondary: #4e5968;  /* 토스는 본문 기본색이 검정이 아니라 이것 */
-    --muted: #6b7684;
-    --faint: #8b95a1;
-    --grid: #e5e8eb;
-    --axis: #d1d6db;            /* 0선·축 (grey300) */
-    --border: rgba(2, 32, 71, 0.05);
-    --hairline: #e5e8eb;
+    --page: #f7f7f8;            /* body 배경. 파랑기 뺀 무채색 */
+    --surface-1: #ffffff;       /* 패널은 순백. 지면과의 차이는 선이 만든다 */
+    --text-primary: #101013;
+    --text-secondary: #52525b;
+    --muted: #71717a;
+    --faint: #9a9aa3;
+    --grid: #ececef;
+    --axis: #d4d4d8;            /* 0선·축 */
+    --border: rgba(9, 9, 11, 0.10);
+    --hairline: #eaeaee;
     --pos: #3182f6;             /* 감정 긍정 = blue500 */
     --neg: #f04452;             /* 감정 부정 = red500 */
-    --neutral: #f2f4f6;         /* grey100 */
+    --neutral: #f1f1f3;
     --accent-wash: #e8f3ff;     /* blue50 */
     --fear: #f04452;            /* 공포 선·게이지 (red500) */
     --fear-bg: #ffeeee; --fear-ink: #bc1b2a; --fear-bd: rgba(240, 68, 82, .35);
@@ -33,19 +33,19 @@
     --ma20: #f5a623; --ma120: #7a5af8; --ma200: #00a29a;
     --warn-bg: #fff4e6; --warn-ink: #9a5b00; --warn-bd: rgba(245, 166, 35, .35);
     --ok-bg: #eaf5ec;   --ok-ink: #1a6b2a;   --ok-bd: rgba(26, 107, 42, .30);
-    --radius: 9px;              /* 버튼·입력 (실측) */
-    --radius-lg: 16px;          /* 패널 (실측) */
-    --ring: inset 0 0 0 1px rgba(2, 32, 71, 0.05);   /* 테두리가 아니라 링 (실측) */
+    --radius: 6px;              /* 버튼·입력 */
+    --radius-lg: 10px;          /* 패널 */
+    --ring: inset 0 0 0 1px rgba(9, 9, 11, 0.10);    /* 그림자를 안 쓴다. 깊이는 선이 낸다 */
   }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) .app {
       color-scheme: dark;
       /* 파생 — tossinvest.com 은 color-scheme: light only 라 다크를 측정할 수 없다.
          회색 램프(grey50~900)를 뒤집고 채도색은 밝기만 올렸다. */
-      --page: #17171c; --surface-1: #1f2027;
-      --text-primary: #f2f4f6; --text-secondary: #b0b8c1; --muted: #8b95a1; --faint: #6b7684;
-      --grid: #2b2d35; --axis: #3a3d47; --border: rgba(255, 255, 255, 0.07); --hairline: #2b2d35;
-      --pos: #64a8ff; --neg: #f66570; --neutral: #2b2d35;
+      --page: #0a0a0b; --surface-1: #101012;
+      --text-primary: #f4f4f5; --text-secondary: #a1a1aa; --muted: #7c7c86; --faint: #5c5c66;
+      --grid: #202024; --axis: #35353c; --border: rgba(255, 255, 255, 0.10); --hairline: #1d1d21;
+      --pos: #64a8ff; --neg: #f66570; --neutral: #18181c;
       --accent-wash: rgba(100, 168, 255, 0.14);
         --fear: #f66570;
     --fear-bg: #2e1517; --fear-ink: #feafb4; --fear-bd: rgba(246, 101, 112, .35);
@@ -53,18 +53,18 @@
       --ma20: #f5b74d; --ma120: #9b82ff; --ma200: #3fc4bb;
       --warn-bg: #2a2110; --warn-ink: #f5c97a; --warn-bd: rgba(245, 166, 35, .30);
       --ok-bg: #12210f;   --ok-ink: #9ad79a;   --ok-bd: rgba(26, 107, 42, .30);
-    --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
-      --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+    --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.10);
+      --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.10);
     }
   }
   :root[data-theme="dark"] .app {
     color-scheme: dark;
     /* 파생 — tossinvest.com 은 color-scheme: light only 라 다크를 측정할 수 없다.
        회색 램프(grey50~900)를 뒤집고 채도색은 밝기만 올렸다. */
-    --page: #17171c; --surface-1: #1f2027;
-    --text-primary: #f2f4f6; --text-secondary: #b0b8c1; --muted: #8b95a1; --faint: #6b7684;
-    --grid: #2b2d35; --axis: #3a3d47; --border: rgba(255, 255, 255, 0.07); --hairline: #2b2d35;
-    --pos: #64a8ff; --neg: #f66570; --neutral: #2b2d35;
+    --page: #0a0a0b; --surface-1: #101012;
+    --text-primary: #f4f4f5; --text-secondary: #a1a1aa; --muted: #7c7c86; --faint: #5c5c66;
+    --grid: #202024; --axis: #35353c; --border: rgba(255, 255, 255, 0.10); --hairline: #1d1d21;
+    --pos: #64a8ff; --neg: #f66570; --neutral: #18181c;
     --accent-wash: rgba(100, 168, 255, 0.14);
     --fear: #f66570;
     --fear-bg: #2e1517; --fear-ink: #feafb4; --fear-bd: rgba(246, 101, 112, .35);
@@ -72,17 +72,20 @@
     --ma20: #f5b74d; --ma120: #9b82ff; --ma200: #3fc4bb;
     --warn-bg: #2a2110; --warn-ink: #f5c97a; --warn-bd: rgba(245, 166, 35, .30);
     --ok-bg: #12210f;   --ok-ink: #9ad79a;   --ok-bd: rgba(26, 107, 42, .30);
-    --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.07);
+    --ring: inset 0 0 0 1px rgba(255, 255, 255, 0.10);
   }
   .app {
     /* "Toss Product Sans" 는 토스 자산이라 안 쓴다. 한글 폴백 순서만 가져왔다. */
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI",
       "Apple SD Gothic Neo", Roboto, "Noto Sans KR", "Malgun Gothic", sans-serif;
-    font-size: 13px;          /* 실측 분포에서 13px/600 이 압도적 */
-    font-weight: 600;         /* 토스의 본문 기본 굵기 */
+    --mono: ui-monospace, SFMono-Regular, "SF Mono", "JetBrains Mono",
+      "Cascadia Mono", Menlo, Consolas, monospace;
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;         /* 600 은 뭉툭하다. 굵기는 제목·수치에만 */
     letter-spacing: -0.01em;
     background: var(--page); color: var(--text-primary);
-    padding: 24px 22px 64px; max-width: 1680px; margin: 0 auto; line-height: 1.5;
+    padding: 22px 24px 64px; max-width: 1280px; margin: 0 auto; line-height: 1.5;
   }
   h1 { font-size: 22px; font-weight: 650; margin: 0 0 4px; letter-spacing: -.01em; }
   .sub { color: var(--text-secondary); font-size: 14px; margin: 0 0 18px; }
@@ -162,8 +165,9 @@
 
   table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
   th, td { text-align: right; padding: 6px 9px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
+  td { font-family: var(--mono); letter-spacing: -.02em; }
   th:first-child, td:first-child { text-align: left; font-variant-numeric: normal; }
-  th { color: var(--text-secondary); font-weight: 600; }
+  th { color: var(--faint); font-weight: 500; font-size: 11px; letter-spacing: .03em; }
   th.grp { text-align: center; border-bottom: 0; padding-bottom: 1px; }
   .scroll { overflow-x: auto; max-height: 340px; overflow-y: auto; }
   details summary { cursor: pointer; font-size: 13px; color: var(--text-secondary); padding: 5px 0; }
@@ -443,12 +447,17 @@ const EMBED = new URLSearchParams(location.search).get('embed') === '1';
 if (EMBED) document.body.classList.add('embed');
 function tellHeight() {
   if (!EMBED) return;
-  const h = Math.ceil(document.documentElement.getBoundingClientRect().height);
+  // getBoundingClientRect 는 창 높이를 준다. iframe 안에선 그게 곧 지금 틀
+  // 높이라, 재면 잰 값이 그대로 나오고 틀은 영영 안 자란다. 내용을 재야 한다.
+  const h = Math.ceil(document.documentElement.scrollHeight);
   parent.postMessage({ type: 'snapshot-height', h }, '*');
 }
 if (EMBED) {
   addEventListener('resize', tellHeight);
   new ResizeObserver(tellHeight).observe(document.body);
+  // ResizeObserver 는 화면을 그리는 차례에 불린다. 뒤에 있는 탭에서는 그 차례가
+  // 안 와서 높이를 한 번도 안 알려 준다. load 는 그와 무관하게 온다.
+  addEventListener('load', tellHeight);
 }
 
 // ── 탭 ── 사용법은 본문과 같은 페이지에 두되 따로 연다. 라우트가 늘지 않는다.
