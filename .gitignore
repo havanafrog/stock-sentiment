@@ -32,3 +32,6 @@ ops/.env
 ops/facts.json
 ops/.handoff.json
 ops/.ho-*
+
+# TLS 붙일 때 쓰는 실제 주소. 예시만 저장소에 남긴다.
+deploy/.env

@@ -11,11 +11,55 @@ docker compose up -d
 두고 TLS 를 붙인다 — 접근키는 링크를 아는 사람만 막을 뿐 평문은 그대로
 흐른다.
 
+주소를 사람이 읽을 수 있게 만드는 건 아래 "읽을 수 있는 주소" 를 보세요.
+
 접근키는 볼륨 안 `.access-key` 에 있다.
 
 ```bash
 docker compose exec stock cat /data/.access-key
 ```
+
+## 읽을 수 있는 주소
+
+이대로 두면 주소가 이렇다.
+
+```
+http://140.x.x.x:8731/?k=R9HzHDGxVnjYeJ5Vqton1w
+```
+
+IP, 포트, 22자 키가 다 드러난다. 키는 첫 요청에 쿠키로 옮겨 심고 주소에서
+떼므로 주소창에는 안 남지만, 처음 건네는 링크에는 그대로 들어간다. 나머지
+둘은 이름과 TLS 를 붙여 없앤다.
+
+```
+https://gokso.duckdns.org/?k=R9HzHDGxVnjYeJ5Vqton1w   ← 처음 한 번
+https://gokso.duckdns.org                             ← 그 다음부터
+```
+
+### 이름 받기
+
+도메인이 있으면 A 레코드를 서버 IP 로 넘기면 끝이다. 없으면 **DuckDNS** 가
+공짜다 — GitHub 로 로그인하고 이름 하나를 잡은 뒤 서버 IP 를 적는다.
+
+IP 가 바뀌는 서버라면 갱신을 걸어 둔다.
+
+```
+*/5 * * * * curl -fsS "https://www.duckdns.org/update?domains=<이름>&token=<토큰>" >/dev/null
+```
+
+### 붙이기
+
+```bash
+cp deploy/.env.example deploy/.env      # SITE_HOST 를 자기 주소로
+docker compose -f docker-compose.yml -f deploy/docker-compose.tls.yml up -d
+```
+
+인증서는 Caddy 가 받아서 알아서 갱신한다. **80 과 443 이 열려 있어야 한다** —
+80 은 발급에 쓴다. 오라클이면 보안 목록과 인스턴스 방화벽(`iptables`) 둘 다
+열어야 한다. 한쪽만 열면 발급이 조용히 실패한다.
+
+8731 은 계속 `127.0.0.1` 에만 연다. Caddy 는 같은 compose 망 안에서 통 이름
+`stock` 으로 부르므로 포트를 밖에 열 이유가 없다.
 
 ## 첫 실행
 
