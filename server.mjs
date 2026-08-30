@@ -117,13 +117,29 @@ function cookieOf(req, name) {
   return null;
 }
 
-/** 통과하면 true. 막으면 응답까지 마치고 false. */
+/** 통과하면 true. 막으면 응답까지 마치고 false(응답 끝냄). */
 function authed(req, res) {
-  const given = new URL(req.url, 'http://x').searchParams.get('k');
+  const u = new URL(req.url, 'http://x');
+  const given = u.searchParams.get('k');
   if (keyOk(given)) {
     // 키를 쿠키로 옮겨 심는다 — 주소창에 계속 달고 다니지 않아도 된다
     res.setHeader('Set-Cookie',
       `k=${encodeURIComponent(KEY)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`);
+
+    // 쿠키를 심었으면 키를 뗀 주소로 한 번 튕긴다. 안 그러면 22자가 주소창에
+    // 영영 남고, 화면을 캡처하거나 주소를 복사할 때마다 같이 딸려 나간다.
+    // 조각(#live)은 서버로 안 오지만 브라우저가 튕긴 주소에 도로 붙여 준다.
+    //
+    // api 는 뺀다 — SSE 를 302 로 튕기면 스트림이 끊긴다.
+    // 쿠키를 막아 둔 브라우저라면 튕긴 다음이 404 다. 그때는 원래 링크로
+    // 다시 들어와야 한다 — 키가 있다는 사실조차 안 알리려고 404 는 그대로 둔다.
+    if (req.method === 'GET' && !u.pathname.startsWith('/api/')) {
+      u.searchParams.delete('k');
+      const qs = u.searchParams.toString();
+      res.writeHead(302, { Location: u.pathname + (qs ? '?' + qs : ''), 'Cache-Control': 'no-store' });
+      res.end();
+      return false;
+    }
     return true;
   }
   if (keyOk(cookieOf(req, 'k'))) return true;

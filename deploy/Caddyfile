@@ -1,0 +1,12 @@
+# 이름 하나에 TLS 까지 붙인다. 인증서는 Caddy 가 알아서 받고 알아서 갱신한다.
+#
+# SITE_HOST 는 deploy/.env 에서 온다. 예: gokso.duckdns.org
+{$SITE_HOST} {
+	encode zstd gzip
+
+	# stock 통은 포트를 밖에 안 연다. 같은 compose 망 안에서 이름으로 부른다.
+	reverse_proxy stock:8731 {
+		# SSE 를 쓴다. 버퍼에 고이면 화면이 5초마다가 아니라 뭉텅이로 움직인다.
+		flush_interval -1
+	}
+}
