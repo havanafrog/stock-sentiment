@@ -144,32 +144,54 @@
   /* [hidden] 은 UA 규칙이라 위의 display 선언에 진다. 라벨을 끄면 보기 무리가
      사라져야 하는데 여태 그대로 있었다. */
   .ctrl[hidden], .ctrls[hidden], .pgrp[hidden] { display: none; }
-  /* 누른 것 — 투표 · 기분 · 평단. 셋이 한 줄에 눕고, 좁아지면 알아서 접힌다. */
-  .pulse { gap: 8px 0; }
-  .pgrp { display: flex; align-items: center; gap: 7px; padding: 0 16px; }
-  .pgrp:first-child { padding-left: 0; }
-  .pgrp + .pgrp { border-left: 1px solid var(--hairline); }
+  /* 누른 것 — 투표 · 기분 · 평단.
+     예측시장(Kalshi)이 쓰는 자리를 그대로 가져왔다: 걸러 보는 것은 전부 왼쪽 위
+     툴바에, 눌러서 참여하는 것은 차트 옆 오른쪽 기둥 맨 위 제 카드 안에.
+     여태 이 셋은 종목·봉단위 툴바와 똑같이 생긴 세 번째 줄이었다. 생김새가 같으니
+     거르는 것으로 읽혔다 — 자리가 아니라 신분이 틀렸던 것이다. */
+  .pulse { display: flex; flex-direction: column; gap: 11px; }
+  .ptitle { font-size: 11.5px; color: var(--faint); letter-spacing: .03em;
+    display: flex; align-items: baseline; gap: 6px; }
+  .ptitle b { color: var(--text-primary); font-weight: 650; font-size: 13px;
+    font-family: var(--mono); letter-spacing: -.02em; }
+  .ptitle .pnote { margin-left: auto; }
+  /* 기분·평단은 투표 아래에 실선으로 갈라 붙인다. 카드를 더 쪼개면 오른쪽 기둥이
+     조각보가 된다. */
+  .pgrp { display: flex; align-items: center; gap: 8px;
+    padding-top: 10px; border-top: 1px solid var(--hairline); }
   .plab { font-size: 11.5px; color: var(--faint); white-space: nowrap; }
   .plab b { color: var(--text-secondary); font-weight: 600; }
   .pnote { font-size: 11px; color: var(--faint); white-space: nowrap; }
   .pnote input { vertical-align: -1px; margin-right: 3px; }
-  .vote, .mood { display: flex; gap: 5px; }
+  /* 투표는 이 카드에서 크기를 쓰는 유일한 자리다. 둘이 폭을 반씩 나눠 가진다. */
+  .vote { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  .mood { display: flex; gap: 5px; margin-left: auto; }
   .vote button, .mood button { position: relative; appearance: none; cursor: pointer;
-    font: inherit; font-size: 11.5px; font-weight: 600; padding: 5px 10px; overflow: hidden;
+    font: inherit; font-weight: 600; overflow: hidden;
     white-space: nowrap; border: 0; border-radius: var(--radius); box-shadow: var(--ring);
     background: var(--surface-1); color: var(--text-secondary); }
-  .vote button { min-width: 104px; }
+  .vote button { display: flex; align-items: center; justify-content: center; gap: 5px;
+    min-height: 38px; padding: 0 8px; font-size: 12.5px; }
+  .mood button { font-size: 11.5px; padding: 5px 10px; }
   .vote button em, .mood button em { font-style: normal; font-weight: 700; }
-  .vote button i { font-style: normal; font-size: 10px; }
+  .vote button em { font-family: var(--mono); font-size: 11.5px; letter-spacing: -.02em;
+    color: var(--muted); }
+  .vote button i { font-style: normal; font-size: 9px; }
   /* 표가 몇 퍼센트인지 버튼 자체를 채워 보여준다. 막대를 따로 두면 줄이 하나 는다. */
   /* --fill 은 자바스크립트가 버튼마다 넣는다. 여기 기본값이 있어야 표가 없을 때도 0 이다. */
   .vote button { --fill: 0%; }
   .vote button::before { content: ""; position: absolute; inset: 0 auto 0 0;
     width: var(--fill); background: currentColor; opacity: .12; transition: width .25s ease; }
+  /* 글자는 전부 요소로 감싸 둔다. 맨 텍스트는 z 순서를 못 가져서 위 덮개에 깔린다. */
   .vote button > * { position: relative; }
   .vote button[data-v="U"] { color: var(--up); }
   .vote button[data-v="D"] { color: var(--down); }
-  .vote button[aria-pressed="true"] { box-shadow: inset 0 0 0 1.5px currentColor; }
+  /* 고른 쪽은 색으로 꽉 채운다. 테두리 한 줄로는 무엇을 골랐는지 멀리서 안 보인다. */
+  .vote button[data-v="U"][aria-pressed="true"] { background: var(--up); }
+  .vote button[data-v="D"][aria-pressed="true"] { background: var(--down); }
+  .vote button[aria-pressed="true"] { color: #fff; box-shadow: none; }
+  .vote button[aria-pressed="true"] em { color: rgba(255, 255, 255, .78); }
+  .vote button[aria-pressed="true"]::before { background: #fff; opacity: .22; }
   .mood button:hover { color: var(--text-primary); }
   .vote button:disabled, .mood button:disabled { cursor: default; opacity: .55; }
   .fld.avg { flex: 0 0 84px; width: 84px; padding: 5px 9px; font-size: 12px; }
@@ -378,7 +400,22 @@
   .rate { font-size: 11.5px; color: var(--muted); }
 
   .single { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; }
-  @media (min-width: 820px)  { .single { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); } }
+  /* 다시 그리는 쪽은 껍데기만 두고 사라진다 — 안의 카드가 곧 칸이 되어야 한다. */
+  #cards, #feed { display: contents; }
+  /* 좁은 화면엔 기둥이랄 게 없다. 한 줄로 쌓되 누를 것을 맨 위로 올린다 —
+     차트가 길어서 그 밑에 두면 아무도 거기까지 안 내려간다. */
+  .rail { display: contents; }
+  #pulseCard { order: -1; }
+  @media (min-width: 820px)  {
+    .single { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+    /* 넓어지면 오른쪽이 기둥이 된다 — [누를 것] 위, [읽을 것] 아래 한 칸.
+       칸을 둘로 쪼개면 위 칸이 차트 높이를 나눠 받아 투표 밑에 빈 땅이 생긴다.
+       차트가 길어도 누를 자리는 따라온다. 다만 붙는 높이는 제 칸 안에서만 도니
+       기둥이 제 키만 하면 161px 가다 만다 — 늘리는 건 기둥이고 안의 카드가 아니다. */
+    .rail { display: flex; flex-direction: column; gap: inherit;
+            min-width: 0; align-self: stretch; }
+    #pulseCard { position: sticky; top: 12px; }
+  }
   /* 넓은 화면에선 글 쪽에 폭을 더 준다 — 차트는 이미 충분히 크다 */
   @media (min-width: 1400px) { .single { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 18px; } }
   /* 폰. 640px 안쪽에선 여백이 내용을 밀어낸다 — 눌러 담는다. */
@@ -582,35 +619,40 @@
     </div>
   </div>
 
-  <div class="ctrls pulse" id="pulseCard">
-    <div class="pgrp">
-      <span class="plab">오늘 <b id="pulseSym">&mdash;</b></span>
-      <div class="vote" id="pulseVote">
-        <button id="voteU" data-v="U"><i>&#9650;</i> 오른다 <em id="voteUn">&mdash;</em></button>
-        <button id="voteD" data-v="D"><i>&#9660;</i> 내린다 <em id="voteDn">&mdash;</em></button>
-      </div>
-      <span class="pnote" id="pulseCount"></span>
-    </div>
-
-    <div class="pgrp">
-      <span class="plab">기분 <b id="moodFace">&#128528;</b> <span id="moodHappy">0</span></span>
-      <div class="mood" id="pulseMood">
-        <button id="moodPet" data-v="pet">쓰담 <em id="moodPetN">0</em></button>
-        <button id="moodHit" data-v="hit">한 대 <em id="moodHitN">0</em></button>
-      </div>
-      <span class="pnote" id="moodNote"></span>
-    </div>
-
-    <div class="pgrp">
-      <label class="plab" for="avgIn">평단</label>
-      <input id="avgIn" class="fld avg" inputmode="decimal" placeholder="예: 1420.00">
-      <span class="pnl" id="avgPnl"></span>
-      <label class="pnote"><input type="checkbox" id="avgLine" checked>선</label>
-    </div>
-  </div>
-
   <div id="banner"></div>
-  <div class="single" id="single"></div>
+
+  <div class="single" id="single">
+    <div id="cards"></div>
+    <aside class="rail">
+      <!-- 이 카드는 15초마다 지워지는 쪽(#cards · #feed) 밖에 있다. 안에 두면
+           평단을 치는 중에도 입력칸이 통째로 날아간다. -->
+      <div class="card pulse" id="pulseCard">
+        <div class="ptitle">오늘 <b id="pulseSym">&mdash;</b> 어떻게 볼까
+          <span class="pnote" id="pulseCount"></span></div>
+        <div class="vote" id="pulseVote">
+          <button id="voteU" data-v="U"><i>&#9650;</i><span>오른다</span> <em id="voteUn">&mdash;</em></button>
+          <button id="voteD" data-v="D"><i>&#9660;</i><span>내린다</span> <em id="voteDn">&mdash;</em></button>
+        </div>
+
+        <div class="pgrp">
+          <span class="plab">기분 <b id="moodFace">&#128528;</b> <span id="moodHappy">0</span></span>
+          <div class="mood" id="pulseMood">
+            <button id="moodPet" data-v="pet">쓰담 <em id="moodPetN">0</em></button>
+            <button id="moodHit" data-v="hit">한 대 <em id="moodHitN">0</em></button>
+          </div>
+          <span class="pnote" id="moodNote"></span>
+        </div>
+
+        <div class="pgrp">
+          <label class="plab" for="avgIn">평단</label>
+          <input id="avgIn" class="fld avg" inputmode="decimal" placeholder="예: 1420.00">
+          <span class="pnl" id="avgPnl"></span>
+          <label class="pnote"><input type="checkbox" id="avgLine" checked>선</label>
+        </div>
+      </div>
+      <div id="feed"></div>
+    </aside>
+  </div>
   </div><!-- /viewMain -->
 
   <div id="viewAnalysis" hidden>
@@ -809,7 +851,7 @@ function card(ticker, d, meta) {
   const isFear = isWail;                       // 카드가 붉어지는 기준 = 곡소리
 
 
-  return `
+  return [`
   <div class="card${isFear ? ' fear' : ''}">
     <div class="head">
       <span class="tk">${ticker}</span>
@@ -882,8 +924,7 @@ function card(ticker, d, meta) {
       <svg id="cWm" viewBox="0 0 600 80" role="img" aria-label="곡소리 MACD" hidden></svg>
       <div class="cempty" id="cEmpty" hidden></div>
     </div>
-  </div>
-
+  </div>`, `
   <div class="card">
     <div class="feed-head">${ticker} 최근 1시간 · ${(d.recentN ?? d.recent.length).toLocaleString()}건 · 공포어는 붉게</div>
     <div class="feed">
@@ -898,7 +939,7 @@ function card(ticker, d, meta) {
         ? `<div class="post"><span class="t"></span><span class="x" style="color:var(--muted)">
            나머지 ${(d.recentN - d.recent.length).toLocaleString()}건은 <a href="#posts">글 탭</a>에 있습니다</span></div>` : ''}
     </div>
-  </div>`;
+  </div>`];
 }
 
 // ── 실시간 그래프 ──
@@ -1573,7 +1614,9 @@ function paint(d) {
       `<button data-t="${t}" aria-pressed="${t === UI.ticker}">`
       + `${t}${feary.includes(t) ? '<span class="fdot"></span>' : ''}</button>`).join('');
 
-    $('single').innerHTML = UI.ticker ? card(UI.ticker, d.tickers[UI.ticker], meta) : '';
+    const [chartCard, feedCard] = UI.ticker ? card(UI.ticker, d.tickers[UI.ticker], meta) : ['', ''];
+    $('cards').innerHTML = chartCard;
+    $('feed').innerHTML = feedCard;
     drawCharts(d);                       // innerHTML 로 svg 가 새로 생기니 매번 다시 그린다
     paintPTicker();                      // 글 탭 종목 버튼도 같은 목록을 쓴다
 
