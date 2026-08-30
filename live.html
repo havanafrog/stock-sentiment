@@ -359,6 +359,8 @@
 
   /* 곡소리. 경보만 알약으로 띄운다 — 다 띄우면 아무것도 안 띄운 것과 같다. */
   .board .idx { font-weight: 600; }
+  /* 값이 없는 게 대부분이다. 없는 칸이 있는 칸만큼 진해선 안 된다. */
+  .board .idx.none { color: var(--faint); font-weight: 400; }
   .board .idx.alert { color: #fff; background: var(--fear); border-radius: 5px;
     padding: 3px 7px; }
   .board .fdot { display: inline-block; width: 5px; height: 5px; border-radius: 50%;
@@ -375,7 +377,7 @@
   }
   .rate { font-size: 11.5px; color: var(--muted); }
 
-  .single { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .single { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; }
   @media (min-width: 820px)  { .single { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); } }
   /* 넓은 화면에선 글 쪽에 폭을 더 준다 — 차트는 이미 충분히 크다 */
   @media (min-width: 1400px) { .single { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 18px; } }
@@ -414,9 +416,11 @@
   .row .v { font-variant-numeric: tabular-nums; font-weight: 600; }
   .row .v .thin { color: var(--muted); font-weight: 400; font-size: 11.5px; }
 
-  .meter { height: 8px; border-radius: 5px; background: var(--neutral); overflow: hidden; position: relative; }
-  .meter i { display: block; height: 100%; border-radius: 5px; transition: width .4s, background .3s; }
-  .meter .base { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--muted); opacity: .8; }
+  /* 8px 풀채도는 내려받기 진행바로 읽힌다. 값을 나타내는 선이지 진행이 아니다. */
+  .meter { height: 4px; border-radius: 2px; background: var(--neutral); overflow: hidden; position: relative; }
+  .meter i { display: block; height: 100%; border-radius: 2px; opacity: .8;
+    transition: width .4s, background .3s; }
+  .meter .base { position: absolute; top: -3px; bottom: -3px; width: 1px; background: var(--muted); opacity: .7; }
 
   .zline { margin-top: 12px; font-size: 12.5px; color: var(--text-secondary);
            padding-top: 11px; border-top: 1px solid var(--border); }
@@ -440,7 +444,7 @@
   .err { font-size: 12.5px; color: var(--neg); margin-top: 10px; }
   .foot { font-size: 12.5px; color: var(--text-secondary); margin-top: 22px;
           background: var(--surface-1); border: 1px solid var(--border);
-          border-radius: var(--radius-lg); padding: 16px; max-width: 920px; }
+          border-radius: var(--radius-lg); padding: 18px 20px; max-width: 760px; }
   .foot h3 { font-size: 14px; color: var(--text-primary); margin: 14px 0 6px; }
   .foot h3:first-child { margin-top: 0; }
   .foot p { margin: 0 0 8px; }
@@ -474,8 +478,9 @@
   .tkdel:hover { color: var(--neg); }
 
   /* 계산식 */
-  .eq { background: var(--neutral); border-radius: var(--radius); padding: 11px 13px;
-    margin: 8px 0 12px; font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+  .eq { background: none; border-left: 2px solid var(--hairline); border-radius: 0;
+    padding: 2px 0 2px 14px;
+    margin: 10px 0 14px; font-family: var(--mono);
     font-size: 12px; line-height: 1.75; white-space: pre-wrap; overflow-x: auto;
     color: var(--text-primary); font-weight: 500; }
   .eq b { color: var(--fear); font-weight: 700; }
@@ -1780,7 +1785,7 @@ function paintBoard(order, tickers, feary) {
             + `${rel < 0.01 ? '<1' : Math.round(rel * 100)}%</span>`}</td>`
       + `<td class="c-value">${valueShort(p?.value)}</td>`
       + `<td class="c-str">${p?.strength == null ? '—' : p.strength.toFixed(1)}</td>`
-      + `<td><span class="idx${idx >= ALERT ? ' alert' : ''}">`
+      + `<td><span class="idx${idx == null ? ' none' : idx >= ALERT ? ' alert' : ''}">`
         + `${idx == null ? '—' : Math.round(idx)}</span></td>`
       + '</tr>';
   }).join('');
@@ -2440,7 +2445,10 @@ let showTab = () => {};
       // 숨어 있는 동안 그린 차트는 폭이 0 이라 선이 뭉개진다. 나올 때 다시 그린다.
       if (name === 'main') { drawBars(); drawFear(); pulseLoad(); avgPaint(); }
     };
-    if (typeof requestAnimationFrame === 'function')
+    // 뒤에 있는 탭에서는 rAF 가 영영 안 돈다. 링크를 새 탭으로 열거나 창을
+    // 복원하면 껍데기만 뜨고 내용은 안 불러온 채로 굳는다. 안 보이는 동안엔
+    // 끊길 화면도 없으니 미룰 이유가 없다 — 바로 한다.
+    if (typeof requestAnimationFrame === 'function' && !document.hidden)
       requestAnimationFrame(() => requestAnimationFrame(heavy));
     else heavy();                       // 점검용 껍데기에는 rAF 가 없다
   };
