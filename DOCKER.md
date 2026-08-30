@@ -24,7 +24,7 @@ docker compose exec stock cat /data/.access-key
 이대로 두면 주소가 이렇다.
 
 ```
-http://140.x.x.x:8731/?k=R9HzHDGxVnjYeJ5Vqton1w
+http://140.x.x.x:8731/?k=xxxxxxxxxxxxxxxxxxxxxx
 ```
 
 IP, 포트, 22자 키가 다 드러난다. 키는 첫 요청에 쿠키로 옮겨 심고 주소에서
@@ -32,7 +32,7 @@ IP, 포트, 22자 키가 다 드러난다. 키는 첫 요청에 쿠키로 옮겨
 둘은 이름과 TLS 를 붙여 없앤다.
 
 ```
-https://gokso.duckdns.org/?k=R9HzHDGxVnjYeJ5Vqton1w   ← 처음 한 번
+https://gokso.duckdns.org/?k=xxxxxxxxxxxxxxxxxxxxxx   ← 처음 한 번
 https://gokso.duckdns.org                             ← 그 다음부터
 ```
 
