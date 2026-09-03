@@ -139,7 +139,7 @@
   /* 컨트롤 */
   .ctrls { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center;
            margin: 0 2px 12px; }
-  .ctrl { display: flex; align-items: center; gap: 7px; }
+  .ctrl { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; min-width: 0; }
   .ctrl > label { font-size: 11.5px; color: var(--faint); white-space: nowrap; }
   /* [hidden] 은 UA 규칙이라 위의 display 선언에 진다. 라벨을 끄면 보기 무리가
      사라져야 하는데 여태 그대로 있었다. */
@@ -199,6 +199,18 @@
   .pnl.up { color: var(--up); }
   .pnl.down { color: var(--down); }
 
+  /* 가격 밑 잔 등락. 토스는 시각별 등락률을 안 준다 — 주는 건 전일 종가와 지금
+     값뿐이다. 1 · 10 · 60분은 서버가 1분에 한 점씩 찍는 계열에서 직접 낸다. */
+  .pxs { display: flex; flex-wrap: wrap; gap: 3px 14px; margin: 5px 0 0;
+    font-size: 11.5px; color: var(--faint); letter-spacing: .02em; }
+  .pxs span { display: inline-flex; align-items: baseline; gap: 5px; }
+  .pxs i { font-style: normal; }
+  .pxs b { font-family: var(--mono); font-weight: 600; font-feature-settings: "tnum" 1;
+    letter-spacing: -.02em; color: var(--text-secondary); }
+  .pxs b.up { color: var(--up); }
+  .pxs b.down { color: var(--down); }
+  .pxs b.none { font-weight: 400; color: var(--faint); }
+
   .cavg { font-size: 8.5px; font-weight: 700; fill: var(--ma20); }
   .seg { display: flex; box-shadow: var(--ring); border-radius: var(--radius); overflow: hidden; }
   /* 누른 뒤 새 탭이 그려지기까지 한 프레임이 빈다. 그동안 아무 반응이 없으면
@@ -222,7 +234,7 @@
   /* 봉 차트 */
   .cbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 2px 12px; }
   .cbar .seg button { padding: 4px 9px; font-size: 11.5px; }
-  .mas { display: flex; gap: 9px; font-size: 11px; color: var(--text-secondary); }
+  .mas { display: flex; flex-wrap: wrap; gap: 6px 9px; font-size: 11px; color: var(--text-secondary); }
   .mas label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
   .mas input { margin: 0; }
   .mas .k { width: 9px; height: 2.5px; border-radius: 2px; display: inline-block; }
@@ -823,6 +835,45 @@ const money = v => {
 // 보고 있는 봉에 맞는 창을 고른다. 그래야 카드의 공포지수가 차트 마지막 봉과 같아진다.
 // 일봉은 서버가 60분치만 들고 있어서 60분으로 물러난다.
 const UNIT_KEY = { 'min:1': '1', 'min:10': '10', 'min:60': '60', 'day:1': '60' };
+
+/**
+ * N 분 전 대비 등락. 계열(series)은 [ms, 공포, 지수, 종가] 를 1분에 한 점씩 담는다.
+ *
+ * 개수로 세지 않고 시각으로 찾는다. 장이 닫힌 동안엔 점이 안 찍히므로 60칸 뒤가
+ * 60분 전이 아니다 — 아침에 열면 "60분 전" 이 어제가 된다.
+ *
+ * 그만큼 거슬러 올라갈 점이 없으면 null 이다. 서버를 막 띄웠을 때가 그렇다.
+ * 없는 값을 0% 로 그리면 안 움직인 것처럼 보이는데, 그건 거짓말이다.
+ */
+function spanChg(rows, mins) {
+  if (!rows || rows.length < 2) return null;
+  const last = rows[rows.length - 1];
+  const now = last[3];
+  if (!Number.isFinite(now)) return null;
+  const target = last[0] - mins * 60000;
+  if (rows[0][0] > target) return null;             // 계열이 그만큼 안 길다
+  // 찾은 점이 목표 시각에서 너무 멀면 안 쓴다. 서버가 꺼져 있던 구간이 그렇다 —
+  // 두 시간 전 값에 "60분" 이라는 이름표를 붙이면 숫자가 거짓말을 한다.
+  const slack = Math.max(120000, mins * 30000);     // 목표의 절반, 최소 2분
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (rows[i][0] > target) continue;
+    if (target - rows[i][0] > slack) return null;
+    const then = rows[i][3];
+    return Number.isFinite(then) && then > 0 ? now / then - 1 : null;
+  }
+  return null;
+}
+
+const SPANS = [[1, '1분'], [10, '10분'], [60, '60분']];
+function spanRow(rows) {
+  return SPANS.map(([m, lab]) => {
+    const c = spanChg(rows, m);
+    const cls = c === null ? 'none' : c > 0 ? 'up' : c < 0 ? 'down' : '';
+    const txt = c === null ? '&mdash;'
+      : (c > 0 ? '+' : '') + (c * 100).toFixed(2) + '%';
+    return `<span><i>${lab}</i><b class="${cls}">${txt}</b></span>`;
+  }).join('');
+}
 const winLabel = mins => (mins >= 60 ? `${mins / 60}시간` : `${mins}분`);
 
 function card(ticker, d, meta) {
@@ -831,7 +882,7 @@ function card(ticker, d, meta) {
   const fellBack = BAR.unit === 'day:1';
   const idx = w.idx ?? null;                   // 공포는 계산은 남기되 화면엔 안 쓴다
   const p = d.price;
-  const chg = p && p.open ? (p.close / p.open - 1) : null;
+  const chg = chgOf(p);                        // 전일 종가 대비 — 판과 같은 기준
 
   // 게이지는 지수 그대로 0~100 이다. 눈금이 종목·시각과 무관하게 같은 뜻을 가진다.
   // 50 자리에 평소 표시를, 경보선에 눈금을 둔다.
@@ -863,7 +914,8 @@ function card(ticker, d, meta) {
     ${p ? `<div class="px">${money(p.close)}</div>
       <div class="pxd ${chg >= 0 ? 'up' : 'down'}">${chg === null ? '' :
         (chg >= 0 ? '▲' : '▼') + ' ' + Math.abs(chg * 100).toFixed(2) + '%'}
-        <span style="color:var(--muted)">· 고 ${money(p.high)} 저 ${money(p.low)}</span></div>`
+        <span style="color:var(--muted)">· 고 ${money(p.high)} 저 ${money(p.low)}</span></div>
+      <div class="pxs">${spanRow(meta.series?.[ticker])}</div>`
       : '<div class="pxd" style="color:var(--muted)">시세 없음</div>'}
 
     <div class="rows">
@@ -1581,7 +1633,7 @@ function setTitle(d) {
   const t = UI.ticker, k = d.tickers?.[t];
   const px = k?.price;
   if (!t || !px) { document.title = BASE_TITLE; return; }
-  const chg = px.open ? (px.close / px.open - 1) : null;
+  const chg = chgOf(px);                       // 판·카드와 같은 기준
   const pct = chg === null ? ''
     : ` ${chg >= 0 ? '▲' : '▼'}${Math.abs(chg * 100).toFixed(2)}%`;
   document.title = `${money(px.close)}${pct} · ${t}`;
@@ -1591,7 +1643,7 @@ function paint(d) {
     LAST = d;
     RATE = d.rate?.rate ?? null;
     ALERT = d.alert ?? ALERT;
-    const meta = { minLive: d.minLive, alert: ALERT };
+    const meta = { minLive: d.minLive, alert: ALERT, series: d.series };
     for (const id of ['minLive', 'minLive2']) { const e = $(id); if (e) e.textContent = d.minLive; }
     for (const id of ['minFast', 'minFast2']) { const e = $(id); if (e) e.textContent = d.minFast; }
 
