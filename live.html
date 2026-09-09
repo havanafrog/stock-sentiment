@@ -199,20 +199,8 @@
   .pnl.up { color: var(--up); }
   .pnl.down { color: var(--down); }
 
-  /* 가격 밑 잔 등락. 토스는 시각별 등락률을 안 준다 — 주는 건 전일 종가와 지금
-     값뿐이다. 1 · 10 · 60분은 서버가 1분에 한 점씩 찍는 계열에서 직접 낸다. */
-  .pxs { display: flex; flex-wrap: wrap; gap: 3px 14px; margin: 5px 0 0;
-    font-size: 11.5px; color: var(--faint); letter-spacing: .02em; }
-  .pxs span { display: inline-flex; align-items: baseline; gap: 5px; }
-  .pxs i { font-style: normal; }
-  .pxs b { font-family: var(--mono); font-weight: 600; font-feature-settings: "tnum" 1;
-    letter-spacing: -.02em; color: var(--text-secondary); }
-  .pxs b.up { color: var(--up); }
-  .pxs b.down { color: var(--down); }
-  .pxs b.none { font-weight: 400; color: var(--faint); }
-  /* 지금 보고 있는 봉 단위. 위의 큰 퍼센트가 이 칸의 값이다. */
-  .pxs span.on i { color: var(--text-secondary); font-weight: 600; }
-  .pxs span.on { box-shadow: inset 0 -1px 0 var(--border); }
+  /* 큰 퍼센트 옆 단위 이름. 토스는 시각별 등락률을 안 준다 — 주는 건 전일 종가와
+     지금 값뿐이라 분 단위는 서버가 1분에 한 점씩 찍는 계열에서 직접 낸다. */
   .pxu { font-size: 11px; font-weight: 500; color: var(--faint);
     letter-spacing: .02em; margin-left: 5px; }
 
@@ -877,17 +865,6 @@ function spanChg(rows, mins) {
 const SPANS = [[1, '1분'], [10, '10분'], [60, '60분'], [null, '전일']];
 const UNIT_SPAN = { 'min:1': 1, 'min:10': 10, 'min:60': 60, 'day:1': null };
 const spanOf = (rows, m, daily) => (m === null ? daily : spanChg(rows, m));
-const spanTxt = c => (c === null ? '&mdash;'
-  : (c > 0 ? '+' : '') + (c * 100).toFixed(2) + '%');
-const spanCls = c => (c === null ? 'none' : c > 0 ? 'up' : c < 0 ? 'down' : '');
-
-function spanRow(rows, daily, sel) {
-  return SPANS.map(([m, lab]) => {
-    const c = spanOf(rows, m, daily);
-    return `<span${m === sel ? ' class="on"' : ''}><i>${lab}</i>`
-      + `<b class="${spanCls(c)}">${spanTxt(c)}</b></span>`;
-  }).join('');
-}
 const winLabel = mins => (mins >= 60 ? `${mins / 60}시간` : `${mins}분`);
 
 function card(ticker, d, meta) {
@@ -934,8 +911,7 @@ function card(ticker, d, meta) {
       <div class="pxd ${chg === null ? '' : chg >= 0 ? 'up' : 'down'}">${chg === null
         ? '<span style="color:var(--faint)">&mdash;</span>'
         : (chg >= 0 ? '▲' : '▼') + ' ' + Math.abs(chg * 100).toFixed(2) + '%'}<span class="pxu">${selLab}</span>
-        <span style="color:var(--muted)">· 고 ${money(p.high)} 저 ${money(p.low)}</span></div>
-      <div class="pxs">${spanRow(meta.series?.[ticker], daily, sel)}</div>`
+        <span style="color:var(--muted)">· 고 ${money(p.high)} 저 ${money(p.low)}</span></div>`
       : '<div class="pxd" style="color:var(--muted)">시세 없음</div>'}
 
     <div class="rows">
