@@ -210,9 +210,15 @@
   .pxs b.up { color: var(--up); }
   .pxs b.down { color: var(--down); }
   .pxs b.none { font-weight: 400; color: var(--faint); }
+  /* 지금 보고 있는 봉 단위. 위의 큰 퍼센트가 이 칸의 값이다. */
+  .pxs span.on i { color: var(--text-secondary); font-weight: 600; }
+  .pxs span.on { box-shadow: inset 0 -1px 0 var(--border); }
+  .pxu { font-size: 11px; font-weight: 500; color: var(--faint);
+    letter-spacing: .02em; margin-left: 5px; }
 
   .cavg { font-size: 8.5px; font-weight: 700; fill: var(--ma20); }
-  .seg { display: flex; box-shadow: var(--ring); border-radius: var(--radius); overflow: hidden; }
+  .seg { display: flex; flex-wrap: wrap; gap: 1px; background: var(--hairline);
+         box-shadow: var(--ring); border-radius: var(--radius); overflow: hidden; }
   /* 누른 뒤 새 탭이 그려지기까지 한 프레임이 빈다. 그동안 아무 반응이 없으면
      느리게 느껴지므로 버튼 자체는 즉시 반응하게 둔다. */
   .seg button { transition: background-color .12s ease, color .12s ease; }
@@ -222,8 +228,11 @@
   }
   .seg button { border: 0; background: var(--surface-1); color: var(--text-secondary);
                 padding: 6px 12px; font: inherit; font-size: 12.5px; cursor: pointer;
-                display: inline-flex; align-items: center; gap: 6px; }
-  .seg button + button { border-left: 1px solid var(--border); }
+                display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+                /* 줄이 바뀌면 남는 칸으로 바탕(칸 사이 선 색)이 비친다. 늘려서 채운다.
+                   한 줄에 다 들어가는 묶음은 폭이 내용대로라 늘어날 자리가 없다. */
+                flex: 1 0 auto; }
+  /* 칸 사이 선은 위 gap 이 낸다 — 줄이 바뀌어도 알아서 맞는다. */
   .seg button[aria-pressed="true"] { background: var(--accent-wash); color: var(--text-primary); font-weight: 600; }
   .seg button:hover { background: var(--neutral); }
   .seg button[aria-pressed="true"]:hover { background: var(--accent-wash); }
@@ -414,10 +423,9 @@
   .single { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; }
   /* 다시 그리는 쪽은 껍데기만 두고 사라진다 — 안의 카드가 곧 칸이 되어야 한다. */
   #cards, #feed { display: contents; }
-  /* 좁은 화면엔 기둥이랄 게 없다. 한 줄로 쌓되 누를 것을 맨 위로 올린다 —
-     차트가 길어서 그 밑에 두면 아무도 거기까지 안 내려간다. */
+  /* 좁은 화면엔 기둥이랄 게 없다. 그냥 쌓인다 —
+     차트 다음, 글 목록 바로 위. 누르는 것과 읽는 것을 붙여 둔다. */
   .rail { display: contents; }
-  #pulseCard { order: -1; }
   @media (min-width: 820px)  {
     .single { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
     /* 넓어지면 오른쪽이 기둥이 된다 — [누를 것] 위, [읽을 것] 아래 한 칸.
@@ -864,14 +872,20 @@ function spanChg(rows, mins) {
   return null;
 }
 
-const SPANS = [[1, '1분'], [10, '10분'], [60, '60분']];
-function spanRow(rows) {
+// 봉 단위 버튼과 짝을 맞춘다. 일봉은 계열로 못 낸다 — 계열은 24시간뿐이고
+// 전일 종가는 계열에 없는 값이다. 그래서 일은 base 대비(chgOf)를 쓴다.
+const SPANS = [[1, '1분'], [10, '10분'], [60, '60분'], [null, '전일']];
+const UNIT_SPAN = { 'min:1': 1, 'min:10': 10, 'min:60': 60, 'day:1': null };
+const spanOf = (rows, m, daily) => (m === null ? daily : spanChg(rows, m));
+const spanTxt = c => (c === null ? '&mdash;'
+  : (c > 0 ? '+' : '') + (c * 100).toFixed(2) + '%');
+const spanCls = c => (c === null ? 'none' : c > 0 ? 'up' : c < 0 ? 'down' : '');
+
+function spanRow(rows, daily, sel) {
   return SPANS.map(([m, lab]) => {
-    const c = spanChg(rows, m);
-    const cls = c === null ? 'none' : c > 0 ? 'up' : c < 0 ? 'down' : '';
-    const txt = c === null ? '&mdash;'
-      : (c > 0 ? '+' : '') + (c * 100).toFixed(2) + '%';
-    return `<span><i>${lab}</i><b class="${cls}">${txt}</b></span>`;
+    const c = spanOf(rows, m, daily);
+    return `<span${m === sel ? ' class="on"' : ''}><i>${lab}</i>`
+      + `<b class="${spanCls(c)}">${spanTxt(c)}</b></span>`;
   }).join('');
 }
 const winLabel = mins => (mins >= 60 ? `${mins / 60}시간` : `${mins}분`);
@@ -882,7 +896,12 @@ function card(ticker, d, meta) {
   const fellBack = BAR.unit === 'day:1';
   const idx = w.idx ?? null;                   // 공포는 계산은 남기되 화면엔 안 쓴다
   const p = d.price;
-  const chg = chgOf(p);                        // 전일 종가 대비 — 판과 같은 기준
+  const daily = chgOf(p);                      // 전일 종가 대비 — 판과 같은 기준
+  // 큰 퍼센트는 지금 고른 봉 단위의 것이다. 1분봉을 보면서 하루치 숫자를 읽으면
+  // 차트와 숫자가 서로 다른 이야기를 한다.
+  const sel = UNIT_SPAN[BAR.unit] ?? null;
+  const chg = spanOf(meta.series?.[ticker], sel, daily);
+  const selLab = (SPANS.find(([m]) => m === sel) ?? [null, '전일'])[1];
 
   // 게이지는 지수 그대로 0~100 이다. 눈금이 종목·시각과 무관하게 같은 뜻을 가진다.
   // 50 자리에 평소 표시를, 경보선에 눈금을 둔다.
@@ -912,10 +931,11 @@ function card(ticker, d, meta) {
     </div>
 
     ${p ? `<div class="px">${money(p.close)}</div>
-      <div class="pxd ${chg >= 0 ? 'up' : 'down'}">${chg === null ? '' :
-        (chg >= 0 ? '▲' : '▼') + ' ' + Math.abs(chg * 100).toFixed(2) + '%'}
+      <div class="pxd ${chg === null ? '' : chg >= 0 ? 'up' : 'down'}">${chg === null
+        ? '<span style="color:var(--faint)">&mdash;</span>'
+        : (chg >= 0 ? '▲' : '▼') + ' ' + Math.abs(chg * 100).toFixed(2) + '%'}<span class="pxu">${selLab}</span>
         <span style="color:var(--muted)">· 고 ${money(p.high)} 저 ${money(p.low)}</span></div>
-      <div class="pxs">${spanRow(meta.series?.[ticker])}</div>`
+      <div class="pxs">${spanRow(meta.series?.[ticker], daily, sel)}</div>`
       : '<div class="pxd" style="color:var(--muted)">시세 없음</div>'}
 
     <div class="rows">
