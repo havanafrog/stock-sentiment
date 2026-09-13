@@ -56,7 +56,7 @@ services:
     tmpfs:
       - /tmp
 
-  # 판. 계속 떠 있는 쪽이라 Docker Desktop 에도 이게 보인다.
+  # 판. 볼 때만 손으로 띄운다 — 아래 restart 주석 참고.
   #
   #   docker compose -f ops/docker-compose.yml up -d board
   #   http://127.0.0.1:8730
@@ -68,10 +68,16 @@ services:
       dockerfile: board.Dockerfile
     container_name: ops-board
     init: true
-    restart: unless-stopped
+    # 일부러 안 되살린다. unless-stopped 로 두면 Docker Desktop 이 켜질 때마다
+    # 판이 따라 뜨고, 그만큼 WSL2 하이퍼바이저가 늘 돌아간다. 이 기계에서는
+    # Riot Vanguard(vgk.sys)가 커널에 상주해 그 조합이 파란화면을 냈다
+    # (2026-08-30, 0x50 / 0x1E 두 번). 판은 필요할 때 손으로 띄운다.
+    restart: "no"
     environment:
       OPS_LEDGER: /ops/ledger.jsonl
       OPS_LOG_DIR: /logs
+      # 창 이름이 여기 있다. 기록(jsonl)에는 없다.
+      OPS_SESSION_DIR: /sessions
       STOCK_DATA_DIR: /repo/data
       # 오라클을 보려면 ssh 열쇠를 통에 넣어야 한다. 그 자체가 위험이라 꺼 둔다.
       # 보고 싶으면 이 줄과 아래 .ssh 마운트를 같이 켜세요.
@@ -85,6 +91,9 @@ services:
       # 세션 기록. 이 저장소 폴더 하나만 건다 — projects 전체를 걸면 다른 프로젝트
       # 대화까지 통에 보인다. 경로는 .env 의 OPS_LOG_DIR_HOST 에 있다.
       - ${OPS_LOG_DIR_HOST}:/logs:ro
+      # 창 이름. 사람이 붙인 이름이 여기 있어야 판에서 창이 갈린다.
+      # 이 폴더에는 다른 프로젝트 창도 들어 있지만 이름과 pid 뿐이라 대화는 없다.
+      - ${CLAUDE_HOME}/.claude/sessions:/sessions:ro
       # - ${CLAUDE_HOME}/.ssh:/home/node/.ssh:ro
 
 volumes:
