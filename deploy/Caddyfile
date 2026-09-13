@@ -1,6 +1,6 @@
 # 이름 하나에 TLS 까지 붙인다. 인증서는 Caddy 가 알아서 받고 알아서 갱신한다.
 #
-# SITE_HOST 는 deploy/.env 에서 온다. 예: gokso.duckdns.org
+# SITE_HOST 는 deploy/.env 에서 온다. 예: havanafrog-stock.duckdns.org
 {$SITE_HOST} {
 	encode zstd gzip
 
