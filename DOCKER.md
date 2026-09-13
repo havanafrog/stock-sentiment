@@ -32,8 +32,8 @@ IP, 포트, 22자 키가 다 드러난다. 키는 첫 요청에 쿠키로 옮겨
 둘은 이름과 TLS 를 붙여 없앤다.
 
 ```
-https://gokso.duckdns.org/?k=xxxxxxxxxxxxxxxxxxxxxx   ← 처음 한 번
-https://gokso.duckdns.org                             ← 그 다음부터
+https://havanafrog-stock.duckdns.org/?k=xxxxxxxxxxxxxxxxxxxxxx   ← 처음 한 번
+https://havanafrog-stock.duckdns.org                             ← 그 다음부터
 ```
 
 ### 이름 받기
