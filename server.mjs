@@ -923,6 +923,12 @@ const minutesAgo = iso => (Date.now() - new Date(iso).getTime()) / 60000;
  */
 async function pollTicker(ticker, warmup = false) {
   const st = LIVE.get(ticker);
+  // 기동 때 종목코드를 못 받았으면 여기서 다시 받는다. 실패하면 pollAll 이 받아
+  // st.error 에 적고 다음 차례에 또 해 본다 — 서버는 그동안에도 떠 있다.
+  if (!st.code) {
+    const { code, name } = await resolveStock(ticker);
+    st.code = code; st.name = name;
+  }
   const cap = warmup ? WARMUP_PAGES : MAX_PAGES;
   let cursor = null, pages = 0, added = 0;
   const fresh = [];                          // 이번에 처음 본 글. 폴링 한 번에 몰아서 붙인다.
@@ -1175,10 +1181,18 @@ function serveStatic(req, res) {
 // ── 기동 ─────────────────────────────────────────────────────
 console.log(`\n실시간 서버 · ${TICKERS.join(' ')}\n`);
 
+// 토스가 안 열려도 서버는 뜬다. 여기서 던지면 프로세스가 죽고, 통은 다시 띄우고,
+// 또 죽는다 — 실제로 9천 번 그랬다. 쌓아 둔 글과 기준선이 멀쩡한데 화면은 502 였다.
+// 종목코드는 폴링이 돌 때 다시 받아 온다.
 for (const ticker of TICKERS) {
-  const { code, name } = await resolveStock(ticker);
-  LIVE.set(ticker, { code, name, posts: new Map(), price: null, error: null });
-  console.log(`  ${ticker.padEnd(6)} ${name} (${code})`);
+  try {
+    const { code, name } = await resolveStock(ticker);
+    LIVE.set(ticker, { code, name, posts: new Map(), price: null, error: null });
+    console.log(`  ${ticker.padEnd(6)} ${name} (${code})`);
+  } catch (e) {
+    LIVE.set(ticker, { code: null, name: ticker, posts: new Map(), price: null, error: e.message });
+    console.warn(`  ${ticker.padEnd(6)} 종목 정보를 못 받았습니다 — ${e.message}`);
+  }
 }
 
 loadSeries();
