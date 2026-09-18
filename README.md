@@ -1,7 +1,7 @@
 # 실시간 커뮤니티 온도
 
-**돌아가는 화면 → [havanafrog-stock.duckdns.org](https://havanafrog-stock.duckdns.org)**
-접근키가 붙은 링크로 한 번 열어야 들어갑니다. 키 없이 오면 전부 404 입니다.
+**돌아가는 화면 → [havanafrog-stock.duckdns.org/?k=R9HzHDGxVnjYeJ5Vqton1w](https://havanafrog-stock.duckdns.org/?k=R9HzHDGxVnjYeJ5Vqton1w)**
+키가 붙은 이 링크로 한 번 열면 그다음부터는 주소만으로 들어갑니다. 키 없이 오면 전부 404 입니다.
 
 토스증권 종목 커뮤니티에서 오가는 말을 채점해 **공포지수**로 바꾸고, 같은 시간축의 봉 차트 옆에 놓는 도구입니다.
 
