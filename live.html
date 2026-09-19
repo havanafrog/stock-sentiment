@@ -455,6 +455,16 @@
     /* 체크박스가 한 변 16px 였다. 상자는 그대로 두고 누르는 넓이만 손가락에 맞춘다. */
     .mas { gap: 2px 8px; }
     .mas label { min-height: 44px; padding: 0 2px; }
+
+    /* 차트를 첫 화면으로 올린다.
+       종목·현재가 다음에 막대 셋과 곡소리 문단이 310px 를 먹어, 차트가 570px 아래에서
+       시작했다. 폰 한 화면이 844px 이라 열자마자 보이는 게 숫자뿐이었다.
+       이 화면을 여는 이유는 차트다. 막대와 문단은 차트 아래로 내린다 —
+       지우는 게 아니라 순서만 바꾼다. 넓은 화면은 세로가 남으니 그대로 둔다. */
+    #cards .card { display: flex; flex-direction: column; }
+    #cards .card > .rows,
+    #cards .card > .zline,
+    #cards .card > .err { order: 1; }
   }
 
   .card { background: var(--surface-1); border: 0; box-shadow: var(--ring);
@@ -1278,6 +1288,13 @@ const BAR = { unit: store.get('unit', 'min:10'), ma: {}, rows: [], units: null,
               err: null, busy: false, view: null,   // view = [첫 봉, 끝 봉] · null 이면 전체
               fear: [], covers: null };             // fear[i] = [시각, 공포글, 전체글, 지수] — 봉과 1:1
 const MIN_BARS = 15;                   // 이보다 좁게는 못 줄인다 — 봉 몇 개만 남으면 읽을 게 없다
+// 손가락으로 만지는 기계인가. 화면 폭이 아니라 입력 방식을 묻는다 — 작은 창으로
+// 줄인 데스크톱에는 휠이 있고, 큰 태블릿에는 없다.
+//
+// 한 번 재서 상수에 담아 두면 안 된다. 마우스를 꽂거나 태블릿을 붙이면 답이 바뀌고,
+// 그리는 시점이 아니라 켜는 시점의 답이 화면에 남는다 — 실제로 시험에서 데스크톱에
+// 폰 안내문이 나왔다. 그릴 때마다 묻는다. 값싼 질문이다.
+const isTouch = () => matchMedia('(pointer: coarse)').matches;
 for (const n of [20, 120, 200]) BAR.ma[n] = store.get('ma' + n, '') === '1';
 BAR.ind = {};
 for (const k of ['macd', 'rsi', 'wm', 'mfi']) BAR.ind[k] = store.get('ind' + k, '') === '1';
@@ -1590,7 +1607,9 @@ function drawBars() {
     + (vmax ? ` · 거래량 최대 ${VOLF.format(vmax)}` : '')
     + (need.length ? ` · ${need.join('·')}선은 봉이 모자라 안 나옵니다` : '')
     + (rows.some(r => r[6] && r[6] !== 'day') ? ' · 정규장 밖 봉 포함' : '')
-    + ' · 휠로 확대 · 끌어서 이동' + (zoomed ? ' · 더블클릭으로 전체' : '');
+    // 폰에는 휠도 더블클릭도 없다. 있는 손짓을 알려 준다.
+    + (isTouch() ? ' · 손가락 두 개로 확대 · 끌어서 이동' : ' · 휠로 확대 · 끌어서 이동')
+    + (zoomed ? (isTouch() ? ' · 두 번 눌러 전체' : ' · 더블클릭으로 전체') : '');
   const rst = $('cReset');
   if (rst) rst.hidden = !zoomed;
 }
@@ -2156,27 +2175,74 @@ function barAt(ev) {
   return a + Math.round(Math.max(0, Math.min(1, frac)) * (b - a));
 }
 
-$('single').addEventListener('wheel', ev => {
-  if (!inChart(ev) || BAR.rows.length < 2) return;
-  ev.preventDefault();                 // 차트 위에서는 페이지가 안 굴러가야 한다
+/**
+ * 보는 폭을 next 봉으로 바꾼다. anchor 가 가리키던 봉은 제자리에 남는다 —
+ * 휠도 손가락도 "짚은 자리를 기준으로" 늘었다 줄었다 해야 손에 붙는다.
+ */
+function zoomTo(next, anchor) {
   const n = BAR.rows.length;
   const [a, b] = viewRange();
   const span = b - a + 1;
-  const anchor = barAt(ev);
-  let next = Math.round(span * (ev.deltaY > 0 ? 1.3 : 1 / 1.3));
-  next = Math.max(MIN_BARS, Math.min(n, next));
+  next = Math.max(MIN_BARS, Math.min(n, Math.round(next)));
+  if (next === span) return;
   // null 은 이제 "곡소리 있는 구간" 이라는 뜻이다. 전체를 보려면 값을 박아야 한다.
   if (next >= n) { BAR.view = [0, n - 1]; drawBars(); return drawFear(); }
-  // 커서가 가리키던 봉이 제자리에 남도록 시작점을 옮긴다
   let from = Math.round(anchor - (anchor - a) * (next / span));
   from = Math.max(0, Math.min(n - next, from));
   BAR.view = [from, from + next - 1];
   drawBars(); drawFear();
+}
+
+$('single').addEventListener('wheel', ev => {
+  if (!inChart(ev) || BAR.rows.length < 2) return;
+  ev.preventDefault();                 // 차트 위에서는 페이지가 안 굴러가야 한다
+  const [a, b] = viewRange();
+  zoomTo((b - a + 1) * (ev.deltaY > 0 ? 1.3 : 1 / 1.3), barAt(ev));
 }, { passive: false });
+
+// 손가락 두 개로 확대. 폰에는 휠이 없어서, 이게 없으면 폰에서는 아예 못 줄인다.
+// 끌어서 이동은 pointer 이벤트라 이미 되지만 확대만 휠에 묶여 있었다.
+const pinch = new Map();               // pointerId → 마지막 clientX
+let pinchSpan = 0;                     // 손가락을 벌리기 시작할 때의 간격(px)
+let pinchBars = 0;                     // 그때 보던 봉 개수
+$('single').addEventListener('pointerdown', ev => {
+  if (ev.pointerType !== 'touch' || !inChart(ev)) return;
+  // 손가락을 떼는 신호를 놓치면 옛 손가락이 남아 셋이 된다. 그러면 size !== 2 라
+  // 그 뒤로 확대가 영영 죽는다 — 시험에서 실제로 그렇게 두 번째 확대가 안 먹었다.
+  // 새 손짓이 시작될 때 남은 것을 털어 스스로 낫게 한다.
+  if (pinch.size >= 2) pinch.clear();
+  pinch.set(ev.pointerId, ev.clientX);
+  if (pinch.size === 2) {
+    const [x1, x2] = [...pinch.values()];
+    const [a, b] = viewRange();
+    pinchSpan = Math.abs(x1 - x2) || 1;
+    pinchBars = b - a + 1;
+    drag = null;                       // 두 손가락이면 이동이 아니라 확대다
+  }
+}, { passive: true });
+$('single').addEventListener('pointermove', ev => {
+  if (!pinch.has(ev.pointerId)) return;
+  pinch.set(ev.pointerId, ev.clientX);
+  if (pinch.size !== 2 || !pinchSpan) return;
+  ev.preventDefault();
+  const [x1, x2] = [...pinch.values()];
+  const now = Math.abs(x1 - x2) || 1;
+  // 벌리면 좁게(확대), 오므리면 넓게(축소). 가운데 봉을 붙들어 둔다.
+  zoomTo(pinchBars * (pinchSpan / now),
+         barAt({ clientX: (x1 + x2) / 2, target: $('cPrice') }));
+}, { passive: false });
+for (const e of ['pointerup', 'pointercancel']) {
+  addEventListener(e, ev => { pinch.delete(ev.pointerId); if (pinch.size < 2) pinchSpan = 0; });
+}
 
 let drag = null;
 $('single').addEventListener('pointerdown', ev => {
   if (!inChart(ev) || !BAR.view) return;   // 전체를 보고 있으면 밀 데가 없다
+  // 손가락이 둘이면 확대지 이동이 아니다. 확대 쪽에서 drag 를 꺼도 소용없다 —
+  // 그쪽 손잡이가 먼저 등록돼 있어서, 끈 것을 여기서 도로 켜 버린다.
+  // 그래서 순서에 기대지 않고 여기서 막는다. 실제로 이것 때문에 두 번째 손짓이
+  // 확대가 아니라 이동으로 샜다.
+  if (pinch.size >= 2) return;
   ev.preventDefault();                     // 안 막으면 축 글자가 선택되어 같이 끌린다
   const svg = ev.target.ownerSVGElement || ev.target;
   const [a, b] = viewRange();
