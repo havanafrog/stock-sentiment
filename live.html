@@ -436,7 +436,13 @@
     .card { padding: 12px; border-radius: var(--radius); }
     .single { gap: 10px; }
     .top .bar { margin-left: 0; }
-    .tabs { margin-bottom: 12px; gap: 0; }
+    /* 탭 줄을 위에 붙여 둔다. 글 목록이 수천 줄이라, 탭을 바꾸려고 맨 위까지
+       올라가는 게 폰에서 제일 귀찮은 일이었다. 지면색을 깔아야 글이 비쳐 지나가지
+       않는다. 옆으로 넉넉히 물려 카드 그림자까지 덮는다. */
+    .tabs { margin-bottom: 12px; gap: 0;
+      position: sticky; top: 0; z-index: 5;
+      background: var(--page); margin-left: -11px; margin-right: -11px;
+      padding: 0 11px; }
     .tabs button { padding-left: 10px; padding-right: 10px; }
     .ptxt { font-size: 14.5px; }
 
