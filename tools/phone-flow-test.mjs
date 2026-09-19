@@ -53,6 +53,10 @@ const openAfter = await js("document.querySelector('#foldInd').open");
 ok('지표 접기를 손가락으로 연다', openBefore === false && openAfter === true);
 
 // 3) 체크박스 하나 켜기 — 44px 판이 실제로 눌리나
+// 체크 상태는 localStorage 에 남는다. 앞선 실행이 켜 놨으면 누르는 순간 꺼져서
+// 시험이 들쭉날쭉해진다 — 누르기 전에 꺼 둔다.
+await js("const i=document.querySelector('#masBox input'); if(i.checked){i.click();} 'ok'");
+await new Promise(r => setTimeout(r, 800));
 const cb = await center('#masBox label');
 await tap(cb.x, cb.y - 14);                    // 글자 아래위 여백 쪽을 누른다
 ok('체크박스 여백을 눌러도 켜진다', await js("document.querySelector('#masBox input')?.checked === true"));

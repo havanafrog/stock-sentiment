@@ -1477,15 +1477,24 @@ function mfi(rows, n = 14) {
  * 84%가 빈 칸이고, 처음 보는 사람은 지표가 고장 난 줄 안다. 휠로 끝까지 줄이면
  * 전체가 나오고, 더블클릭하면 다시 이 기본 화면으로 돌아온다.
  */
+// 폰에서 처음 보여 줄 봉 수의 상한.
+//
+// 폰 차트는 380px 이다. 450봉을 그리면 한 봉이 0.8px 라 몸통도 꼬리도 안 보이고,
+// SVG 요소만 900개가 넘어 처음 여는 데 시간이 걸린다. 120봉이면 한 봉이 3px 로
+// 형태가 남는다. 더 보고 싶으면 손가락을 오므리면 된다 - 전체가 그대로 있다.
+const PHONE_BARS = 120;
+
 function viewRange() {
   const n = BAR.rows.length;
   if (!BAR.view) {
     const f = BAR.fear;
+    let from = 0;
     if (f && f.length === n) {
       const first = f.findIndex(r => r && r[2] > 0);
-      if (first > 0 && n - first >= MIN_BARS) return [first, n - 1];
+      if (first > 0 && n - first >= MIN_BARS) from = first;
     }
-    return [0, n - 1];
+    if (innerWidth <= 640) from = Math.max(from, n - PHONE_BARS);
+    return [Math.max(0, Math.min(from, Math.max(0, n - MIN_BARS))), n - 1];
   }
   const a = Math.max(0, Math.min(n - 1, BAR.view[0]));
   const b = Math.max(a, Math.min(n - 1, BAR.view[1]));
@@ -2324,9 +2333,11 @@ addEventListener('resize', () => {
 });
 fitCharts();          // 첫 그림 전에 한 번 — 폰에서 열면 처음부터 폰 치수로
 
+// 두 번 눌러 전체로. 폰은 기본 창이 120봉이라 view 를 비우면 거기로 돌아갈 뿐이다 -
+// '전체' 라고 적어 놓고 전체가 아니면 거짓말이므로 값을 박는다.
 $('single').addEventListener('dblclick', ev => {
   if (!inChart(ev)) return;
-  BAR.view = null;
+  BAR.view = BAR.rows.length ? [0, BAR.rows.length - 1] : null;
   drawBars(); drawFear();
 });
 
@@ -2359,7 +2370,8 @@ $('segUnit').onclick = ev => {
 };
 $('single').addEventListener('click', ev => {
   if (ev.target?.id !== 'cReset') return;
-  BAR.view = null; drawBars(); drawFear();
+  BAR.view = BAR.rows.length ? [0, BAR.rows.length - 1] : null;
+  drawBars(); drawFear();
 });
 $('indBox').onchange = ev => {
   const i = ev.target; if (!i.dataset.ind) return;
