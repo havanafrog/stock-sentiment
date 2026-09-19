@@ -2,9 +2,23 @@
 <html lang="ko">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- viewport-fit=cover: 노치 있는 폰에서 지면색이 화면 끝까지 간다. 안 주면
+     위아래에 흰 띠가 남는다. 대신 내용은 아래 safe-area 로 밀어 넣는다. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>실시간 커뮤니티 온도</title>
 <link rel="icon" type="image/png" href="logo-128.png">
+<!-- 홈 화면에 추가하면 주소창 없이 앱처럼 열린다. 폰으로 자주 보는 화면이라
+     이게 있고 없고가 크다.
+     manifest 는 기본적으로 쿠키 없이 받아 오는데, 이 서버는 키 쿠키가 없으면
+     404 다. use-credentials 를 줘야 쿠키를 같이 보낸다.
+     start_url 은 일부러 안 적는다 - 적으면 그 주소로 열리는데, 키가 빠진 주소는
+     404 다. 안 적으면 추가할 때 보던 주소(키가 붙은)가 그대로 쓰인다. -->
+<link rel="manifest" href="app.webmanifest" crossorigin="use-credentials">
+<link rel="apple-touch-icon" href="logo-256.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="커뮤니티 온도">
 <meta name="theme-color" content="#f7f7f8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)">
 <style>
@@ -432,7 +446,12 @@
 
   /* 폰. 640px 안쪽에선 여백이 내용을 밀어낸다 — 눌러 담는다. */
   @media (max-width: 640px) {
-    .app { padding: 12px 11px 44px; }
+    /* 노치·둥근 모서리를 피해 앉힌다. 가로는 가로 모드에서만 0 이 아니고,
+       아래는 홈 인디케이터 위로 띄운다. env() 를 모르는 브라우저는 0 으로 본다. */
+    .app { padding: calc(12px + env(safe-area-inset-top)) calc(11px + env(safe-area-inset-right))
+                    calc(44px + env(safe-area-inset-bottom)) calc(11px + env(safe-area-inset-left)); }
+    /* 붙여 둔 탭 줄도 같이 내려온다 — 안 그러면 노치 밑에 숨는다. */
+    .tabs { top: env(safe-area-inset-top); }
     .card { padding: 12px; border-radius: var(--radius); }
     .single { gap: 10px; }
     .top .bar { margin-left: 0; }

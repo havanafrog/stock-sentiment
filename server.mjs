@@ -1156,6 +1156,7 @@ const MIME = {
   '.css': 'text/css; charset=utf-8',
   '.png': 'image/png',
   '.svg': 'image/svg+xml',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
 };
 
 // 내보낼 파일을 이름으로 못박는다.
@@ -1164,7 +1165,9 @@ const MIME = {
 // 그리고 나중에 누가 .env 를 만들면 그것까지 나간다. 경로 탈출만 막는 걸로는
 // 부족하다 — 이 폴더 안에 이미 내보내면 안 되는 것들이 있기 때문이다.
 // 원본 logo.png(1.1MB)는 안 내보낸다. 30px 로 쓰는데 1.1MB 를 받을 이유가 없다.
-const PUBLIC = new Set(['live.html', 'index.html', 'data.js', 'lexicon.js', 'logo-128.png']);
+// logo-256.png 은 홈 화면 아이콘용이다. 폰이 128px 을 늘려 쓰면 뭉개진다.
+const PUBLIC = new Set(['live.html', 'index.html', 'data.js', 'lexicon.js',
+  'logo-128.png', 'logo-256.png', 'app.webmanifest']);
 
 function serveStatic(req, res) {
   const raw = decodeURIComponent(req.url.split('?')[0]);
