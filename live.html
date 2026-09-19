@@ -2516,12 +2516,30 @@ $('segCur').onclick = ev => {
 
 // 서버가 폴링을 마칠 때만 밀어준다. 브라우저가 되묻지 않으니 지연이 폴링 주기만 남는다.
 // 끊기면 EventSource 가 알아서 다시 붙는다 — 재연결 코드를 쓰지 않는 이유다.
-const es = new EventSource('/api/stream');
-es.onmessage = e => { try { paint(JSON.parse(e.data)); } catch (err) { console.error(err); } };
-es.onerror = () => {
-  $('dot').className = 'dot err';
-  $('status').textContent = '서버 연결이 끊겼습니다 — node server.mjs 가 떠 있는지 확인하세요 (자동으로 다시 붙습니다)';
-};
+let es = null;
+function openStream() {
+  es = new EventSource('/api/stream');
+  es.onmessage = e => { try { paint(JSON.parse(e.data)); } catch (err) { console.error(err); } };
+  es.onerror = () => {
+    $('dot').className = 'dot err';
+    $('status').textContent = '서버 연결이 끊겼습니다 — node server.mjs 가 떠 있는지 확인하세요 (자동으로 다시 붙습니다)';
+  };
+}
+openStream();
+
+// 폰은 화면을 끄거나 다른 앱으로 가면 이 탭을 재운다. 돌아왔을 때 두 가지가 걸린다.
+//   1. 연결이 아주 닫혀 있으면 EventSource 가 다시 붙지 않는다 — 새로 연다.
+//   2. 살아 있어도 다음 밀어주기까지 최대 폴링 주기(30초)를 기다린다. 그동안
+//      화면에는 잠들기 전 숫자가 그대로 있는데, 그게 지금 값인 줄 안다.
+// 그래서 돌아오자마자 한 번 직접 받아 온다. 가벼운 요청 하나다.
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) return;
+  if (!es || es.readyState === EventSource.CLOSED) openStream();
+  fetch('/api/live', { cache: 'no-store' })
+    .then(r => (r.ok ? r.json() : null))
+    .then(j => { if (j) paint(j); })
+    .catch(() => { /* 곧 밀어주기가 올 테니 조용히 넘긴다 */ });
+});
 
 // 사진은 기본을 작게 두고 누르면 편다. 안 그러면 흐름이 사진으로만 채워진다.
 addEventListener('click', ev => {
