@@ -166,10 +166,19 @@
   table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
   th, td { text-align: right; padding: 6px 9px; border-bottom: 1px solid var(--border); font-variant-numeric: tabular-nums; }
   td { font-family: var(--mono); letter-spacing: -.02em; }
-  th:first-child, td:first-child { text-align: left; font-variant-numeric: normal; }
+  /* 날짜 칸. 좁으면 2026- / 08-20 로 쪼개져 두 줄이 된다. */
+  th:first-child, td:first-child { text-align: left; font-variant-numeric: normal; white-space: nowrap; }
   th { color: var(--faint); font-weight: 500; font-size: 11px; letter-spacing: .03em; }
   th.grp { text-align: center; border-bottom: 0; padding-bottom: 1px; }
-  .scroll { overflow-x: auto; max-height: 340px; overflow-y: auto; }
+  /* 폰에서는 오른쪽 칸이 잘린다. 잘렸다는 표시가 없으면 더 있는 줄을 모른다 —
+     오른쪽 끝에 옅은 그늘을 깔아 "이 너머에 더 있다" 를 보인다. 끝까지 밀면 사라진다.
+     ponytail: 그늘은 배경색에 묶여 있다. 표 배경을 바꾸면 여기 색도 같이 바꿔야 한다. */
+  .scroll { overflow-x: auto; max-height: 340px; overflow-y: auto;
+    background:
+      linear-gradient(to right, var(--surface-1) 30%, transparent) left / 24px 100% no-repeat local,
+      linear-gradient(to left, var(--surface-1) 30%, transparent) right / 24px 100% no-repeat local,
+      radial-gradient(farthest-side at 0 50%, rgba(0,0,0,.14), transparent) left / 10px 100% no-repeat scroll,
+      radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,.14), transparent) right / 10px 100% no-repeat scroll; }
   details summary { cursor: pointer; font-size: 13px; color: var(--text-secondary); padding: 5px 0; }
 
   code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px;

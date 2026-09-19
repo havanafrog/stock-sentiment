@@ -426,6 +426,10 @@
   }
   /* 넓은 화면에선 글 쪽에 폭을 더 준다 — 차트는 이미 충분히 크다 */
   @media (min-width: 1400px) { .single { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 18px; } }
+  /* 접는 칸. 넓은 화면에선 summary 를 숨기고 늘 펴 둔 것처럼 보인다. */
+  .fold { min-width: 0; }
+  .fold > summary { display: none; }
+
   /* 폰. 640px 안쪽에선 여백이 내용을 밀어낸다 — 눌러 담는다. */
   @media (max-width: 640px) {
     .app { padding: 12px 11px 44px; }
@@ -435,6 +439,22 @@
     .tabs { margin-bottom: 12px; gap: 0; }
     .tabs button { padding-left: 10px; padding-right: 10px; }
     .ptxt { font-size: 14.5px; }
+
+    /* 머리가 150px 를 먹었다. 로고와 제목을 줄여 첫 화면을 차트에 내준다. */
+    .brand img { width: 24px; height: 24px; }
+    h1 { font-size: 17px; }
+
+    /* 접기 손잡이를 보인다. 누를 자리라 44px 를 준다. */
+    .fold > summary { display: flex; align-items: center; gap: 5px;
+      min-height: 40px; font-size: 11.5px; color: var(--faint);
+      cursor: pointer; list-style: none; user-select: none; }
+    .fold > summary::-webkit-details-marker { display: none; }
+    .fold > summary::after { content: '▾'; font-size: 10px; transition: transform .15s; }
+    .fold[open] > summary::after { transform: rotate(180deg); }
+
+    /* 체크박스가 한 변 16px 였다. 상자는 그대로 두고 누르는 넓이만 손가락에 맞춘다. */
+    .mas { gap: 2px 8px; }
+    .mas label { min-height: 44px; padding: 0 2px; }
   }
 
   .card { background: var(--surface-1); border: 0; box-shadow: var(--ring);
@@ -611,8 +631,11 @@
 
   <div class="cbar">
     <div class="seg" id="segUnit"></div>
-    <div class="ctrl">
-      <label>지표</label>
+    <!-- 폰에서는 접어 둔다. 체크박스 일곱이 두 줄을 먹어 차트가 첫 화면 밖으로 밀렸다.
+         넓은 화면에서는 summary 를 숨기고 늘 펴 둔다 — 접을 이유가 없다. -->
+    <details class="fold" id="foldInd" open>
+      <summary>지표</summary>
+      <div class="ctrl">
       <div class="mas" id="masBox">
         <label><input type="checkbox" data-ma="20"><i class="k" style="background:var(--ma20)"></i>20선</label>
         <label><input type="checkbox" data-ma="120"><i class="k" style="background:var(--ma120)"></i>120선</label>
@@ -624,7 +647,8 @@
         <label><input type="checkbox" data-ind="mfi"><i class="k" style="background:var(--mfi)"></i>매수/매도 압력</label>
         <label><input type="checkbox" data-ind="wm"><i class="k" style="background:var(--neg)"></i>곡소리 MACD</label>
       </div>
-    </div>
+      </div>
+    </details>
   </div>
 
   <div id="banner"></div>
@@ -684,10 +708,14 @@
           <button data-s="likes" aria-pressed="false">좋아요</button>
         </div>
       </div>
-      <div class="ctrl">
-        <label for="pFrom">미 동부 거래일</label>
-        <span class="dates"><input type="date" id="pFrom" class="fld"><span>~</span><input type="date" id="pTo" class="fld"></span>
-      </div>
+      <!-- 날짜 두 칸이 폰에서 한 줄을 통째로 먹는다. 폰에서 기간을 찍는 일은 드물다. -->
+      <details class="fold" id="foldDate" open>
+        <summary>기간</summary>
+        <div class="ctrl">
+          <label for="pFrom">미 동부 거래일</label>
+          <span class="dates"><input type="date" id="pFrom" class="fld"><span>~</span><input type="date" id="pTo" class="fld"></span>
+        </div>
+      </details>
       <div class="ctrl" style="flex:1 1 180px">
         <input type="search" id="pQ" class="fld" placeholder="그 말이 든 글만" style="width:100%">
       </div>
@@ -2508,6 +2536,12 @@ for (const id of ['tkBase']) {
 // ── 탭 ── 사용법은 같은 페이지에 두고 따로 연다. 서버 라우트가 늘지 않는다.
 // 메인이 첫 탭이다. 해시가 없으면 여기로 온다 — 링크만 받은 사람이 처음 보는 화면이
 // 한 종목의 차트가 아니라 "지금 뭐가 도는지" 여야 한다.
+// 폰에서만 접은 채로 시작한다. 마크업은 open 으로 두므로, 자바스크립트가 안 돌거나
+// 넓은 화면이면 펴진 채다 — 접혀서 안 보이는 쪽이 아니라 보이는 쪽이 기본값이다.
+if (matchMedia('(max-width: 640px)').matches) {
+  for (const id of ['foldInd', 'foldDate']) $(id)?.removeAttribute('open');
+}
+
 let showTab = () => {};
 (function tabs() {
   const view = { board: $('viewBoard'), main: $('viewMain'), analysis: $('viewAnalysis'),
