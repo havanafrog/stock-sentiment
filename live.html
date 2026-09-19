@@ -658,8 +658,11 @@
       <div class="tkhead">종목 추가</div>
       <div class="tkadd">
         <div class="ctrl">
+          <!-- 폰 자판이 티커를 단어로 고쳐 놓는다. 자동완성·자동수정을 끄고,
+               확인 버튼을 자판의 엔터로도 누를 수 있게 한다. -->
           <input id="tkBase" class="fld" placeholder="티커 (예: TSLA)"
-            autocapitalize="characters" spellcheck="false">
+            autocapitalize="characters" spellcheck="false"
+            autocomplete="off" autocorrect="off" enterkeyhint="go">
         </div>
         <div class="ctrl"><button class="btn" id="tkCheck">확인</button></div>
         <div class="ctrl"><button class="btn" id="tkAdd" disabled>추가</button></div>
@@ -770,7 +773,9 @@
         </div>
       </details>
       <div class="ctrl" style="flex:1 1 180px">
-        <input type="search" id="pQ" class="fld" placeholder="그 말이 든 글만" style="width:100%">
+        <!-- 폰 자판의 엔터를 '검색' 으로 보이게 한다. 누르면 자판이 닫히고 결과가 보인다. -->
+        <input type="search" id="pQ" class="fld" placeholder="그 말이 든 글만" style="width:100%"
+          enterkeyhint="search" autocorrect="off" autocapitalize="off">
       </div>
       <div class="ctrl">
         <label>라벨</label>
@@ -2541,7 +2546,11 @@ function openStream() {
   es.onmessage = e => { try { paint(JSON.parse(e.data)); } catch (err) { console.error(err); } };
   es.onerror = () => {
     $('dot').className = 'dot err';
-    $('status').textContent = '서버 연결이 끊겼습니다 — node server.mjs 가 떠 있는지 확인하세요 (자동으로 다시 붙습니다)';
+    // 폰으로 보는 사람에게 "node server.mjs 가 떠 있는지 확인하세요" 는 할 수 있는
+    // 말이 아니다. 기계에 따라 할 수 있는 말을 한다.
+    $('status').textContent = isTouch()
+      ? '연결이 끊겼습니다 — 다시 붙는 중입니다'
+      : '서버 연결이 끊겼습니다 — node server.mjs 가 떠 있는지 확인하세요 (자동으로 다시 붙습니다)';
   };
 }
 openStream();
