@@ -306,12 +306,12 @@ export function sessions(dir = LOG_DIR, now = Date.now()) {
   return out.sort((a, b) => a.idleMs - b.idleMs);
 }
 
-// 혼자 도는 고리가 남긴 자국. 한 판에 한 줄이다.
+// 혼자 도는 쪽이 남긴 자국. 한 판에 한 줄이다.
 // 통 안에서는 저장소가 /repo 라 그 밑을 본다. 밖에서 돌리면 저장소 옆이다.
 export const LOOP_FILE = process.env.OPS_LOOP_FILE ?? join(REPO, 'tools', 'self-loop.jsonl');
 
 /**
- * 답에서 "다음 판에 할 일" 만 뽑는다. 고리는 답 끝에 그 줄을 붙이게 돼 있다 —
+ * 답에서 "다음 판에 할 일" 만 뽑는다. 도는 쪽은 답 끝에 그 줄을 붙이게 돼 있다 —
  * 그게 다음 판의 물음이 되니, 판마다 무엇을 하겠다고 했는지가 거기 다 있다.
  * 없으면 답의 첫 줄로 갈음한다. 지어내지는 않는다.
  */
@@ -332,7 +332,7 @@ export function loopRounds(file = LOOP_FILE, want = 30) {
     ask: (r.ask ?? '').trim(),
     say: (r.say ?? '').trim(),
     plan: nextPlan(r.say ?? ''),
-    // 사람이 봐야 할 판. 고리는 막히면 답 맨 위에 이렇게 적게 돼 있다.
+    // 사람이 봐야 할 판. 도는 쪽은 막히면 답 맨 위에 이렇게 적게 돼 있다.
     stuck: /사람 필요/.test(r.say ?? '') || r.status !== 0,
   }));
 }
@@ -528,9 +528,9 @@ function selftest() {
   ok('저장소 전용 값은 안 담는다',
      !('model' in bd) && !('corpus' in bd) && !('service' in bd), Object.keys(bd).join(','));
 
-  // 고리 — 혼자 도는 판의 자국
-  ok('고리 줄도 담는다', Array.isArray(bd.loop));
-  ok('고리 파일이 없으면 빈 줄', loopRounds(join(HERE, '없는고리.jsonl')).length === 0);
+  // 자동 — 혼자 도는 판의 자국
+  ok('자동 줄도 담는다', Array.isArray(bd.loop));
+  ok('자동 파일이 없으면 빈 줄', loopRounds(join(HERE, '없는파일.jsonl')).length === 0);
 
   const lf = join(tmpdir(), `ops-loop-${process.pid}.jsonl`);
   writeFileSync(lf, [
@@ -541,7 +541,7 @@ function selftest() {
   ].join('\n') + '\n');
   const laps = loopRounds(lf);
   try {
-    ok('고리는 새 판이 먼저', laps[0].round === 2 && laps[1].round === 1);
+    ok('자동은 새 판이 먼저', laps[0].round === 2 && laps[1].round === 1);
     ok('깨진 줄은 건너뛴다', laps.length === 2, String(laps.length));
     ok('답에서 다음 계획을 뽑는다', laps[1].plan === '차트를 키운다', laps[1].plan);
     ok('계획이 없으면 빈 값', laps[0].plan === '', laps[0].plan);

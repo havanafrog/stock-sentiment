@@ -127,7 +127,7 @@
   .when { margin-left: auto; font-size: 11px; color: var(--faint); flex: none;
           font-variant-numeric: tabular-nums; }
 
-  /* 고리 — 혼자 도는 판. 한 판이 줄 하나고, 눌러서 펴면 물음과 답 전문이 나온다.
+  /* 자동 — 혼자 도는 판. 한 판이 줄 하나고, 눌러서 펴면 물음과 답 전문이 나온다.
      물음은 앞판의 답이라 길다. 접어 두지 않으면 한 판이 화면을 다 먹는다. */
   .lap { border-bottom: 1px solid var(--hair); }
   .lap:last-child { border-bottom: 0; }
@@ -168,7 +168,7 @@
     <button class="tab on" role="tab" data-pane="pane-wins">창 <span class="n" id="n-wins"></span></button>
     <button class="tab" role="tab" data-pane="pane-live">열린 창 <span class="n" id="n-live"></span></button>
     <button class="tab" role="tab" data-pane="pane-ledger">장부 <span class="n" id="n-ledger"></span></button>
-    <button class="tab" role="tab" data-pane="pane-loop">고리 <span class="n" id="n-loop"></span></button>
+    <button class="tab" role="tab" data-pane="pane-loop">자동 <span class="n" id="n-loop"></span></button>
   </div>
 
   <div class="pane" id="pane-wins"><div class="cards" id="wins"></div></div>
@@ -311,8 +311,8 @@ function ledgerRow(r, now) {
     + `<span class="when">${esc(who)} · ${Number.isFinite(at) ? ago(now - at) : ''}</span></div>`;
 }
 
-// 고리 한 판. 접힌 줄에는 그 판이 정한 "다음 계획" 만 보인다 — 그게 다음 판의
-// 물음이 되니, 줄만 훑어도 고리가 어디로 가는지 읽힌다. 펴면 물음과 답 전문.
+// 자동 한 판. 접힌 줄에는 그 판이 정한 "다음 계획" 만 보인다 — 그게 다음 판의
+// 물음이 되니, 줄만 훑어도 일이 어디로 가는지 읽힌다. 펴면 물음과 답 전문.
 function lapRow(r, now) {
   const at = Date.parse(r.at);
   const use = [Number.isFinite(at) ? ago(now - at) : '',
@@ -349,7 +349,7 @@ function draw(d) {
   const laps = loop ?? [];
   $('loop').innerHTML = laps.length
     ? laps.map(r => lapRow(r, now)).join('')
-    : '<div class="none" style="padding:10px 12px">고리가 아직 안 돌았습니다</div>';
+    : '<div class="none" style="padding:10px 12px">아직 한 판도 안 돌았습니다</div>';
 
   $('n-wins').textContent = sessions.length || '';
   $('n-live').textContent = (live ?? []).length || '';
