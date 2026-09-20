@@ -39,3 +39,5 @@ deploy/.env
 # 창끼리 주고받는 소식. 장부와 같은 이유로 커밋하지 않는다.
 ops/whoasked.json
 tools/claude-loop.log
+tools/self-loop.log
+tools/self-loop.jsonl
