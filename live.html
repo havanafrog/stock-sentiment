@@ -66,7 +66,12 @@
          회색 램프(grey50~900)를 뒤집고 채도색은 밝기만 올렸다. */
       --page: #17171c; --surface-1: #1f2027;
       --surface-glass: rgba(31, 32, 39, 0.76);
-      --text-primary: #f2f4f6; --text-secondary: #b0b8c1; --muted: #8b95a1; --faint: #6b7684;
+      /* --faint 가 어두운 화면에서 안 읽혔다. 390x844 를 prefers-color-scheme: dark
+         로 띄워 재 보니 #6b7684 은 카드 바탕(#1f2027) 위에서 대비 3.52 — 11~12px
+         글자인데 AA 기준 4.5 에 못 미친다. 접기 손잡이("곡소리 지수"·"거르개"),
+         판의 종목 이름, 표 머리글이 전부 이 색이었다. 밝기만 올려 4.71 로 맞춘다.
+         (--muted 5.34 와 차이가 좁아지지만 위아래는 그대로다) */
+      --text-primary: #f2f4f6; --text-secondary: #b0b8c1; --muted: #8b95a1; --faint: #828c9a;
       --grid: #2b2d35; --border: rgba(255, 255, 255, 0.07); --hairline: #2b2d35;
       --pos: #64a8ff; --neg: #f66570; --neutral: #2b2d35;
       --accent-wash: rgba(100, 168, 255, 0.14);
