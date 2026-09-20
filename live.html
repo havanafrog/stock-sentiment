@@ -450,18 +450,24 @@
        아래는 홈 인디케이터 위로 띄운다. env() 를 모르는 브라우저는 0 으로 본다. */
     .app { padding: calc(12px + env(safe-area-inset-top)) calc(11px + env(safe-area-inset-right))
                     calc(44px + env(safe-area-inset-bottom)) calc(11px + env(safe-area-inset-left)); }
-    /* 붙여 둔 탭 줄도 같이 내려온다 — 안 그러면 노치 밑에 숨는다. */
-    .tabs { top: env(safe-area-inset-top); }
     .card { padding: 12px; border-radius: var(--radius); }
     .single { gap: 10px; }
     .top .bar { margin-left: 0; }
     /* 탭 줄을 위에 붙여 둔다. 글 목록이 수천 줄이라, 탭을 바꾸려고 맨 위까지
        올라가는 게 폰에서 제일 귀찮은 일이었다. 지면색을 깔아야 글이 비쳐 지나가지
-       않는다. 옆으로 넉넉히 물려 카드 그림자까지 덮는다. */
-    .tabs { margin-bottom: 12px; gap: 0;
+       않는다. 옆으로 넉넉히 물려 카드 그림자까지 덮는다.
+       노치: 붙었을 때 버튼이 상태표시줄 밑으로 들어가면 안 된다. top 을 내리면
+       그 위 틈으로 글이 지나가므로, 대신 노치 높이만큼 속을 띄우고 같은 높이를
+       바깥에서 빼 온다 — 붙기 전 자리는 그대로고, 붙으면 지면색이 노치를 덮는다.
+       덮여 죽는 문제: 아래쪽 .tabs 바탕 규칙이 이 파일에서 더 뒤에 있어, 같은
+       힘이면 뒤가 이긴다. 그래서 여기 margin-*·gap·top 이 여태 통째로 죽어
+       있었다 (top: env(...) 한 줄도 같은 이유로 죽었다). 이름을 두 번 적어
+       힘을 올린다 — 규칙 순서를 건드리는 것보다 한 군데만 바뀐다. */
+    .tabs.tabs { margin-bottom: 12px; gap: 0;
       position: sticky; top: 0; z-index: 5;
       background: var(--page); margin-left: -11px; margin-right: -11px;
-      padding: 0 11px; }
+      margin-top: calc(-1 * env(safe-area-inset-top));
+      padding: env(safe-area-inset-top) 11px 0; }
     .tabs button { padding-left: 10px; padding-right: 10px; }
     .ptxt { font-size: 14.5px; }
 
