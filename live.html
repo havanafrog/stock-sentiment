@@ -443,6 +443,14 @@
   /* 접는 칸. 넓은 화면에선 summary 를 숨기고 늘 펴 둔 것처럼 보인다. */
   .fold { min-width: 0; }
   .fold > summary { display: none; }
+  /* 여러 칸을 한 손잡이에 묶은 것. 넓은 화면에선 판이 없는 것처럼 비켜 준다.
+     크롬은 details 안쪽을 ::details-content 라는 제 상자에 담는다. details 만
+     contents 로 비켜도 그 상자가 남아 아이 셋이 세로로 쌓였다 — 재 보니 거르개 줄이
+     74px 에서 92px 이 됐다. 안쪽 상자까지 비켜야 원래 한 줄로 돌아온다. */
+  #foldOpts, #foldOpts::details-content { display: contents; }
+  /* 라벨 두 칸이 접기 판에 들어가느라 마크업에서 앞으로 왔다. 넓은 화면에선
+     끝으로 돌려보낸다 — 안 그러면 줄 나눔이 달라져 거르개가 두 줄에서 세 줄이 된다. */
+  @media (min-width: 641px) { #pLabOnWrap, #pLabWrap { order: 1; } }
 
   /* 폰. 640px 안쪽에선 여백이 내용을 밀어낸다 — 눌러 담는다. */
   @media (max-width: 640px) {
@@ -482,6 +490,8 @@
     .fold > summary::-webkit-details-marker { display: none; }
     .fold > summary::after { content: '▾'; font-size: 10px; transition: transform .15s; }
     .fold[open] > summary::after { transform: rotate(180deg); }
+    /* 폰에선 실제로 접혀야 하니 판을 되살린다 — 안쪽 상자가 있어야 접힌 게 감춰진다. */
+    #foldOpts, #foldOpts::details-content { display: block; }
 
     /* 체크박스가 한 변 16px 였다. 상자는 그대로 두고 누르는 넓이만 손가락에 맞춘다. */
     .mas { gap: 2px 8px; }
@@ -785,20 +795,44 @@
   <div id="viewPosts" hidden>
     <div class="ctrls">
       <div class="seg" id="pTicker"></div>
-      <div class="ctrl">
-        <div class="seg" id="pMood">
-          <button data-m="all" aria-pressed="true">전체</button>
-          <button data-m="fear" aria-pressed="false">공포</button>
-          <button data-m="neg" aria-pressed="false">부정</button>
-          <button data-m="pos" aria-pressed="false">긍정</button>
+      <!-- 기분·정렬·라벨이 폰에서 각각 한 줄을 먹어 40px 씩 세 줄, 120px 였다.
+           기간처럼 한 손잡이 밑에 접어 40px 한 줄로 만든다. 종목 줄과 검색칸은
+           밖에 남긴다 — 그 둘이 폰에서 제일 자주 누르는 것이다.
+           넓은 화면에선 display: contents 라 이 판이 없는 것처럼 아이들이 그대로
+           .ctrls 의 칸이 된다 — 데스크톱 줄은 하나도 안 바뀐다. -->
+      <details class="fold" id="foldOpts" open>
+        <summary>거르개</summary>
+        <div class="ctrl">
+          <div class="seg" id="pMood">
+            <button data-m="all" aria-pressed="true">전체</button>
+            <button data-m="fear" aria-pressed="false">공포</button>
+            <button data-m="neg" aria-pressed="false">부정</button>
+            <button data-m="pos" aria-pressed="false">긍정</button>
+          </div>
         </div>
-      </div>
-      <div class="ctrl">
-        <div class="seg" id="pSort">
-          <button data-s="new" aria-pressed="true">최신</button>
-          <button data-s="likes" aria-pressed="false">좋아요</button>
+        <div class="ctrl">
+          <div class="seg" id="pSort">
+            <button data-s="new" aria-pressed="true">최신</button>
+            <button data-s="likes" aria-pressed="false">좋아요</button>
+          </div>
         </div>
-      </div>
+        <div class="ctrl" id="pLabOnWrap">
+          <label>라벨</label>
+          <div class="seg" id="pLabOn">
+            <button data-on="0" aria-pressed="true">끔</button>
+            <button data-on="1" aria-pressed="false">켬</button>
+          </div>
+        </div>
+        <div class="ctrl" id="pLabWrap" hidden>
+          <label>보기</label>
+          <div class="seg" id="pLab">
+            <button data-l="none" aria-pressed="true">안 찍은 것</button>
+            <button data-l="diff" aria-pressed="false">사전과 어긋남</button>
+            <button data-l="done" aria-pressed="false">찍은 것</button>
+            <button data-l="all" aria-pressed="false">전부</button>
+          </div>
+        </div>
+      </details>
       <!-- 날짜 두 칸이 폰에서 한 줄을 통째로 먹는다. 폰에서 기간을 찍는 일은 드물다. -->
       <details class="fold" id="foldDate" open>
         <summary>기간</summary>
@@ -811,22 +845,6 @@
         <!-- 폰 자판의 엔터를 '검색' 으로 보이게 한다. 누르면 자판이 닫히고 결과가 보인다. -->
         <input type="search" id="pQ" class="fld" placeholder="그 말이 든 글만" style="width:100%"
           enterkeyhint="search" autocorrect="off" autocapitalize="off">
-      </div>
-      <div class="ctrl">
-        <label>라벨</label>
-        <div class="seg" id="pLabOn">
-          <button data-on="0" aria-pressed="true">끔</button>
-          <button data-on="1" aria-pressed="false">켬</button>
-        </div>
-      </div>
-      <div class="ctrl" id="pLabWrap" hidden>
-        <label>보기</label>
-        <div class="seg" id="pLab">
-          <button data-l="none" aria-pressed="true">안 찍은 것</button>
-          <button data-l="diff" aria-pressed="false">사전과 어긋남</button>
-          <button data-l="done" aria-pressed="false">찍은 것</button>
-          <button data-l="all" aria-pressed="false">전부</button>
-        </div>
       </div>
     </div>
 
@@ -2745,7 +2763,7 @@ for (const id of ['tkBase']) {
 // 폰에서만 접은 채로 시작한다. 마크업은 open 으로 두므로, 자바스크립트가 안 돌거나
 // 넓은 화면이면 펴진 채다 — 접혀서 안 보이는 쪽이 아니라 보이는 쪽이 기본값이다.
 if (matchMedia('(max-width: 640px)').matches) {
-  for (const id of ['foldInd', 'foldDate']) $(id)?.removeAttribute('open');
+  for (const id of ['foldInd', 'foldDate', 'foldOpts']) $(id)?.removeAttribute('open');
 }
 
 let showTab = () => {};
