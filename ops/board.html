@@ -143,6 +143,9 @@
   .lap.stuck .no { color: var(--live); }
   .lap .use { margin-left: auto; font-size: 11px; color: var(--faint); flex: none;
               font-variant-numeric: tabular-nums; }
+  .again { font-size: 10.5px; color: var(--faint); text-align: center;
+           padding: 5px 12px; border-bottom: 1px solid var(--hair);
+           background: var(--page); letter-spacing: .02em; }
   .lap .body { padding: 2px 12px 12px; display: grid; gap: 10px; }
   .lap .body h4 { margin: 0; font-size: 11px; font-weight: 650; color: var(--faint); }
   .lap .body pre { margin: 3px 0 0; font: inherit; font-size: 12px; color: var(--sub);
@@ -318,7 +321,7 @@ const OPENED = new Set();
 addEventListener('toggle', e => {
   const d = e.target.closest?.('.lap');
   if (!d) return;
-  const k = d.dataset.round;
+  const k = d.dataset.lap;
   if (d.open) OPENED.add(k); else OPENED.delete(k);
 }, true);
 
@@ -331,10 +334,12 @@ function lapRow(r, now) {
                r.turns ? r.turns + '턴' : '',
                r.cost != null ? money(r.cost) : ''].filter(Boolean).join(' · ');
   const plan = r.plan || (r.stuck ? '막혔습니다 — 사람 차례' : cut(r.say || '(빈 답)', 80));
-  const key = String(r.round ?? '');
-  return `<details class="lap ${r.stuck ? 'stuck' : ''}" data-round="${esc(key)}"`
+  // 열쇠는 판 번호가 아니라 시각이다. 고리를 다시 켤 때마다 번호가 1 부터 새로
+  // 시작해서, 번호로 잡으면 "1판" 을 누를 때 옛 1판까지 같이 열렸다.
+  const key = String(r.at ?? r.round ?? '');
+  return `<details class="lap ${r.stuck ? 'stuck' : ''}" data-lap="${esc(key)}"`
     + `${OPENED.has(key) ? ' open' : ''}>`
-    + `<summary><span class="no">${esc(key)}판</span>`
+    + `<summary><span class="no">${esc(String(r.round ?? ''))}판</span>`
     + `<span class="plan ${r.plan ? '' : 'none'}">${esc(cut(plan, 90))}</span>`
     + `<span class="use">${esc(use)}</span></summary>`
     + `<div class="body">`
@@ -360,8 +365,11 @@ function draw(d) {
     : '<div class="none" style="padding:10px 12px">열린 창이 없습니다</div>';
 
   const laps = loop ?? [];
+  // 다시 켜면 판 번호가 1 부터 새로 시작해서 목록이 2 1 7 6 … 으로 보인다.
+  // 번호가 도로 올라가는 자리가 다시 켠 자리다. 거기에 금을 긋는다.
   const lapHtml = laps.length
-    ? laps.map(r => lapRow(r, now)).join('')
+    ? laps.map((r, i) => lapRow(r, now)
+        + (laps[i + 1] && r.round < laps[i + 1].round ? '<div class="again">다시 켠 자리</div>' : '')).join('')
     : '<div class="none" style="padding:10px 12px">아직 한 판도 안 돌았습니다</div>';
   // 바뀐 게 없으면 손대지 않는다. 2초마다 다시 그리면 펴 놓은 글의 스크롤과
   // 끌어 놓은 선택이 그때마다 사라진다 — 긴 답을 읽을 수가 없었다.
