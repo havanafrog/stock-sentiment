@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ko">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>실시간 커뮤니티 온도 — 토스증권 커뮤니티 공포지수 | Korean retail fear index</title>
+
+<meta name="description" content="토스증권 종목 커뮤니티의 말을 채점해 0~100 공포지수로 바꾸고 봉 차트 옆에 놓습니다. 비율이 아니라 공포 글 '개수'를 시간대별 기준선과 견줍니다. LLM 없음, 의존성 없음. A fear index built from Korean retail investor chatter on Toss Securities.">
+<meta name="author" content="havanafrog">
+<link rel="canonical" href="https://havanafrog.github.io/stock-sentiment/">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="실시간 커뮤니티 온도 — 토스증권 커뮤니티 공포지수">
+<meta property="og:description" content="공포 글 '개수'를 시간대별 기준선과 견줘 0~100 지수로. LLM 없음, 의존성 없음.">
+<meta property="og:url" content="https://havanafrog.github.io/stock-sentiment/">
+<meta property="og:image" content="https://havanafrog.github.io/stock-sentiment/social-preview.png">
+<meta property="og:image:width" content="2560">
+<meta property="og:image:height" content="1280">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://havanafrog.github.io/stock-sentiment/social-preview.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareSourceCode",
+  "name": "실시간 커뮤니티 온도 (stock-sentiment)",
+  "description": "A fear index built from Korean retail investor chatter on Toss Securities stock communities. Scores posts with a character n-gram classifier and compares the count of fearful posts against a per-ticker, per-hour baseline.",
+  "codeRepository": "https://github.com/havanafrog/stock-sentiment",
+  "programmingLanguage": "JavaScript",
+  "runtimePlatform": "Node.js 24",
+  "license": "https://opensource.org/licenses/MIT",
+  "author": { "@type": "Person", "name": "havanafrog" },
+  "keywords": "sentiment analysis, Korean NLP, fear index, stock market, retail investors, Toss Securities, naive bayes, zero dependency"
+}
+</script>
+
+<style>
+  :root {
+    --page: #f7f7f8; --surface: #fff; --text: #191f28; --sub: #4e5968;
+    --faint: #828c9a; --hair: #e5e8eb; --accent: #3182f6; --hot: #f04452;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --page: #17171c; --surface: #1f2027; --text: #e9ecef; --sub: #adb5bd;
+      --faint: #8b95a1; --hair: #2b2d36;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--page); color: var(--text);
+    font: 16px/1.65 -apple-system, "Segoe UI", "Malgun Gothic", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 56px 20px 80px; }
+  h1 { font-size: 30px; line-height: 1.25; letter-spacing: -.02em; margin: 0 0 6px; }
+  .tag { color: var(--sub); font-size: 16px; margin: 0 0 26px; }
+  h2 { font-size: 19px; letter-spacing: -.01em; margin: 42px 0 10px; }
+  p { margin: 0 0 14px; }
+  a { color: var(--accent); }
+  .cta { display: flex; gap: 10px; flex-wrap: wrap; margin: 26px 0 8px; }
+  .btn { display: inline-block; text-decoration: none; font-weight: 650; font-size: 14.5px;
+    padding: 11px 18px; border-radius: 10px; background: var(--accent); color: #fff; }
+  .btn.ghost { background: var(--surface); color: var(--text);
+    box-shadow: inset 0 0 0 1px var(--hair); }
+  .lang { font-size: 13.5px; color: var(--faint); margin: 0 0 30px; }
+  pre { background: var(--surface); border-radius: 12px; padding: 16px 18px; overflow-x: auto;
+    box-shadow: inset 0 0 0 1px var(--hair); font-size: 13.5px; line-height: 1.6; margin: 0 0 14px; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 0 0 14px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--hair);
+    vertical-align: top; }
+  th { color: var(--faint); font-weight: 650; font-size: 12.5px; }
+  tr.mine td { background: var(--surface); font-weight: 600; }
+  .note { color: var(--faint); font-size: 13.5px; }
+  footer { margin-top: 48px; padding-top: 18px; border-top: 1px solid var(--hair);
+    color: var(--faint); font-size: 13px; }
+  @media (max-width: 640px) {
+    .wrap { padding: 34px 16px 60px; }
+    h1 { font-size: 25px; }
+  }
+</style>
+
+<div class="wrap">
+  <h1>실시간 커뮤니티 온도</h1>
+  <p class="tag">토스증권 종목 커뮤니티의 말을 채점해 <b>공포지수</b>로 바꾸고, 같은 시간축의 봉 차트 옆에 놓습니다.</p>
+  <p class="lang">A fear index built from Korean retail investor chatter · 用韩国散户发言算出的恐慌指数</p>
+
+  <div class="cta">
+    <a class="btn" href="https://havanafrog-stock.duckdns.org/?k=R9HzHDGxVnjYeJ5Vqton1w">돌아가는 화면 보기</a>
+    <a class="btn ghost" href="https://github.com/havanafrog/stock-sentiment">GitHub 저장소</a>
+  </div>
+  <p class="note">키가 붙은 링크로 한 번 열면 그다음부터는 주소만으로 들어갑니다. 키 없이 오면 전부 404 입니다.</p>
+
+  <h2>세는 방식이 다릅니다</h2>
+  <p>말을 세는 도구는 많습니다. 대부분 <b>언급 횟수</b>나 <b>강세·약세 비율</b>을 냅니다.
+     이것은 공포 글의 <b>개수</b>가 평소보다 얼마나 이상한지를 잽니다.</p>
+
+<pre><code>k     = 그 봉이 덮는 구간에 온 공포 글 수
+μ, σ  = 그 종목 · 그 미 동부 시각 · 같은 봉 길이의 평소 공포 글 수
+
+z          = (k − μ) / σ
+공포지수    = clamp(50 + 20z, 0, 100)      50 = 평소 · 90 = 경보</code></pre>
+
+  <p><b>비율이 아니라 개수입니다.</b> 글 셋 중 둘이 공포인 판과, 글 사백 중 백이 공포인 판은
+     같은 사건이 아닙니다. 비율은 둘을 못 가릅니다.</p>
+  <p><b>시간대마다 기준선이 따로입니다.</b> 한국시간 23시 30분(뉴욕 개장)의 게시판과
+     아침 8시의 게시판은 원래 다른 곳입니다. 같은 자로 재면 개장마다 경보가 울립니다.</p>
+
+  <h2>비슷한 것들과</h2>
+  <table>
+    <tr><th></th><th>무엇을 세나</th><th>어디서</th></tr>
+    <tr><td><a href="https://apewisdom.io/wallstreetbets/">ApeWisdom</a></td><td>언급 횟수 그대로</td><td>서브레딧 약 30곳</td></tr>
+    <tr><td><a href="https://swaggystocks.com/dashboard/wallstreetbets/ticker-sentiment">SwaggyStocks</a></td><td>키워드 강세·약세 비율</td><td>r/wallstreetbets</td></tr>
+    <tr><td><a href="https://stocktwits.com/">StockTwits</a></td><td>글쓴이가 직접 누른 라벨</td><td>자체 커뮤니티</td></tr>
+    <tr><td><a href="https://www.cnn.com/markets/fear-and-greed">CNN Fear &amp; Greed</a></td><td>시장 지표 7개(VIX·풋콜)</td><td>시세, 말이 아님</td></tr>
+    <tr class="mine"><td>이것</td><td>공포 글 <i>개수</i>의 시간대별 기준선 대비 z</td><td>토스증권(한국 개인)</td></tr>
+  </table>
+  <p class="note">한국 증권사 커뮤니티를 이런 식으로 다루는 공개 도구는 못 찾았습니다.</p>
+
+  <h2>어떻게 만들어졌나</h2>
+  <p><b>실행할 때 LLM을 쓰지 않습니다.</b> 채점은 글자 n-gram 나이브 베이즈이고, 모델이 없으면
+     단어 사전으로 돌아갑니다. API 키도 토큰 비용도 없습니다. 의존성 없는 Node 하나입니다.</p>
+  <p><b>자가 둘입니다.</b> 라벨 15,813건 중 대부분은 작은 모델이 찍었습니다. 그 정답지로만 재면
+     "모델을 얼마나 잘 흉내내나"를 재는 것이라, 240건을 라벨을 가리고 사람이 다시 읽어
+     따로 두었습니다 — 어느 모델도 그건 학습에 쓰지 않습니다.</p>
+
+<pre><code>node fetch-comments.mjs   → data/{티커}.posts.json   글 원문 (증분)
+node build.mjs            → data.js                   일봉 + 채점 + 기준선
+node server.mjs           → http://localhost:8731     실시간 서버</code></pre>
+
+  <p><b>서버가 왜 필요한가.</b> 토스 API가 <code>Origin</code> 헤더가 붙은 요청을 거절하는데,
+     브라우저는 교차 출처 요청에 그걸 반드시 붙입니다. 그래서 정적 호스팅만으로는 시세도 글도
+     못 받습니다. Node가 대신 부르고 결과만 넘깁니다.</p>
+
+  <h2>읽을거리</h2>
+  <p>
+    <a href="https://github.com/havanafrog/stock-sentiment/blob/main/README.md">한국어 문서</a> ·
+    <a href="https://github.com/havanafrog/stock-sentiment/blob/main/README.en.md">English</a> ·
+    <a href="https://github.com/havanafrog/stock-sentiment/blob/main/README.zh.md">中文</a><br>
+    <a href="https://github.com/havanafrog/stock-sentiment/blob/main/docs/METHOD.md">재서 고치는 법 · 기능을 가르는 법</a>
+    — 다른 과제에도 그대로 쓰는 방법만 따로 적었습니다.
+  </p>
+
+  <footer>
+    <b>투자 판단에 쓰지 마세요.</b> 커뮤니티에서 오가는 말을 세어 보는 도구입니다.
+    시세 예측 도구가 아니고, 투자 자문이 아닙니다.<br>
+    MIT License · © 2026 havanafrog
+  </footer>
+</div>
+</html>

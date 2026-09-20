@@ -1,0 +1,28 @@
+<!doctype html><meta charset="utf-8">
+<style>
+  *{box-sizing:border-box;margin:0}
+  body{width:1280px;height:640px;background:#f7f7f8;color:#191f28;
+    font:16px/1.5 -apple-system,"Segoe UI","Malgun Gothic",system-ui,sans-serif;
+    display:flex;flex-direction:column;justify-content:center;padding:0 78px;position:relative;overflow:hidden}
+  h1{font-size:64px;letter-spacing:-.03em;line-height:1.1;font-weight:800}
+  .sub{font-size:27px;color:#4e5968;margin-top:20px;max-width:760px;line-height:1.45}
+  .f{margin-top:34px;font:19px/1.7 ui-monospace,SFMono-Regular,Menlo,monospace;color:#191f28;
+    background:#fff;border-radius:14px;padding:18px 24px;display:inline-block;
+    box-shadow:inset 0 0 0 1px #e5e8eb;align-self:flex-start}
+  .f b{color:#f04452}
+  .foot{position:absolute;left:78px;bottom:52px;font-size:19px;color:#828c9a}
+  /* 봉 몇 개를 배경에 깐다 — 무엇을 하는 것인지 한눈에 */
+  svg{position:absolute;right:-20px;bottom:0;opacity:.5}
+</style>
+<svg width="560" height="640" viewBox="0 0 560 640">
+  <g stroke-width="7" fill="none">
+    <g stroke="#64a8ff"><path d="M30 470v90M30 480v70M78 440v96M78 452v72M126 455v92M126 466v70M270 400v92M270 412v68M318 372v88M318 384v64"/></g>
+    <g stroke="#f66570"><path d="M174 420v96M174 432v72M222 392v92M222 404v68M366 330v86M366 342v62M414 286v84M414 298v60M462 250v80M462 262v56M510 214v78M510 226v54"/></g>
+  </g>
+  <path d="M30 520 78 498 126 505 174 470 222 440 270 448 318 424 366 380 414 336 462 300 510 262"
+        fill="none" stroke="#f04452" stroke-width="4" stroke-linejoin="round" opacity=".85"/>
+</svg>
+<h1>실시간 커뮤니티 온도</h1>
+<div class="sub">토스증권 커뮤니티의 말을 채점해 <b>공포지수</b>로 바꾸고<br>같은 시간축의 봉 차트 옆에 놓습니다.</div>
+<div class="f">공포지수 = clamp(50 + 20<b>z</b>, 0, 100) &nbsp;·&nbsp; <b>z</b> = (k − μ) / σ</div>
+<div class="foot">비율이 아니라 공포 글 <b>개수</b>를 시간대별 기준선과 견줍니다 &nbsp;·&nbsp; LLM 없음 · 의존성 없음</div>
