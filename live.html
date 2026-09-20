@@ -450,18 +450,24 @@
        아래는 홈 인디케이터 위로 띄운다. env() 를 모르는 브라우저는 0 으로 본다. */
     .app { padding: calc(12px + env(safe-area-inset-top)) calc(11px + env(safe-area-inset-right))
                     calc(44px + env(safe-area-inset-bottom)) calc(11px + env(safe-area-inset-left)); }
-    /* 붙여 둔 탭 줄도 같이 내려온다 — 안 그러면 노치 밑에 숨는다. */
-    .tabs { top: env(safe-area-inset-top); }
     .card { padding: 12px; border-radius: var(--radius); }
     .single { gap: 10px; }
     .top .bar { margin-left: 0; }
     /* 탭 줄을 위에 붙여 둔다. 글 목록이 수천 줄이라, 탭을 바꾸려고 맨 위까지
        올라가는 게 폰에서 제일 귀찮은 일이었다. 지면색을 깔아야 글이 비쳐 지나가지
-       않는다. 옆으로 넉넉히 물려 카드 그림자까지 덮는다. */
-    .tabs { margin-bottom: 12px; gap: 0;
+       않는다. 옆으로 넉넉히 물려 카드 그림자까지 덮는다.
+       노치: 붙었을 때 버튼이 상태표시줄 밑으로 들어가면 안 된다. top 을 내리면
+       그 위 틈으로 글이 지나가므로, 대신 노치 높이만큼 속을 띄우고 같은 높이를
+       바깥에서 빼 온다 — 붙기 전 자리는 그대로고, 붙으면 지면색이 노치를 덮는다.
+       덮여 죽는 문제: 아래쪽 .tabs 바탕 규칙이 이 파일에서 더 뒤에 있어, 같은
+       힘이면 뒤가 이긴다. 그래서 여기 margin-*·gap·top 이 여태 통째로 죽어
+       있었다 (top: env(...) 한 줄도 같은 이유로 죽었다). 이름을 두 번 적어
+       힘을 올린다 — 규칙 순서를 건드리는 것보다 한 군데만 바뀐다. */
+    .tabs.tabs { margin-bottom: 12px; gap: 0;
       position: sticky; top: 0; z-index: 5;
       background: var(--page); margin-left: -11px; margin-right: -11px;
-      padding: 0 11px; }
+      margin-top: calc(-1 * env(safe-area-inset-top));
+      padding: env(safe-area-inset-top) 11px 0; }
     .tabs button { padding-left: 10px; padding-right: 10px; }
     .ptxt { font-size: 14.5px; }
 
@@ -501,6 +507,16 @@
     #rateInfo { order: 5; }
     #foldInd { order: 6; }
     .wide { display: none; }          /* "USD $" 는 "$" 로 — 120px 가 55px 가 된다 */
+    /* 종목칩은 종목 수만큼 늘어난다. 12개를 꽂아 재 보니 두 줄이 되어 줄이
+       40px 에서 81px 로 커지고, 봉 차트가 439px 에서 480px 로 밀렸다. 세로는
+       봉에 주기로 한 자리다. 한 줄로 묶고 넘치면 가로로 민다.
+       버튼의 flex 는 그대로 둔다 — 1 0 auto 라서 적을 땐 늘어나 바탕선이 비치지
+       않고, 많을 땐 줄지 않아 넘쳐서 밀린다. 세로 overflow 는 hidden 그대로라
+       둥근 모서리도 살아 있다. 봉 단위 칩(.cbar .seg)은 개수가 고정이라 둔다.
+       글 탭의 종목 줄(#pTicker)도 같은 목록을 뿌리므로 같이 묶는다 — 재 보니
+       12개에서 똑같이 두 줄 81px 이 되어 글 첫 줄이 332px 에서 373px 로 밀렸다. */
+    #segTicker, #pTicker { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    #segTicker::-webkit-scrollbar, #pTicker::-webkit-scrollbar { display: none; }
 
     /* 종목 지우는 ×. 16×14px 였다 — 화면에서 제일 작은데 하는 일은 삭제다.
        글자는 그대로 두고 보이지 않는 판을 깔아 누를 자리를 넓힌다.
@@ -972,6 +988,11 @@ const UNIT_SPAN = { 'min:1': 1, 'min:10': 10, 'min:60': 60, 'day:1': null };
 const spanOf = (rows, m, daily) => (m === null ? daily : spanChg(rows, m));
 const winLabel = mins => (mins >= 60 ? `${mins / 60}시간` : `${mins}분`);
 
+// 곡소리 지수 그림칸을 편 채인가. 폰에서만 접은 채로 시작한다 — 이 칸은 카드
+// 템플릿 안이라 15초마다 새로 그려지므로, 편 상태를 여기 들고 있지 않으면
+// 사람이 펴 놓은 게 다음 갱신에 도로 접힌다.
+let WAIL_OPEN = !matchMedia('(max-width: 640px)').matches;
+
 function card(ticker, d, meta) {
   const wk = UNIT_KEY[BAR.unit] ?? '60';
   const w = d.win?.[wk] ?? d.w60;              // 옛 스냅샷이면 60분으로
@@ -1068,10 +1089,12 @@ function card(ticker, d, meta) {
       <svg id="cMfi" viewBox="0 0 600 80" role="img" aria-label="매수 매도 압력" hidden></svg>
       <p class="cnote"><span id="cBarNote"></span>
         <button class="lnk" id="cReset" hidden>전체 보기</button></p>
-      <div class="chead"><b>곡소리 지수</b><span>50 = 평소 · ${meta.alert} = 경보 · 봉과 같은 구간</span>
-        <span class="now" id="cNowF"></span></div>
-      <svg id="cFear" viewBox="0 0 600 90" role="img" aria-label="곡소리 지수 추이"></svg>
-      <p class="cnote" id="cFearNote"></p>
+      <details class="fold" id="foldWail" ${WAIL_OPEN ? 'open' : ''}><summary>곡소리 지수</summary>
+        <div class="chead"><b>곡소리 지수</b><span>50 = 평소 · ${meta.alert} = 경보 · 봉과 같은 구간</span>
+          <span class="now" id="cNowF"></span></div>
+        <svg id="cFear" viewBox="0 0 600 90" role="img" aria-label="곡소리 지수 추이"></svg>
+        <p class="cnote" id="cFearNote"></p>
+      </details>
       <div class="chead" id="hWm" hidden><b>곡소리 MACD</b><span>12 / 26 / 9 · 0선 돌파 = 흐름 전환</span>
         <span class="now" id="cNowW"></span></div>
       <svg id="cWm" viewBox="0 0 600 80" role="img" aria-label="곡소리 MACD" hidden></svg>
@@ -1400,7 +1423,10 @@ function fitCharts() {
   const w = narrow ? 380 : 600;
   const changed = w !== BW;
   BW = CW = w;
-  BH = narrow ? 250 : 200;
+  // 폰 값 재 보니 봉 칸이 221px 였다. 390x844 에서 그 아래로 문서가 626px 더
+  // 이어지니, 세로는 남고 봉만 납작했다. viewBox 는 폭(380)에 맞춰 0.884 로
+  // 줄어 그려지므로 430 이 화면 380px 이다. 글자는 폭 배율만 따르니 안 커진다.
+  BH = narrow ? 430 : 200;
   VH = narrow ? 52 : 46;
   IH = narrow ? 92 : 80;
   CH = narrow ? 112 : 90;
@@ -1787,6 +1813,8 @@ function paint(d) {
 
     const [chartCard, feedCard] = UI.ticker ? card(UI.ticker, d.tickers[UI.ticker], meta) : ['', ''];
     $('cards').innerHTML = chartCard;
+    const fw = $('foldWail');            // 접고 편 것을 다음 갱신까지 들고 간다
+    if (fw) fw.ontoggle = () => { WAIL_OPEN = fw.open; };
     $('feed').innerHTML = feedCard;
     drawCharts(d);                       // innerHTML 로 svg 가 새로 생기니 매번 다시 그린다
     paintPTicker();                      // 글 탭 종목 버튼도 같은 목록을 쓴다
@@ -2225,7 +2253,12 @@ $('single').addEventListener('pointermove', ev => {
   if (drag) return;                    // 끌고 있을 땐 십자선이 방해된다
   moveHairs(ev);
 });
-$('single').addEventListener('pointerleave', hideHairs);
+// 손가락은 떼는 순간 pointerleave 도 같이 온다. 그걸 그대로 받으면 아래 2.6초
+// 타이머가 켜지기도 전에 지워져, 짚었다 떼면 값이 그 자리에서 사라졌다 — 정작
+// 짚고 있는 동안은 손가락이 그 봉을 가린다. 떠나는 건 마우스만 센다.
+$('single').addEventListener('pointerleave', ev => {
+  if (ev.pointerType !== 'touch') hideHairs();
+});
 // 손가락엔 hover 가 없다. 누른 자리를 바로 읽어 주고, 떼면 잠깐 뒤 지운다.
 let tapClear = null;
 $('single').addEventListener('pointerdown', ev => {
