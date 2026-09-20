@@ -1387,7 +1387,10 @@ function fitCharts() {
   const w = narrow ? 380 : 600;
   const changed = w !== BW;
   BW = CW = w;
-  BH = narrow ? 250 : 200;
+  // 폰 값 재 보니 봉 칸이 221px 였다. 390x844 에서 그 아래로 문서가 626px 더
+  // 이어지니, 세로는 남고 봉만 납작했다. viewBox 는 폭(380)에 맞춰 0.884 로
+  // 줄어 그려지므로 430 이 화면 380px 이다. 글자는 폭 배율만 따르니 안 커진다.
+  BH = narrow ? 430 : 200;
   VH = narrow ? 52 : 46;
   IH = narrow ? 92 : 80;
   CH = narrow ? 112 : 90;
