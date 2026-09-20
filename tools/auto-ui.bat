@@ -34,7 +34,7 @@ set "SITE=http://127.0.0.1:8741/?k=%KEY%"
 rem acceptEdits only auto-approves file edits. The tests are Bash, so they need
 rem their own opening - without it the loop spent five rounds writing
 rem "requires approval" and never committed. push stays closed.
-set "CLAUDE_LOOP_FLAGS=--permission-mode acceptEdits --allowedTools Read Edit Write Glob Grep Bash(node:*) Bash(git:*) Bash(curl:*)"
+set "CLAUDE_LOOP_FLAGS=--permission-mode acceptEdits --allowedTools Read Edit Write Glob Grep "Bash(node:*)" "Bash(git:*)" "Bash(curl:*)""
 
 set "PROMPT="
 for /f "usebackq delims=" %%L in ("%~dp0auto-ui-prompt.txt") do if not defined PROMPT set "PROMPT=%%L"

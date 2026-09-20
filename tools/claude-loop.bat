@@ -23,7 +23,9 @@ set /a N+=1
 echo.>> "%LOG%"
 echo ===== %date% %time%  (%N%회차) =====>> "%LOG%"
 pushd "%ROOT%"
-claude -p %CONT% %CLAUDE_LOOP_FLAGS% "%PROMPT%">> "%LOG%" 2>&1
+rem 프롬프트가 먼저다. --allowedTools 는 인자를 여러 개 먹는 옵션이라 뒤에 두면
+rem 프롬프트까지 삼킨다 — "Input must be provided ... when using --print" 가 그거다.
+claude -p %CONT% "%PROMPT%" %CLAUDE_LOOP_FLAGS%>> "%LOG%" 2>&1
 popd
 set "CONT=-c"
 if not "%TIMES%"=="0" if %N% GEQ %TIMES% goto done
