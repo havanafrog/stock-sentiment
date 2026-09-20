@@ -959,6 +959,11 @@ const UNIT_SPAN = { 'min:1': 1, 'min:10': 10, 'min:60': 60, 'day:1': null };
 const spanOf = (rows, m, daily) => (m === null ? daily : spanChg(rows, m));
 const winLabel = mins => (mins >= 60 ? `${mins / 60}시간` : `${mins}분`);
 
+// 곡소리 지수 그림칸을 편 채인가. 폰에서만 접은 채로 시작한다 — 이 칸은 카드
+// 템플릿 안이라 15초마다 새로 그려지므로, 편 상태를 여기 들고 있지 않으면
+// 사람이 펴 놓은 게 다음 갱신에 도로 접힌다.
+let WAIL_OPEN = !matchMedia('(max-width: 640px)').matches;
+
 function card(ticker, d, meta) {
   const wk = UNIT_KEY[BAR.unit] ?? '60';
   const w = d.win?.[wk] ?? d.w60;              // 옛 스냅샷이면 60분으로
@@ -1055,10 +1060,12 @@ function card(ticker, d, meta) {
       <svg id="cMfi" viewBox="0 0 600 80" role="img" aria-label="매수 매도 압력" hidden></svg>
       <p class="cnote"><span id="cBarNote"></span>
         <button class="lnk" id="cReset" hidden>전체 보기</button></p>
-      <div class="chead"><b>곡소리 지수</b><span>50 = 평소 · ${meta.alert} = 경보 · 봉과 같은 구간</span>
-        <span class="now" id="cNowF"></span></div>
-      <svg id="cFear" viewBox="0 0 600 90" role="img" aria-label="곡소리 지수 추이"></svg>
-      <p class="cnote" id="cFearNote"></p>
+      <details class="fold" id="foldWail" ${WAIL_OPEN ? 'open' : ''}><summary>곡소리 지수</summary>
+        <div class="chead"><b>곡소리 지수</b><span>50 = 평소 · ${meta.alert} = 경보 · 봉과 같은 구간</span>
+          <span class="now" id="cNowF"></span></div>
+        <svg id="cFear" viewBox="0 0 600 90" role="img" aria-label="곡소리 지수 추이"></svg>
+        <p class="cnote" id="cFearNote"></p>
+      </details>
       <div class="chead" id="hWm" hidden><b>곡소리 MACD</b><span>12 / 26 / 9 · 0선 돌파 = 흐름 전환</span>
         <span class="now" id="cNowW"></span></div>
       <svg id="cWm" viewBox="0 0 600 80" role="img" aria-label="곡소리 MACD" hidden></svg>
@@ -1777,6 +1784,8 @@ function paint(d) {
 
     const [chartCard, feedCard] = UI.ticker ? card(UI.ticker, d.tickers[UI.ticker], meta) : ['', ''];
     $('cards').innerHTML = chartCard;
+    const fw = $('foldWail');            // 접고 편 것을 다음 갱신까지 들고 간다
+    if (fw) fw.ontoggle = () => { WAIL_OPEN = fw.open; };
     $('feed').innerHTML = feedCard;
     drawCharts(d);                       // innerHTML 로 svg 가 새로 생기니 매번 다시 그린다
     paintPTicker();                      // 글 탭 종목 버튼도 같은 목록을 쓴다
