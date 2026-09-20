@@ -127,6 +127,28 @@
   .when { margin-left: auto; font-size: 11px; color: var(--faint); flex: none;
           font-variant-numeric: tabular-nums; }
 
+  /* 고리 — 혼자 도는 판. 한 판이 줄 하나고, 눌러서 펴면 물음과 답 전문이 나온다.
+     물음은 앞판의 답이라 길다. 접어 두지 않으면 한 판이 화면을 다 먹는다. */
+  .lap { border-bottom: 1px solid var(--hair); }
+  .lap:last-child { border-bottom: 0; }
+  .lap > summary { display: flex; gap: 10px; align-items: baseline; padding: 9px 12px;
+                   cursor: pointer; list-style: none; }
+  .lap > summary::-webkit-details-marker { display: none; }
+  .lap > summary:hover { background: var(--page); }
+  .lap .no { font-weight: 650; font-size: 12px; width: 34px; flex: none;
+             font-variant-numeric: tabular-nums; }
+  .lap .plan { font-size: 12.5px; color: var(--text); overflow: hidden;
+               text-overflow: ellipsis; white-space: nowrap; }
+  .lap .plan.none { color: var(--faint); }
+  .lap.stuck .no { color: var(--live); }
+  .lap .use { margin-left: auto; font-size: 11px; color: var(--faint); flex: none;
+              font-variant-numeric: tabular-nums; }
+  .lap .body { padding: 2px 12px 12px; display: grid; gap: 10px; }
+  .lap .body h4 { margin: 0; font-size: 11px; font-weight: 650; color: var(--faint); }
+  .lap .body pre { margin: 3px 0 0; font: inherit; font-size: 12px; color: var(--sub);
+                   white-space: pre-wrap; word-break: break-word;
+                   max-height: 260px; overflow: auto; }
+
   .warn-strip { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--warn);
                 border-radius: 12px; padding: 9px 14px; margin-bottom: 12px;
                 font-size: 12.5px; color: var(--text); }
@@ -146,11 +168,13 @@
     <button class="tab on" role="tab" data-pane="pane-wins">창 <span class="n" id="n-wins"></span></button>
     <button class="tab" role="tab" data-pane="pane-live">열린 창 <span class="n" id="n-live"></span></button>
     <button class="tab" role="tab" data-pane="pane-ledger">장부 <span class="n" id="n-ledger"></span></button>
+    <button class="tab" role="tab" data-pane="pane-loop">고리 <span class="n" id="n-loop"></span></button>
   </div>
 
   <div class="pane" id="pane-wins"><div class="cards" id="wins"></div></div>
   <div class="pane" id="pane-live" hidden><div class="card" id="live"></div></div>
   <div class="pane" id="pane-ledger" hidden><div class="card" id="ledger"></div></div>
+  <div class="pane" id="pane-loop" hidden><div class="card" id="loop"></div></div>
 </div>
 
 <script>
@@ -287,9 +311,28 @@ function ledgerRow(r, now) {
     + `<span class="when">${esc(who)} · ${Number.isFinite(at) ? ago(now - at) : ''}</span></div>`;
 }
 
+// 고리 한 판. 접힌 줄에는 그 판이 정한 "다음 계획" 만 보인다 — 그게 다음 판의
+// 물음이 되니, 줄만 훑어도 고리가 어디로 가는지 읽힌다. 펴면 물음과 답 전문.
+function lapRow(r, now) {
+  const at = Date.parse(r.at);
+  const use = [Number.isFinite(at) ? ago(now - at) : '',
+               r.ms ? Math.round(r.ms / 1000) + '초' : '',
+               r.turns ? r.turns + '턴' : '',
+               r.cost != null ? money(r.cost) : ''].filter(Boolean).join(' · ');
+  const plan = r.plan || (r.stuck ? '막혔습니다 — 사람 차례' : cut(r.say || '(빈 답)', 80));
+  return `<details class="lap ${r.stuck ? 'stuck' : ''}">`
+    + `<summary><span class="no">${esc(String(r.round ?? ''))}판</span>`
+    + `<span class="plan ${r.plan ? '' : 'none'}">${esc(cut(plan, 90))}</span>`
+    + `<span class="use">${esc(use)}</span></summary>`
+    + `<div class="body">`
+    + `<div><h4>물음 (앞판의 답)</h4><pre>${esc(r.ask || '')}</pre></div>`
+    + `<div><h4>답</h4><pre>${esc(r.say || r.err || '(없음)')}</pre></div>`
+    + `</div></details>`;
+}
+
 function draw(d) {
   const now = Date.now();
-  const { sessions, live, spend, repo, open, recent, counts, handoff } = d;
+  const { sessions, live, spend, repo, open, recent, counts, handoff, loop } = d;
 
   $('wins').innerHTML = sessions.length
     ? sessions.map(x => winCard(x, now)).join('')
@@ -303,9 +346,15 @@ function draw(d) {
     ? live.map(w => liveRow(w, now)).join('')
     : '<div class="none" style="padding:10px 12px">열린 창이 없습니다</div>';
 
+  const laps = loop ?? [];
+  $('loop').innerHTML = laps.length
+    ? laps.map(r => lapRow(r, now)).join('')
+    : '<div class="none" style="padding:10px 12px">고리가 아직 안 돌았습니다</div>';
+
   $('n-wins').textContent = sessions.length || '';
   $('n-live').textContent = (live ?? []).length || '';
   $('n-ledger').textContent = recent.length || '';
+  $('n-loop').textContent = laps.length || '';
 
   const stuck = open.filter(x => x.stuck).length;
   const pending = handoff?.pending ? 1 : 0;
