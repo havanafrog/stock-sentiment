@@ -498,9 +498,11 @@
        봉에 주기로 한 자리다. 한 줄로 묶고 넘치면 가로로 민다.
        버튼의 flex 는 그대로 둔다 — 1 0 auto 라서 적을 땐 늘어나 바탕선이 비치지
        않고, 많을 땐 줄지 않아 넘쳐서 밀린다. 세로 overflow 는 hidden 그대로라
-       둥근 모서리도 살아 있다. 봉 단위 칩(.cbar .seg)은 개수가 고정이라 둔다. */
-    #segTicker { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
-    #segTicker::-webkit-scrollbar { display: none; }
+       둥근 모서리도 살아 있다. 봉 단위 칩(.cbar .seg)은 개수가 고정이라 둔다.
+       글 탭의 종목 줄(#pTicker)도 같은 목록을 뿌리므로 같이 묶는다 — 재 보니
+       12개에서 똑같이 두 줄 81px 이 되어 글 첫 줄이 332px 에서 373px 로 밀렸다. */
+    #segTicker, #pTicker { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    #segTicker::-webkit-scrollbar, #pTicker::-webkit-scrollbar { display: none; }
 
     /* 종목 지우는 ×. 16×14px 였다 — 화면에서 제일 작은데 하는 일은 삭제다.
        글자는 그대로 두고 보이지 않는 판을 깔아 누를 자리를 넓힌다.
