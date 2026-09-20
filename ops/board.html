@@ -311,6 +311,17 @@ function ledgerRow(r, now) {
     + `<span class="when">${esc(who)} · ${Number.isFinite(at) ? ago(now - at) : ''}</span></div>`;
 }
 
+// 펴 놓은 판. 화면은 2초마다 통째로 다시 그리는데, 그때 <details> 의 열린 상태가
+// 같이 날아가 사람이 읽던 글이 저절로 접혔다. 어느 판을 폈는지는 화면 밖에 둔다.
+const OPENED = new Set();
+// toggle 은 위로 안 올라온다. 잡는 단계에서 받아야 한다.
+addEventListener('toggle', e => {
+  const d = e.target.closest?.('.lap');
+  if (!d) return;
+  const k = d.dataset.round;
+  if (d.open) OPENED.add(k); else OPENED.delete(k);
+}, true);
+
 // 자동 한 판. 접힌 줄에는 그 판이 정한 "다음 계획" 만 보인다 — 그게 다음 판의
 // 물음이 되니, 줄만 훑어도 일이 어디로 가는지 읽힌다. 펴면 물음과 답 전문.
 function lapRow(r, now) {
@@ -320,8 +331,10 @@ function lapRow(r, now) {
                r.turns ? r.turns + '턴' : '',
                r.cost != null ? money(r.cost) : ''].filter(Boolean).join(' · ');
   const plan = r.plan || (r.stuck ? '막혔습니다 — 사람 차례' : cut(r.say || '(빈 답)', 80));
-  return `<details class="lap ${r.stuck ? 'stuck' : ''}">`
-    + `<summary><span class="no">${esc(String(r.round ?? ''))}판</span>`
+  const key = String(r.round ?? '');
+  return `<details class="lap ${r.stuck ? 'stuck' : ''}" data-round="${esc(key)}"`
+    + `${OPENED.has(key) ? ' open' : ''}>`
+    + `<summary><span class="no">${esc(key)}판</span>`
     + `<span class="plan ${r.plan ? '' : 'none'}">${esc(cut(plan, 90))}</span>`
     + `<span class="use">${esc(use)}</span></summary>`
     + `<div class="body">`
@@ -347,9 +360,12 @@ function draw(d) {
     : '<div class="none" style="padding:10px 12px">열린 창이 없습니다</div>';
 
   const laps = loop ?? [];
-  $('loop').innerHTML = laps.length
+  const lapHtml = laps.length
     ? laps.map(r => lapRow(r, now)).join('')
     : '<div class="none" style="padding:10px 12px">아직 한 판도 안 돌았습니다</div>';
+  // 바뀐 게 없으면 손대지 않는다. 2초마다 다시 그리면 펴 놓은 글의 스크롤과
+  // 끌어 놓은 선택이 그때마다 사라진다 — 긴 답을 읽을 수가 없었다.
+  if ($('loop').innerHTML !== lapHtml) $('loop').innerHTML = lapHtml;
 
   $('n-wins').textContent = sessions.length || '';
   $('n-live').textContent = (live ?? []).length || '';
