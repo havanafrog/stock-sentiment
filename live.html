@@ -97,7 +97,12 @@
        회색 램프(grey50~900)를 뒤집고 채도색은 밝기만 올렸다. */
     --page: #0a0a0b; --surface-1: #101012;
     --surface-glass: rgba(16, 16, 18, 0.84);
-    --text-primary: #f4f4f5; --text-secondary: #a1a1aa; --muted: #7c7c86; --faint: #5c5c66;
+    /* 손으로 고르는 어두움에도 같은 손질. --faint 가 앉는 자리는 지면(#0a0a0b)과
+       카드(#101012) 둘뿐인데 2.99 / 2.88 이었다. 색조(240)는 두고 밝기만 올린다.
+       --muted 는 4.79 / 4.60 이라 기준은 넘지만 faint 자리가 없어 같이 올린다.
+       --faint #7e7e8a 지면 4.94 / 카드 4.74, --muted #888891 지면 5.63 / 카드 5.41 —
+       prefers-color-scheme 쪽(4.71 / 5.34)과 같은 간격이다. */
+    --text-primary: #f4f4f5; --text-secondary: #a1a1aa; --muted: #888891; --faint: #7e7e8a;
     --grid: #202024; --border: rgba(255, 255, 255, 0.10); --hairline: #1d1d21;
     --pos: #64a8ff; --neg: #f66570; --neutral: #18181c;
     --accent-wash: rgba(100, 168, 255, 0.14);
