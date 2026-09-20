@@ -493,6 +493,15 @@
     .tabs button { min-height: 44px; }
     .seg button { min-height: 40px; }
 
+    /* 종목칩은 종목 수만큼 늘어난다. 12개를 꽂아 재 보니 두 줄이 되어 줄이
+       40px 에서 81px 로 커지고, 봉 차트가 439px 에서 480px 로 밀렸다. 세로는
+       봉에 주기로 한 자리다. 한 줄로 묶고 넘치면 가로로 민다.
+       버튼의 flex 는 그대로 둔다 — 1 0 auto 라서 적을 땐 늘어나 바탕선이 비치지
+       않고, 많을 땐 줄지 않아 넘쳐서 밀린다. 세로 overflow 는 hidden 그대로라
+       둥근 모서리도 살아 있다. 봉 단위 칩(.cbar .seg)은 개수가 고정이라 둔다. */
+    #segTicker { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+    #segTicker::-webkit-scrollbar { display: none; }
+
     /* 종목 지우는 ×. 16×14px 였다 — 화면에서 제일 작은데 하는 일은 삭제다.
        글자는 그대로 두고 보이지 않는 판을 깔아 누를 자리를 넓힌다.
        세로로 44px 를 주면 윗줄과 아랫줄의 판이 겹쳐 엉뚱한 종목이 지워진다.
