@@ -487,6 +487,21 @@
     .tabs button { min-height: 44px; }
     .seg button { min-height: 40px; }
 
+    /* 조작 줄이 세 단이었다 — 종목칩 / 통화+환율 / 봉단위+지표 로 128px 를 먹어
+       차트가 화면의 절반 아래에서 시작했다. display: contents 로 두 판의 테두리를
+       지우고 아이들을 한 줄 상자에 쏟아 두 단으로 줄인다. 넓은 화면은 그대로다.
+       환율은 누르는 것이 아니라 읽는 것이라 제 줄을 가질 이유가 없었다. */
+    .ctrlwrap { display: flex; flex-wrap: wrap; align-items: center;
+      gap: 8px 12px; margin: 0 2px 12px; }
+    .ctrls, .cbar { display: contents; }
+    #segTicker { order: 1; }
+    .spacer { order: 2; flex-basis: 100%; height: 0; }  /* 줄바꿈 자리 */
+    #segUnit { order: 3; }
+    #segCur  { order: 4; }
+    #rateInfo { order: 5; }
+    #foldInd { order: 6; }
+    .wide { display: none; }          /* "USD $" 는 "$" 로 — 120px 가 55px 가 된다 */
+
     /* 종목 지우는 ×. 16×14px 였다 — 화면에서 제일 작은데 하는 일은 삭제다.
        글자는 그대로 두고 보이지 않는 판을 깔아 누를 자리를 넓힌다.
        세로로 44px 를 주면 윗줄과 아랫줄의 판이 겹쳐 엉뚱한 종목이 지워진다.
@@ -675,12 +690,15 @@
 
   <div id="viewMain" hidden>
 
+  <!-- 폰에서는 이 둘을 한 판으로 합쳐 두 줄로 만든다. 자세한 건 640px 규칙. -->
+  <div class="ctrlwrap">
   <div class="ctrls">
     <div class="seg" id="segTicker"></div>
     <div class="spacer"></div>
     <div class="seg" id="segCur">
-      <button data-c="USD" aria-pressed="true">USD $</button>
-      <button data-c="KRW" aria-pressed="false">원화 ₩</button>
+      <!-- 폰에서는 기호만 남긴다. 한 줄에 봉단위·환율과 같이 서야 한다. -->
+      <button data-c="USD" aria-pressed="true"><span class="wide">USD </span>$</button>
+      <button data-c="KRW" aria-pressed="false"><span class="wide">원화 </span>₩</button>
     </div>
     <span class="rate" id="rateInfo"></span>
   </div>
@@ -706,6 +724,7 @@
       </div>
     </details>
   </div>
+  </div><!-- /ctrlwrap -->
 
   <div id="banner"></div>
 
@@ -1774,9 +1793,15 @@ function paint(d) {
 
     setTitle(d);
 
-    $('rateInfo').textContent = d.rate
+    // 폰에서는 이 글이 봉단위·통화와 한 줄을 나눠 쓴다. 182px 를 쓰면 줄이 넘어간다.
+    // 값만 남기고 기준일은 눌러 볼 수 있게 title 로 옮긴다.
+    const full = d.rate
       ? `USD/KRW ${d.rate.rate.toLocaleString()}${d.rate.baseDate ? ' · ' + d.rate.baseDate : ''}`
       : '환율 없음';
+    $('rateInfo').textContent = d.rate && innerWidth <= 640
+      ? `₩${Math.round(d.rate.rate).toLocaleString()}`
+      : full;
+    $('rateInfo').title = full;
 
     const age = d.at ? (Date.now() - new Date(d.at).getTime()) / 1000 : null;
     const stale = age === null || age > d.pollMs / 1000 * 3;
