@@ -506,7 +506,9 @@
        아래는 홈 인디케이터 위로 띄운다. env() 를 모르는 브라우저는 0 으로 본다. */
     .app { padding: calc(12px + env(safe-area-inset-top)) calc(11px + env(safe-area-inset-right))
                     calc(44px + env(safe-area-inset-bottom)) calc(11px + env(safe-area-inset-left)); }
-    .card { padding: 12px; border-radius: var(--radius); }
+    /* 아래쪽 .card 기본 규칙(padding 16px, 모서리 10px)이 뒤에 있어 이 줄은
+       여태 한 번도 안 먹었다. 이름을 두 번 적어 이긴다. */
+    .card.card { padding: 12px; border-radius: var(--radius); }
     .single { gap: 10px; }
     .top .bar { margin-left: 0; }
     /* 탭 줄을 위에 붙여 둔다. 글 목록이 수천 줄이라, 탭을 바꾸려고 맨 위까지
@@ -570,12 +572,48 @@
        rgb(215,225,240) — 대비 1.20 으로 안 보였다. 색 전환만 끄면 16.91 로
        따라온다. 누른 반응(:active)은 전환이 아니라 그대로 남는다. */
     .seg button { transition: none; }
+    /* 차트의 지금 값 배지. 흰 9px 글자가 빨강 바탕에서 밝게 3.71, 어둡게 2.99 로
+       AA 4.5 에 못 미쳤다. 파랑(내림)도 셈으로 밝게 3.7 이다. 배지 바탕은 모두 중간
+       밝기라 검은 글자가 낫다 — 빨강 5.66, 파랑 5.65, 어두운 테마 7 이상. */
+    .cnow { fill: #0a0a0b; }
+    /* 입력칸 안내 글자. 브라우저 기본 회색 rgb(117,117,117) 이 테마를 안 따라가
+       어두운 입력칸에서 3.52(시스템 어둡게)·4.13(손으로 어둡게)였다. 테마의
+       가장 옅은 글자색을 준다. 파이어폭스는 안내 글자를 반투명하게 깔아 불투명으로 편다. */
+    .fld::placeholder { color: var(--faint); opacity: 1; }
+    /* 도움 탭 곡소리 식의 굵은 글자. 선·게이지용 빨강(--fear)을 글자에 써 흰 바탕에서
+       3.71 이었다. 글자용 빨강으로 바꾼다. 아래쪽 .eq b 가 뒤에 있어 이름을 두 번 적는다. */
+    .eq.eq b { color: var(--fear-ink); }
+    /* 글 탭 라벨 모드의 눌린 단추. 흰 12px 글자가 파랑·빨강 바탕에서 밝게 3.71,
+       어둡게 2.45·2.99, 어두운 테마 회색(중립)에서 2.52~3.05 였다. 파랑·빨강은
+       중간 밝기라 검은 글자로, 중립은 테마에 따라 뒤집히는 카드색으로 준다
+       (밝은 테마 회색 #64646d 위에선 흰 글자라야 5.86). */
+    .plab button[aria-pressed="true"] { color: #0a0a0b; }
+    .plab button.x[aria-pressed="true"] { color: var(--surface-1); }
+    /* 라벨 줄은 한 줄로 버텼다. 글자를 200% 로 키우면(195px) 단추 셋과 '사전: …'
+       글자가 243px 까지 나가 화면이 옆으로 밀렸다 — 모자라면 다음 줄로 내린다.
+       390px 에선 한 줄에 다 들어가 그대로다. */
+    .pitem .plab { flex-wrap: wrap; }
+    /* 기간 칸 두 개도 한 줄로 버텼다. 글자 200%(195px)에서 기간 접기를 펴면 문서가
+       287px 까지 밀렸다 — 모자라면 둘째 날짜를 다음 줄로 내린다. 390px 에선 그대로다. */
+    .dates { flex-wrap: wrap; }
+    /* 카드의 곡소리 경보 태그. 흰 10.5px 글자가 --neg 바탕에서 밝게 3.71, 어둡게
+       2.99 였다. 판의 경보 알약이 이미 쓰는 진한 경보색(--alert-bg)으로 맞춘다 —
+       두 경보가 같은 색이 되고 흰 글자가 선다. 아래쪽 .tag.fear 가 뒤에 있어 이름을 겹친다. */
+    .tag.tag.fear { background: var(--alert-bg); }
     .mas { gap: 2px 8px; }
     .mas label { min-height: 44px; padding: 0 2px; }
     /* 평단 줄의 '선' 체크박스. 라벨까지 쳐도 누르는 높이가 20px 로 AA 24px 에
-       못 미쳤다. 옆 평단 입력칸 높이(28px)만큼 세운다. 글 탭의 .pnote 윗여백
-       10px 가 여기에도 걸려 있어, 그대로 세우면 줄이 40 -> 49px 로 커졌다 — 뺀다. */
-    .pgrp label.pnote { display: flex; align-items: center; min-height: 28px; margin-top: 0; }
+       못 미쳤다. 옆 평단 입력칸 높이(28px)만큼 세운다. */
+    .pgrp label.pnote { display: flex; align-items: center; min-height: 28px; }
+    /* 글 탭 구역의 .pnote(색 muted·12px·윗여백 10px)는 글 탭에 그런 요소가 없어
+       실시간 탭의 .pnote 에만 걸려, 위쪽 .pnote(faint·11px)를 덮고 있었다.
+       '0명' 이 제목보다 10px 처져 제목 줄이 20 -> 30px 가 됐다. 위쪽 뜻으로 되돌린다.
+       margin 줄임말은 .ptitle .pnote 의 margin-left: auto(오른쪽 붙임)를 지우니 쓰지 않는다. */
+    .pnote.pnote { font-size: 11px; color: var(--faint); margin-top: 0; }
+    /* 같은 꼴: 글 탭 라벨 찍는 줄의 .plab(윗여백 7px·12px)이 실시간 탭 기분·평단
+       라벨에 걸려, 라벨이 옆 단추·입력칸보다 3.5~4px 처졌다. 글 탭 줄은 그대로 두고
+       기분·평단 줄의 라벨만 위쪽 .plab(11.5px) 뜻으로 되돌린다. */
+    .pgrp > .plab { display: block; margin-top: 0; font-size: 11.5px; }
 
     /* 누를 자리를 손가락에 맞춘다. 재 보니 탭 37px, 종목칩·기간칩 31px 이었다.
        보이는 크기는 그대로 두고 누르는 높이만 키운다 — 촘촘한 판이 헐거워지면
@@ -619,7 +657,10 @@
     #cReset { position: relative; }
     #cReset::after { content: ''; position: absolute; left: -8px; right: -8px; bottom: 0;
       height: 32px; }
-    .tklist { row-gap: 12px; }
+    /* 아래쪽 .tklist 기본 규칙(gap: 6px)이 뒤에 있어 이 줄은 여태 한 번도 안
+       먹었다. 줄 간격이 33px 라 34px 판이 윗줄·아랫줄에서 1px 겹쳐 있었다.
+       이름을 두 번 적어 이긴다. */
+    .tklist.tklist { row-gap: 12px; }
     .tkchip .tkdel, .tkdel { position: relative; }
     .tkchip .tkdel::after, .tkdel::after {
       content: ''; position: absolute; left: 50%; top: 50%;

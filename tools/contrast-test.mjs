@@ -23,38 +23,7 @@ const js = async e => (await send('Runtime.evaluate', { expression: e, returnByV
 await send('Page.enable');   // 새 문서 전에 스크립트를 박으려면 이 판이 켜져 있어야 한다
 await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: W < 700 });
 
-const probe = `JSON.stringify((()=>{
-  const lin=c=>{c/=255;return c<=0.03928?c/12.92:Math.pow((c+0.055)/1.055,2.4)};
-  const L=([r,g,b])=>0.2126*lin(r)+0.7152*lin(g)+0.0722*lin(b);
-  const parse=s=>{const m=(s.match(/[\\d.]+/g)||[0,0,0]).map(Number);return [m[0],m[1],m[2],m[3]===undefined?1:m[3]]};
-  // 반투명 바탕은 밑에 깔린 것과 실제로 섞어야 한다 — 알파를 무시하면 거짓 대비가 나온다.
-  const bgOf=el=>{const st=[];let e=el;
-    while(e){const c=parse(getComputedStyle(e).backgroundColor);if(c[3]>0)st.push(c);if(c[3]>=1)break;e=e.parentElement}
-    let out=[255,255,255,1];
-    for(let i=st.length-1;i>=0;i--){const c=st[i];out=[0,1,2].map(k=>c[k]*c[3]+out[k]*(1-c[3])).concat(1)}
-    return out;};
-  const cr=(f,b)=>{const a=f[3];const m=[0,1,2].map(i=>f[i]*a+b[i]*(1-a));const l1=L(m),l2=L(b);const hi=Math.max(l1,l2),lo=Math.min(l1,l2);return (hi+0.05)/(lo+0.05)};
-  const seen=new Map();
-  document.querySelectorAll('body *').forEach(el=>{
-    const cs=getComputedStyle(el);
-    if(cs.visibility==='hidden'||cs.display==='none'||+cs.opacity===0)return;
-    const own=[...el.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());
-    if(!own)return;
-    const r=el.getBoundingClientRect(); if(r.width<1||r.height<1)return;
-    const fg=parse(cs.color), bg=bgOf(el);
-    const ratio=+cr(fg,bg).toFixed(2);
-    const big=(parseFloat(cs.fontSize)>=24)||(parseFloat(cs.fontSize)>=18.66&&+cs.fontWeight>=700);
-    if(ratio>=(big?3:4.5))return;
-    const key=el.tagName+'.'+el.className+'|'+cs.color+'|'+cs.fontSize;
-    if(seen.has(key)){seen.get(key).n++;return;}
-    seen.set(key,{sel:el.tagName.toLowerCase()+(el.className&&typeof el.className==='string'?'.'+el.className.trim().split(/\\s+/).join('.'):''),
-      text:(el.textContent||'').trim().slice(0,22),color:cs.color,bg:'rgb('+bg.slice(0,3).map(Math.round).join(',')+')',
-      size:cs.fontSize,weight:cs.fontWeight,ratio,big,n:1});
-  });
-  return {page:getComputedStyle(document.body).backgroundColor,doc:document.documentElement.scrollHeight,
-    scrollW:document.documentElement.scrollWidth,
-    bad:[...seen.values()].sort((a,b)=>a.ratio-b.ratio)};
-})())`;
+import { probe } from './contrast-probe.mjs';
 
 const tabs = process.argv[5] ? process.argv[5].split(',') : ['#tabBoard'];
 let injected = null;
@@ -82,5 +51,52 @@ for (const [scheme, manual] of [['light', null], ['dark', null], ['light', 'dark
     for (const b of res.bad) console.log(`  ${String(b.ratio).padStart(5)}  ${b.color} on ${b.bg}  ${b.size}/${b.weight}  ${b.sel}  x${b.n}  "${b.text}"`);
     if (!res.bad.length) console.log('  (AA 미달 없음)');
   }
+  // 평소엔 안 뜨는 상태. 기본으로 돌리면 못 보던 미달이 셋 다 여기서 나왔다.
+  // 서버에는 아무것도 보내지 않는다 — 라벨 단추는 누르면 /api/label 로 저장되므로
+  // 누르지 않고 aria-pressed 만 바꿔 눌린 모습을 만든다.
+  for (const [name, tab, setup] of [
+    ['경보', '#tabMain', `LAST.alert = 0; paint(LAST)`],           // 카드 곡소리 태그
+    ['경보', '#tabBoard', `LAST.alert = 0; paint(LAST)`],          // 판 경보 알약
+    ['라벨 모드', '#tabPosts', `document.querySelector('#pLabOn button[data-on="1"]').click()`],
+    // 가격 차트 가운데를 짚은 채로 — 십자선과 그 값 딱지(.xlab on .xlabbg)가 뜬다.
+    ['차트 짚기', '#tabMain', `document.querySelector('#cPrice').scrollIntoView({ block: 'center' })`],
+    // 실패·빈 상태. 서버는 건드리지 않고 페이지 안에서만 만든다.
+    ['실패', '#tabMain', `for (const k in LAST.tickers) LAST.tickers[k].error = 'HTTP 503 Service Unavailable (시험)';
+      paint(LAST); BAR.err = 'HTTP 503 Service Unavailable (시험)'; drawBars()`],
+    ['실패', '#tabBoard', `tkSay('✗ HTTP 503 Service Unavailable (시험)', 'no')`],
+    ['빈 목록', '#tabPosts', `const q = document.querySelector('#pQ'); q.value = '없는말시험ㅁㄴㅇㄹ'; q.dispatchEvent(new Event('input'))`],
+    // fetch 를 망가뜨리므로 맨 뒤에 둔다 — 다음 테마는 새로 불러온다.
+    ['실패', '#tabPosts', `window.fetch = () => Promise.reject(new Error('Failed to fetch (시험)')); loadPosts(true)`],
+  ]) {
+    await js(`document.querySelector('${tab}').click();'ok'`);
+    await new Promise(r => setTimeout(r, 1800));
+    await js(setup + ";'ok'");
+    if (name === '차트 짚기') {
+      await new Promise(r => setTimeout(r, 400));
+      const b = JSON.parse(await js(`JSON.stringify(document.querySelector('#cPrice').getBoundingClientRect())`));
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) });
+      // 툴팁(#ctip)은 .app 밖이라 테마 변수를 못 받아 늘 1.06 으로 잡힌다(사람 답 대기).
+      // 고치기 전까지 이 판에선 가린다 — 고치면 이 줄을 뺀다.
+      await js(`document.querySelector('#ctip').style.opacity = 0;'ok'`);
+    }
+    await new Promise(r => setTimeout(r, tab === '#tabPosts' ? 4000 : 800));   // 글은 다시 불러온다
+    if (name === '라벨 모드')   // 글 셋에 긍정·중립·부정을 하나씩 눌린 모습으로
+      await js(`[...document.querySelectorAll('#pList .plab')].slice(0, 3).forEach((p, i) =>
+        p.querySelectorAll('button').forEach((b, j) => b.setAttribute('aria-pressed', String(i === j))));'ok'`);
+    const res = JSON.parse(await js(probe));
+    // 딱지가 안 뜨면 '미달 없음' 은 잰 게 아니다 — 뜬 개수를 같이 적는다.
+    const CHECK = {
+      '차트 짚기#tabMain': `'값 딱지 ' + [...document.querySelectorAll('.xlab')].filter(t => t.getAttribute('opacity') === '1' && t.textContent).length + '개'`,
+      '실패#tabMain': `'.err ' + [...document.querySelectorAll('.err')].filter(e => e.getClientRects().length).length + '개'`,
+      '실패#tabBoard': `'tkMsg ' + JSON.stringify(document.querySelector('#tkMsg').textContent.slice(0, 12))`,
+      '빈 목록#tabPosts': `'빈 안내 ' + document.querySelector('#pList').textContent.includes('조건에 맞는 글이 없습니다')`,
+      '실패#tabPosts': `'실패 안내 ' + document.querySelector('#pCount').textContent.includes('불러오지 못했습니다')`,
+    }[name + tab];
+    const shown = CHECK ? ` · ${await js(CHECK)}` : '';
+    console.log(`\n== [숨은 상태: ${name}] ${tab} ${W}x${H} media:${scheme} manual:${manual || '-'} scrollW:${res.scrollW}${shown} ==`);
+    for (const b of res.bad) console.log(`  ${String(b.ratio).padStart(5)}  ${b.color} on ${b.bg}  ${b.size}/${b.weight}  ${b.sel}  x${b.n}  "${b.text}"`);
+    if (!res.bad.length) console.log('  (AA 미달 없음)');
+  }
 }
-process.exit(0);
+// 탭을 닫고 끝낸다. process.exit 는 소켓 닫는 중에 윈도우 node 를 죽인다.
+ws.close(); await fetch('http://127.0.0.1:9222/json/close/' + t.id);

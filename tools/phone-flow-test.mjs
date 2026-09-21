@@ -69,4 +69,4 @@ ok('스크롤해도 탭 줄이 화면에 있다', tabsTop >= 0 && tabsTop < 60, 
 
 console.log(bad ? `\n  ${bad}개 실패\n` : '\n  모두 통과\n');
 ws.close(); await fetch(`http://127.0.0.1:9222/json/close/${t.id}`);
-process.exit(bad ? 1 : 0);
+process.exitCode = bad ? 1 : 0;   // process.exit 는 소켓 닫는 중에 윈도우 node 를 죽인다(127)
