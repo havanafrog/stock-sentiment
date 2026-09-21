@@ -740,14 +740,16 @@
   </div>
 
   <div class="tabs" role="tablist">
-    <button id="tabBoard" role="tab" aria-selected="true">메인</button>
-    <button id="tabMain" role="tab" aria-selected="false">실시간</button>
-    <button id="tabAnalysis" role="tab" aria-selected="false">분석</button>
-    <button id="tabPosts" role="tab" aria-selected="false">글</button>
-    <button id="tabHelp" role="tab" aria-selected="false">사용법</button>
+    <!-- 탭과 판을 짝지어 둔다. 없으면 읽기 도구는 탭을 골라도 어느 판이 열렸는지
+         모르고, 판도 이름 없는 덩어리로 들린다. 숨긴 판은 hidden 이라 알아서 빠진다. -->
+    <button id="tabBoard" role="tab" aria-controls="viewBoard" aria-selected="true">메인</button>
+    <button id="tabMain" role="tab" aria-controls="viewMain" aria-selected="false">실시간</button>
+    <button id="tabAnalysis" role="tab" aria-controls="viewAnalysis" aria-selected="false">분석</button>
+    <button id="tabPosts" role="tab" aria-controls="viewPosts" aria-selected="false">글</button>
+    <button id="tabHelp" role="tab" aria-controls="viewHelp" aria-selected="false">사용법</button>
   </div>
 
-  <div id="viewBoard">
+  <div id="viewBoard" role="tabpanel" aria-labelledby="tabBoard">
     <div class="card">
       <div class="boardwrap">
         <table class="board" id="board"><thead id="boardHead"><tr>
@@ -782,7 +784,7 @@
     </div>
   </div><!-- /viewBoard -->
 
-  <div id="viewMain" hidden>
+  <div id="viewMain" role="tabpanel" aria-labelledby="tabMain" hidden>
 
   <!-- 폰에서는 이 둘을 한 판으로 합쳐 두 줄로 만든다. 자세한 건 640px 규칙. -->
   <div class="ctrlwrap">
@@ -856,11 +858,11 @@
   </div>
   </div><!-- /viewMain -->
 
-  <div id="viewAnalysis" hidden>
+  <div id="viewAnalysis" role="tabpanel" aria-labelledby="tabAnalysis" hidden>
     <iframe id="snapFrame" title="본주 × 레버리지 상관 분석" loading="lazy"></iframe>
   </div>
 
-  <div id="viewPosts" hidden>
+  <div id="viewPosts" role="tabpanel" aria-labelledby="tabPosts" hidden>
     <div class="ctrls">
       <div class="seg" id="pTicker"></div>
       <!-- 기분·정렬·라벨이 폰에서 각각 한 줄을 먹어 40px 씩 세 줄, 120px 였다.
@@ -927,7 +929,7 @@
     </div>
   </div>
 
-  <div class="foot" id="viewHelp" hidden>
+  <div class="foot" id="viewHelp" role="tabpanel" aria-labelledby="tabHelp" hidden>
     <h3>곡소리 지수</h3>
     <div class="eq">k     = 그 봉이 덮는 구간에 온 공포 글 수
 μ, σ  = 그 <b>종목</b> · 그 <b>미 동부 시각</b> · <b>같은 봉 길이</b>의 평소 공포 글 수
