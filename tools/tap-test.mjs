@@ -27,10 +27,13 @@ await send('Page.navigate', { url: URL_ });
 await sleep(9000);
 
 // 페이지 안에서 돈다. 보이는 누를 것마다 화면 가운데로 굴려 놓고 격자를 찍는다.
-const MEASURE = `(async () => {
+// 분석 탭은 index.html 을 iframe 으로 끼운 것이라 바깥에서 찍으면 iframe 만 잡힌다 —
+// 그 탭은 iframe 안 문서(DOC)에서 찍는다. iframe 은 제 키만큼 늘어나 안쪽 스크롤이 없다.
+const MEASURE = (DOC = 'document') => `(async () => {
+  const D = ${DOC}, getComputedStyle = e => D.defaultView.getComputedStyle(e);
   const SEL = 'button, a[href], input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab], [tabindex]:not([tabindex="-1"])';
   const out = [];
-  for (const el of document.querySelectorAll(SEL)) {
+  for (const el of D.querySelectorAll(SEL)) {
     if (!el.getClientRects().length || getComputedStyle(el).visibility === 'hidden') continue;
     if (el.disabled) continue;
     el.scrollIntoView({ block: 'center', inline: 'center' });
@@ -41,7 +44,7 @@ const MEASURE = `(async () => {
     let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, n = 0;
     for (let y = Math.floor(r.top - 40); y <= r.bottom + 40; y++)
       for (let x = Math.floor(r.left - 40); x <= r.right + 40; x++)
-        if (mine(document.elementFromPoint(x, y))) { n++; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+        if (mine(D.elementFromPoint(x, y))) { n++; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
     const name = (el.id ? '#' + el.id : el.tagName.toLowerCase() + (el.className ? '.' + String(el.className).split(' ')[0] : ''))
       + ' "' + (el.getAttribute('aria-label') || el.textContent || el.value || el.type || '').trim().replace(/\\s+/g, ' ').slice(0, 18) + '"';
     out.push({ name, box: Math.round(r.width) + 'x' + Math.round(r.height),
@@ -52,13 +55,17 @@ const MEASURE = `(async () => {
 })()`;
 
 let bad = 0;
-for (const [tab, label] of [['#tabBoard', '판'], ['#tabMain', '실시간'], ['#tabPosts', '글']]) {
+const FRAME = `document.querySelector('#snapFrame').contentDocument`;
+for (const [tab, label] of [['#tabBoard', '판'], ['#tabMain', '실시간'], ['#tabAnalysis', '분석'], ['#tabPosts', '글'], ['#tabHelp', '도움']]) {
   await js(`document.querySelector('${tab}').click()`);
-  await sleep(3000);
+  await sleep(tab === '#tabAnalysis' ? 8000 : 3000);   // iframe 이 불러와 제 키를 알릴 때까지
   await js(`document.querySelectorAll('details').forEach(d => d.open = true)`);
+  if (tab === '#tabAnalysis') await js(`${FRAME}.querySelectorAll('details').forEach(d => d.open = true)`);
   if (tab === '#tabMain') await js(`BAR.view = [BAR.rows.length - 30, BAR.rows.length - 1]; drawBars()`);
   await sleep(800);
-  const rows = await js(MEASURE);
+  const rows = tab === '#tabAnalysis'
+    ? [...await js(MEASURE()), ...(await js(MEASURE(FRAME))).map(r => ({ ...r, name: 'iframe ' + r.name }))]
+    : await js(MEASURE());
   const fails = rows.filter(r => r.w < 24 || r.h < 24);
   bad += fails.length;
   console.log(`\n== ${label} (${W}x${H})  누를 것 ${rows.length} · FAIL ${fails.length}`);
