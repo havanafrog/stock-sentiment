@@ -7,6 +7,7 @@
 // 헤드리스 크롬을 CDP 로 몰고 간다. 먼저 이렇게 띄워 두고 돌린다:
 //   chrome --headless=new --remote-debugging-port=9222 --user-data-dir=<빈폴더> about:blank
 //   node tools/theme-flip-test.mjs "http://127.0.0.1:8741/?k=<키>" [폭] [높이]
+import { probe } from './contrast-probe.mjs';
 const URL_ = process.argv[2];
 const W = +(process.argv[3] || 390), H = +(process.argv[4] || 844);
 const t = await (await fetch('http://127.0.0.1:9222/json/new?about:blank', { method: 'PUT' })).json();
@@ -45,6 +46,10 @@ for (const tab of ['#tabMain', '#tabPosts']) {
     await new Promise(r => setTimeout(r, 1500));   // 전환이 끝나고도 남을 만큼
     const low = (await measure()).filter(([, r]) => r < 4.5);
     ok(`${tab} ${from} -> ${to} 뒤집은 뒤 단추 글자 AA`, !low.length, low.map(([n, r]) => `${n} ${r}`).join(', '));
+    // 단추만이 아니다 — .card 바탕에도 전환이 걸려 있어 멈추면 카드 안 글자 전부가 탈이 난다.
+    const all = JSON.parse(await js(probe)).bad;
+    ok(`${tab} ${from} -> ${to} 뒤집은 뒤 모든 글자 AA`, !all.length,
+      all.slice(0, 4).map(b => `${b.sel} "${b.text}" ${b.ratio} (${b.color} on ${b.bg})`).join(', '));
   }
 }
 console.log(bad ? `\n  ${bad}개 실패\n` : '\n  모두 통과\n');
