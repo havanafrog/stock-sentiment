@@ -20,9 +20,14 @@ import fs from 'node:fs';
 const URL_ = process.argv[2];
 const W = +(process.argv[3] || 390), H = +(process.argv[4] || 844), only = process.argv[5];
 
-// 구역 이름 낱말 -> 탭. 위에서부터 먼저 맞는 것.
+// 구역 이름 낱말 -> 탭. 위에서부터 먼저 맞는 것. null 은 탭과 상관없는 구역이라
+// 거기 놓인 규칙은 어긋남을 안 본다 — '컨트롤'(.ctrl·.ctrls)은 판·실시간·글이 같이 쓴다.
 const SECTION = [[/분석/, '분석'], [/글 탭/, '글'], [/종목|순번|곡소리/, '판'],
-  [/컨트롤|차트|크로스헤어|실시간/, '실시간'], [/계산식/, '도움']];
+  [/차트|크로스헤어|실시간/, '실시간'], [/계산식/, '도움'], [/^(컨트롤|폰)$/, null]];
+// 구역 머리 없이 '종목 추가' 아래에 놓인 화면 배치 규칙. 판 규칙이 아니라 탭 판을
+// 짜는 것이라 어긋남에서 뺀다. 줄 번호는 고칠 때마다 밀려 선택자로 적는다.
+const LAYOUT = new Set(['.rate', '.single', '#cards, #feed', '.rail', '#pulseCard', '.fold',
+  '.fold > summary', '#foldOpts, #foldOpts::details-content', '#pLabOnWrap, #pLabWrap']);
 
 // ── 소스 줄 찾기 ── 주석을 지우고 공백을 뺀 CSS 에서 규칙 선택자를 차례로 찾는다.
 const src = fs.readFileSync(new URL('../live.html', import.meta.url), 'utf8');
@@ -34,8 +39,9 @@ const heads = [];   // [줄, 탭|null, 이름]
   while ((m = re.exec(css))) {
     // 구역 안의 설명 주석('라벨 찍는 줄.' 등)도 짧은 제목처럼 생겼다 — 탭 낱말이 든
     // 제목과 '폰'(탭과 상관없는 구역)만 구역을 바꾼다.
-    const name = m[1].trim(), tab = SECTION.find(([r]) => r.test(name))?.[1] ?? null;
-    if (!tab && name !== '폰') continue;
+    const name = m[1].trim(), hit = SECTION.find(([r]) => r.test(name));
+    if (!hit) continue;
+    const tab = hit[1];
     heads.push([line0 + css.slice(0, m.index).split('\n').length - 1, tab, name]);
   }
 }
@@ -122,7 +128,7 @@ for (const [tab, view, label] of [['#tabBoard', '#viewBoard', '판'], ['#tabMain
 const show = r => `  ${r.ln ?? '?'}줄 [${r.sec}] ${r.sel}\n      ` +
   Object.entries(r.tabs).map(([tb, el]) => `${tb}: ${el} { ${[...r.ps[tb]].join(', ')} }`).join('  ·  ');
 const used = rules.filter(r => Object.keys(r.tabs).length);
-const miss = used.filter(r => r.secTab && !r.tabs[r.secTab]);
+const miss = used.filter(r => r.secTab && !r.tabs[r.secTab] && !LAYOUT.has(r.sel));
 const multi = used.filter(r => only ? r.sel.includes(only) : Object.keys(r.tabs).length > 1);
 console.log(`\n== ${W}x${H}  규칙 ${rules.length} (소스 줄 못 찾음 ${rules.filter(r => !r.ln).length}) · 먹는 규칙 ${used.length}`);
 console.log(`\n-- 어긋남: 구역의 탭에선 안 먹고 다른 탭에서만 먹는다 ${miss.length}`);
