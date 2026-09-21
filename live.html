@@ -583,6 +583,12 @@
     /* 도움 탭 곡소리 식의 굵은 글자. 선·게이지용 빨강(--fear)을 글자에 써 흰 바탕에서
        3.71 이었다. 글자용 빨강으로 바꾼다. 아래쪽 .eq b 가 뒤에 있어 이름을 두 번 적는다. */
     .eq.eq b { color: var(--fear-ink); }
+    /* 글 탭 라벨 모드의 눌린 단추. 흰 12px 글자가 파랑·빨강 바탕에서 밝게 3.71,
+       어둡게 2.45·2.99, 어두운 테마 회색(중립)에서 2.52~3.05 였다. 파랑·빨강은
+       중간 밝기라 검은 글자로, 중립은 테마에 따라 뒤집히는 카드색으로 준다
+       (밝은 테마 회색 #64646d 위에선 흰 글자라야 5.86). */
+    .plab button[aria-pressed="true"] { color: #0a0a0b; }
+    .plab button.x[aria-pressed="true"] { color: var(--surface-1); }
     .mas { gap: 2px 8px; }
     .mas label { min-height: 44px; padding: 0 2px; }
     /* 평단 줄의 '선' 체크박스. 라벨까지 쳐도 누르는 높이가 20px 로 AA 24px 에
