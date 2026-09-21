@@ -46,5 +46,5 @@ for (const tab of ['#tabBoard', '#tabMain', '#tabAnalysis', '#tabPosts', '#tabHe
   for (const r of res.roots) console.log('        ' + r);
 }
 console.log(bad ? `\n  ${bad}개 탭이 옆으로 밀린다\n` : '\n  모두 통과\n');
-await fetch('http://127.0.0.1:9222/json/close/' + t.id);
-process.exit(bad ? 1 : 0);
+ws.close(); await fetch('http://127.0.0.1:9222/json/close/' + t.id);
+process.exitCode = bad ? 1 : 0;   // process.exit 는 소켓 닫는 중에 윈도우 node 를 죽인다(127)
