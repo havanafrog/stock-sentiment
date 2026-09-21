@@ -593,6 +593,10 @@
        '0명' 이 제목보다 10px 처져 제목 줄이 20 -> 30px 가 됐다. 위쪽 뜻으로 되돌린다.
        margin 줄임말은 .ptitle .pnote 의 margin-left: auto(오른쪽 붙임)를 지우니 쓰지 않는다. */
     .pnote.pnote { font-size: 11px; color: var(--faint); margin-top: 0; }
+    /* 같은 꼴: 글 탭 라벨 찍는 줄의 .plab(윗여백 7px·12px)이 실시간 탭 기분·평단
+       라벨에 걸려, 라벨이 옆 단추·입력칸보다 3.5~4px 처졌다. 글 탭 줄은 그대로 두고
+       기분·평단 줄의 라벨만 위쪽 .plab(11.5px) 뜻으로 되돌린다. */
+    .pgrp > .plab { display: block; margin-top: 0; font-size: 11.5px; }
 
     /* 누를 자리를 손가락에 맞춘다. 재 보니 탭 37px, 종목칩·기간칩 31px 이었다.
        보이는 크기는 그대로 두고 누르는 높이만 키운다 — 촘촘한 판이 헐거워지면
