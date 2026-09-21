@@ -523,8 +523,18 @@
       position: sticky; top: 0; z-index: 5;
       background: var(--page); margin-left: -11px; margin-right: -11px;
       margin-top: calc(-1 * env(safe-area-inset-top));
-      padding: env(safe-area-inset-top) 11px 0; }
-    .tabs button { padding-left: 10px; padding-right: 10px; }
+      padding: env(safe-area-inset-top) 11px 0;
+      /* 글자를 200% 로 키우면(195px 폭) 탭 다섯이 안 들어간다. 단추가 38px 로
+         줄며 한글이 한 자씩 꺾여 78px 높이의 세로 글씨가 됐고, 그래도 8px 가
+         넘쳐 화면 전체가 옆으로 밀렸다. 탭 줄만 옆으로 밀리게 가둔다 — 390px
+         에선 다 들어가 아무것도 안 바뀐다. */
+      overflow-x: auto; scrollbar-width: none; }
+    .tabs button { padding-left: 10px; padding-right: 10px;
+      white-space: nowrap; flex-shrink: 0; }
+    /* 옆으로 밀리게 가두면 줄 밖으로 삐져나온 것은 잘린다. 고른 탭 밑줄은 -1px
+       로 탭 줄 테두리에 걸쳐 있어 통째로 잘려 사라졌다 — 줄 안으로 들인다.
+       아래쪽 .tabs button 규칙이 뒤에 있어 이름을 두 번 적어 이긴다. */
+    .tabs.tabs button { margin-bottom: 0; }
     .ptxt { font-size: 14.5px; }
 
     /* 머리가 150px 를 먹었다. 로고와 제목을 줄여 첫 화면을 차트에 내준다. */
