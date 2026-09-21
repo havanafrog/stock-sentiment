@@ -32,23 +32,40 @@ const measure = async () => JSON.parse(await js(`JSON.stringify((()=>{
 
 let bad = 0;
 const ok = (l, c, x = '') => { if (!c) bad++; console.log(`  ${c ? 'PASS' : 'FAIL'}  ${l}${x ? '  ' + x : ''}`); };
-for (const tab of ['#tabMain', '#tabPosts']) {
+// 탭마다, 그리고 평소엔 안 뜨는 상태도 뒤집어 본다. 서버에는 아무것도 보내지 않는다 —
+// 라벨 단추는 누르면 /api/label 로 저장되므로 aria-pressed 만 바꿔 눌린 모습을 만든다.
+const PRESS = `[...document.querySelectorAll('#pList .plab')].slice(0, 3).forEach((p, i) =>
+  p.querySelectorAll('button').forEach((b, j) => b.setAttribute('aria-pressed', String(i === j))))`;
+for (const [tab, name, setup] of [
+  ['#tabMain', ''], ['#tabPosts', ''], ['#tabBoard', ''], ['#tabHelp', ''],
+  ['#tabBoard', '경보', `LAST.alert = 0; paint(LAST)`],
+  ['#tabMain', '경보', `LAST.alert = 0; paint(LAST)`],
+  ['#tabPosts', '라벨 모드', `document.querySelector('#pLabOn button[data-on="1"]').click()`],
+]) {
+  const label = tab + (name ? ` [${name}]` : '');
   for (const [from, to] of [['dark', 'light'], ['light', 'dark']]) {
     await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: from }] });
     await send('Page.navigate', { url: URL_ });
     await new Promise(r => setTimeout(r, 9000));
     await js(`document.querySelector('${tab}').click()`);
     await new Promise(r => setTimeout(r, 1800));
+    if (setup) {
+      await js(setup);
+      await new Promise(r => setTimeout(r, name === '라벨 모드' ? 4000 : 800));
+      if (name === '라벨 모드') await js(PRESS);
+    }
     // 뒤집기 전에 한 번 재야 한다. 헤드리스는 그림을 안 그려 색을 계산해 두지
     // 않는다 — 계산된 옛 색이 없으면 전환이 걸릴 것도 없어 버그가 안 드러난다.
+    // 단추만이 아니라 모든 글자를 미리 재 둔다(카드 바탕 등).
     await measure();
+    await js(probe);
     await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: to }] });
     await new Promise(r => setTimeout(r, 1500));   // 전환이 끝나고도 남을 만큼
     const low = (await measure()).filter(([, r]) => r < 4.5);
-    ok(`${tab} ${from} -> ${to} 뒤집은 뒤 단추 글자 AA`, !low.length, low.map(([n, r]) => `${n} ${r}`).join(', '));
+    ok(`${label} ${from} -> ${to} 뒤집은 뒤 단추 글자 AA`, !low.length, low.map(([n, r]) => `${n} ${r}`).join(', '));
     // 단추만이 아니다 — .card 바탕에도 전환이 걸려 있어 멈추면 카드 안 글자 전부가 탈이 난다.
     const all = JSON.parse(await js(probe)).bad;
-    ok(`${tab} ${from} -> ${to} 뒤집은 뒤 모든 글자 AA`, !all.length,
+    ok(`${label} ${from} -> ${to} 뒤집은 뒤 모든 글자 AA`, !all.length,
       all.slice(0, 4).map(b => `${b.sel} "${b.text}" ${b.ratio} (${b.color} on ${b.bg})`).join(', '));
   }
 }
