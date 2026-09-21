@@ -609,6 +609,12 @@
        세로로 44px 를 주면 윗줄과 아랫줄의 판이 겹쳐 엉뚱한 종목이 지워진다.
        세로는 34px 로 묶고 줄 간격을 벌려 떼어 놓는다 — 지우는 버튼은 빗나가는 것보다
        잘못 맞는 게 더 나쁘다. */
+    /* 차트를 확대하면 뜨는 '전체 보기'. 50×17px 로 AA 최소 24px 에도 못 미쳤다.
+       바로 아래 붙은 '곡소리 지수' 접기 손잡이를 덮으면 안 되니 아래로는 안
+       넓히고, 위(차트 설명 글자뿐)와 옆으로만 넓힌다. */
+    #cReset { position: relative; }
+    #cReset::after { content: ''; position: absolute; left: -8px; right: -8px; bottom: 0;
+      height: 32px; }
     .tklist { row-gap: 12px; }
     .tkchip .tkdel, .tkdel { position: relative; }
     .tkchip .tkdel::after, .tkdel::after {
@@ -756,6 +762,10 @@
     <button id="tabPosts" role="tab" aria-controls="viewPosts" aria-selected="false">글</button>
     <button id="tabHelp" role="tab" aria-controls="viewHelp" aria-selected="false">사용법</button>
   </div>
+
+  <!-- 판 다섯을 본문으로 묶는다. 읽기 도구의 '본문으로 건너뛰기' 가 머리와 탭 줄을
+       지나 여기로 바로 온다. 스타일이 없는 블록이라 치수는 그대로다. -->
+  <main>
 
   <div id="viewBoard" role="tabpanel" aria-labelledby="tabBoard">
     <div class="card">
@@ -981,6 +991,7 @@ z     = (k − μ) / σ
     <a href="https://github.com/havanafrog/stock-sentiment" target="_blank"
        rel="noreferrer">저장소 README</a> 에 있습니다.</p>
   </div>
+  </main>
 
   <p class="madeby">made by havanafrog</p>
 </div>
