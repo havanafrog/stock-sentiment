@@ -5,6 +5,10 @@
 // 다른 규칙에 져서 죽은 것(DEAD)이고, 그래도 안 바뀌면 원래 값과 같아 할 일이
 // 없는 것(같음)이다. 노치 top·탭 줄 margin·탭 padding 이 앞의 것이었다.
 //
+// 숨은 탭의 요소는 transform 같은 값을 늘 none 으로 읽는다 — 접기 화살표가 그래서
+// '같음' 으로 잘못 나왔다. 탭마다 열어 두고 화면에 그려진 요소만 재서 합친다.
+// 어느 한 탭에서라도 먹으면 먹은 것이다.
+//
 // 헤드리스 크롬을 CDP 로 몰고 간다. 먼저 이렇게 띄워 두고 돌린다:
 //   chrome --headless=new --remote-debugging-port=9222 --user-data-dir=<빈폴더> about:blank
 //   node tools/dead-css.mjs "http://127.0.0.1:8741/?k=<키>" [폭] [높이]
@@ -18,19 +22,7 @@ const send = (m, p = {}) => new Promise(res => { const n = ++id; w.set(n, res); 
 const js = async e => (await send('Runtime.evaluate', { expression: e, returnByValue: true })).result?.result?.value;
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
-await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: W < 700 });
-await send('Page.navigate', { url: URL_ });
-await sleep(9000);
-// 탭을 한 번씩 열어 그려지는 것들을 다 만들어 두고, 접기는 편다.
-for (const tab of ['#tabMain', '#tabAnalysis', '#tabPosts', '#tabHelp', '#tabBoard']) {
-  await js(`document.querySelector('${tab}').click()`);
-  await sleep(2500);
-}
-await js(`document.querySelectorAll('details').forEach(d => d.open = true)`);
-// 전환이 걸린 값은 빼도 바로 안 바뀌어 '같음' 으로 잘못 나온다 — 끄고 잰다.
-await js(`document.head.insertAdjacentHTML('beforeend', '<style>*, *::before, *::after { transition: none !important; }</style>')`);
-
-const rows = await js(`(() => {
+const MEASURE = `(() => {
   const out = [];
   const walk = (rules, inPhone) => {
     for (const r of rules) {
@@ -44,7 +36,11 @@ const rows = await js(`(() => {
     const m = s.match(/::?(after|before|details-content|-webkit-details-marker|-webkit-scrollbar)\\s*$/);
     if (m && m[1] === '-webkit-scrollbar') return [];
     const base = m ? s.slice(0, m.index) : s;
-    return [...document.querySelectorAll(base.trim() || '*')].map(el => [el, m ? '::' + m[1] : null]);
+    return [...document.querySelectorAll(base.trim() || '*')]
+      // 화면에 그려진 것만. display: none/contents 선언은 제 요소를 스스로 지우니
+      // 부모가 그려졌으면 센다.
+      .filter(el => el.getClientRects().length || el.parentElement?.getClientRects().length)
+      .map(el => [el, m ? '::' + m[1] : null]);
   });
   const snap = (ts, p) => ts.map(([el, ps]) => getComputedStyle(el, ps).getPropertyValue(p)).join('|');
   const check = r => {
@@ -55,29 +51,49 @@ const rows = await js(`(() => {
     const decls = saved.split(/;(?![^(]*\\))/).map(d => d.trim()).filter(Boolean)
       .map(d => [d.slice(0, d.indexOf(':')).trim(), d.slice(d.indexOf(':') + 1).replace(/!important/, '').trim()]);
     for (const [p, val] of decls) {
-      if (!ts.length) { out.push({ sel: r.selectorText, p, kind: '요소 없음' }); continue; }
-      const pri = r.style.getPropertyPriority(p);
+      if (!ts.length) { out.push({ sel: r.selectorText, p, val, kind: '요소 없음' }); continue; }
       const on = snap(ts, p);
-      // 값이 비었거나, 전환처럼 위에서 꺼 둔 것은 못 잰다.
+      // 값이 비었거나, 전환처럼 아래에서 꺼 둔 것은 못 잰다.
       if (!on.replace(/\\|/g, '') || /^transition/.test(p)) { out.push({ sel: r.selectorText, p, val, kind: '못 잼' }); continue; }
       r.style.removeProperty(p);
       const off = snap(ts, p);
       r.style.cssText = saved;
-      if (on !== off) continue;
+      if (on !== off) { out.push({ sel: r.selectorText, p, kind: '먹음' }); continue; }
       r.style.setProperty(p, val, 'important');
       const forced = snap(ts, p);
       r.style.cssText = saved;
       out.push({ sel: r.selectorText, p, val: val.slice(0, 40), kind: forced !== on ? 'DEAD' : '같음',
-        now: on.split('|')[0].slice(0, 30), want: forced.split('|')[0].slice(0, 30), n: ts.length, pri });
+        now: on.split('|')[0].slice(0, 30), want: forced.split('|')[0].slice(0, 30) });
     }
   };
   for (const s of document.styleSheets) walk(s.cssRules, false);
   return out;
-})()`);
+})()`;
+
+await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: W < 700 });
+await send('Page.navigate', { url: URL_ });
+await sleep(9000);
+// 전환이 걸린 값은 빼도 바로 안 바뀌어 '같음' 으로 잘못 나온다 — 끄고 잰다.
+await js(`document.head.insertAdjacentHTML('beforeend', '<style>*, *::before, *::after { transition: none !important; }</style>')`);
+
+const RANK = ['먹음', 'DEAD', '같음', '못 잼', '요소 없음'];
+const merged = new Map();
+for (const tab of ['#tabBoard', '#tabMain', '#tabAnalysis', '#tabPosts', '#tabHelp']) {
+  await js(`document.querySelector('${tab}').click()`);
+  await sleep(2500);
+  await js(`document.querySelectorAll('details').forEach(d => d.open = true)`);
+  if (tab === '#tabMain') await js(`BAR.view = [BAR.rows.length - 30, BAR.rows.length - 1]; drawBars()`);
+  await sleep(500);
+  for (const r of await js(MEASURE)) {
+    const k = r.sel + '|' + r.p, old = merged.get(k);
+    if (!old || RANK.indexOf(r.kind) < RANK.indexOf(old.kind)) merged.set(k, r);
+  }
+}
+const rows = [...merged.values()].filter(r => r.kind !== '먹음');
 
 const dead = rows.filter(r => r.kind === 'DEAD');
-console.log(`\n== ${W}x${H}  안 먹은 선언 ${rows.length}  (DEAD ${dead.length} · 같음 ${rows.filter(r => r.kind === '같음').length} · 요소 없음 ${rows.filter(r => r.kind === '요소 없음').length} · 못 잼 ${rows.filter(r => r.kind === '못 잼').length})`);
-for (const k of ['DEAD', '같음', '요소 없음', '못 잼'])
+console.log(`\n== ${W}x${H}  안 먹은 선언 ${rows.length}  (` + RANK.slice(1).map(k => `${k} ${rows.filter(r => r.kind === k).length}`).join(' · ') + ')');
+for (const k of RANK.slice(1))
   for (const r of rows.filter(r => r.kind === k))
     console.log(`  ${k.padEnd(5)} ${r.sel}  { ${r.p}: ${r.val ?? ''} }${k === 'DEAD' ? `  먹은 값 ${r.now} / 정한 값 ${r.want}` : ''}`);
 ws.close(); await fetch('http://127.0.0.1:9222/json/close/' + t.id);
