@@ -50,6 +50,15 @@
     --hairline: #eaeaee;
     --pos: #3182f6;             /* 감정 긍정 = blue500 */
     --neg: #f04452;             /* 감정 부정 = red500 */
+    /* 글자로 쓰는 파랑·빨강. 원래 색은 흰 카드(#ffffff) 위에서 둘 다 대비 3.71 이라
+       11~13px 글자가 AA 4.5 에 못 미쳤다 — 등락률, 점수, '오른다/내린다' 가 전부
+       이 색이다. 색조(215/355)와 채도는 그대로 두고 밝기만 내린다.
+       선·점·막대·칠한 바탕은 tossinvest 실측값 그대로 --pos/--neg 를 쓴다.
+       칠해지는 네 배경(카드 #ffffff, 지면 #f7f7f8, 고른 줄 #e8f3ff, 칩 #f1f1f3) 에서
+       전부 4.5 를 넘게 맞췄다 — --faint 때와 같은 기준이다.
+       #0a66ea 5.12 / 4.78 / 4.55 / 4.54,  #db1222 5.10 / 4.76 / 4.54 / 4.52 */
+    --pos-ink: #0a66ea;
+    --neg-ink: #db1222;
     --neutral: #f1f1f3;
     --accent-wash: #e8f3ff;     /* blue50 */
     --fear: #f04452;            /* 공포 선·게이지 (red500) */
@@ -63,6 +72,11 @@
     --radius-lg: 10px;          /* 패널 */
     --ring: inset 0 0 0 1px rgba(9, 9, 11, 0.10);    /* 그림자를 안 쓴다. 깊이는 선이 낸다 */
     --on-solid: #ffffff;        /* 진한 배경 위 글자 */
+    /* 곡소리 경보 알약 바탕. --fear 그대로면 흰 글자가 밝은 화면 3.71, 어두운 화면
+       (#f66570) 2.99 였다. 색조(355)는 두고 밝기만 내려 흰 글자 4.58 로 맞춘다.
+       두 테마에서 같은 값이라 어두운 쪽은 따로 안 적는다 — 여기 값을 물려받는다.
+       선·게이지는 --fear 그대로다. */
+    --alert-bg: #e91324;
   }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) .app {
@@ -75,10 +89,21 @@
          로 띄워 재 보니 #6b7684 은 카드 바탕(#1f2027) 위에서 대비 3.52 — 11~12px
          글자인데 AA 기준 4.5 에 못 미친다. 접기 손잡이("곡소리 지수"·"거르개"),
          판의 종목 이름, 표 머리글이 전부 이 색이었다. 밝기만 올려 4.71 로 맞춘다.
-         (--muted 5.34 와 차이가 좁아지지만 위아래는 그대로다) */
-      --text-primary: #f2f4f6; --text-secondary: #b0b8c1; --muted: #8b95a1; --faint: #828c9a;
+         (--muted 5.34 와 차이가 좁아지지만 위아래는 그대로다)
+         그때 잰 바탕은 카드와 지면뿐이었다. 판에서 고른 줄은 그 위에 --accent-wash
+         (rgba(100,168,255,.14)) 가 한 겹 더 깔려 rgb(41,51,69) 로 밝아진다 — 거기서
+         #828c9a 는 3.73, --muted #8b95a1 도 4.18 로 도로 기준 밑이었다. 칩 바탕
+         (--neutral #2b2d35) 위 × 단추도 4.03 이다. 제일 밝은 바탕인 고른 줄을
+         기준으로 다시 올린다. 흐림 순서(secondary > muted > faint)는 그대로다.
+           --faint #939ca8  고른줄 4.57 / 칩 4.94 / 카드 5.84 / 지면 6.43
+           --muted #9ca4af  고른줄 5.06 / 칩 5.47 / 카드 6.46 / 지면 7.11 */
+      --text-primary: #f2f4f6; --text-secondary: #b0b8c1; --muted: #9ca4af; --faint: #939ca8;
       --grid: #2b2d35; --border: rgba(255, 255, 255, 0.07); --hairline: #2b2d35;
       --pos: #64a8ff; --neg: #f66570; --neutral: #2b2d35;
+      /* 고른 줄(rgb(41,51,69)) 위에서 --neg 그대로는 4.24 였다. 색조는 두고 밝기만
+         올린다 — 파랑은 5.19 라 그대로 둔다.
+           --neg-ink #f76f7a  고른줄 4.54 / 칩 4.91 / 카드 5.80 / 지면 6.39 */
+      --pos-ink: #64a8ff; --neg-ink: #f76f7a;
       --accent-wash: rgba(100, 168, 255, 0.14);
         --fear: #f66570;
     --fear-bg: #2e1517; --fear-ink: #feafb4; --fear-bd: rgba(246, 101, 112, .35);
@@ -101,10 +126,18 @@
        카드(#101012) 둘뿐인데 2.99 / 2.88 이었다. 색조(240)는 두고 밝기만 올린다.
        --muted 는 4.79 / 4.60 이라 기준은 넘지만 faint 자리가 없어 같이 올린다.
        --faint #7e7e8a 지면 4.94 / 카드 4.74, --muted #888891 지면 5.63 / 카드 5.41 —
-       prefers-color-scheme 쪽(4.71 / 5.34)과 같은 간격이다. */
-    --text-primary: #f4f4f5; --text-secondary: #a1a1aa; --muted: #888891; --faint: #7e7e8a;
+       prefers-color-scheme 쪽(4.71 / 5.34)과 같은 간격이다.
+       여기서도 고른 줄을 빠뜨렸다 — --accent-wash 가 한 겹 깔려 rgb(28,37,51) 로
+       밝아지고, 거기서 #7e7e8a 는 3.85, #888891 은 4.39 다. 칩(--neutral #18181c)
+       위 × 단추도 4.42 였다. 제일 밝은 바탕인 고른 줄 기준으로 다시 올린다.
+         --faint #8b8b96  고른줄 4.57 / 칩 5.25 / 카드 5.63 / 지면 5.87
+         --muted #93939b  고른줄 5.05 / 칩 5.80 / 카드 6.22 / 지면 6.48 */
+    --text-primary: #f4f4f5; --text-secondary: #a1a1aa; --muted: #93939b; --faint: #8b8b96;
     --grid: #202024; --border: rgba(255, 255, 255, 0.10); --hairline: #1d1d21;
     --pos: #64a8ff; --neg: #f66570; --neutral: #18181c;
+    /* 손으로 고른 어두움은 바탕이 더 어두워 고른 줄 위에서도 빨강 5.15 / 파랑 6.31
+       이라 원래 색 그대로 둔다. */
+    --pos-ink: #64a8ff; --neg-ink: #f66570;
     --accent-wash: rgba(100, 168, 255, 0.14);
     --fear: #f66570;
     --fear-bg: #2e1517; --fear-ink: #feafb4; --fear-bd: rgba(246, 101, 112, .35);
@@ -213,8 +246,8 @@
     width: var(--fill); background: currentColor; opacity: .12; transition: width .25s ease; }
   /* 글자는 전부 요소로 감싸 둔다. 맨 텍스트는 z 순서를 못 가져서 위 덮개에 깔린다. */
   .vote button > * { position: relative; }
-  .vote button[data-v="U"] { color: var(--up); }
-  .vote button[data-v="D"] { color: var(--down); }
+  .vote button[data-v="U"] { color: var(--neg-ink); }
+  .vote button[data-v="D"] { color: var(--pos-ink); }
   /* 고른 쪽은 색으로 꽉 채운다. 테두리 한 줄로는 무엇을 골랐는지 멀리서 안 보인다. */
   .vote button[data-v="U"][aria-pressed="true"] { background: var(--up); }
   .vote button[data-v="D"][aria-pressed="true"] { background: var(--down); }
@@ -225,8 +258,8 @@
   .vote button:disabled, .mood button:disabled { cursor: default; opacity: .55; }
   .fld.avg { flex: 0 0 84px; width: 84px; padding: 5px 9px; font-size: 12px; }
   .pnl { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .pnl.up { color: var(--up); }
-  .pnl.down { color: var(--down); }
+  .pnl.up { color: var(--neg-ink); }
+  .pnl.down { color: var(--pos-ink); }
 
   /* 큰 퍼센트 옆 단위 이름. 토스는 시각별 등락률을 안 준다 — 주는 건 전일 종가와
      지금 값뿐이라 분 단위는 서버가 1분에 한 점씩 찍는 계열에서 직접 낸다. */
@@ -288,7 +321,7 @@
   .ctip .r b { font-variant-numeric: tabular-nums; }
   .ctip .sep { border-top: 1px solid var(--hairline); margin: 5px 0; }
   .lnk { border: 0; background: none; padding: 0 0 0 6px; font: inherit; cursor: pointer;
-    color: var(--pos); text-decoration: underline; text-underline-offset: 2px; }
+    color: var(--pos-ink); text-decoration: underline; text-underline-offset: 2px; }
 
   /* 실시간 그래프 */
   .charts { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border); }
@@ -337,8 +370,8 @@
   .ph { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted);
     margin-bottom: 3px; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
   .ph .ps { font-weight: 600; }
-  .ph .ps.p { color: var(--pos); }
-  .ph .ps.n { color: var(--neg); }
+  .ph .ps.p { color: var(--pos-ink); }
+  .ph .ps.n { color: var(--neg-ink); }
   .ph .pf { color: var(--fear-ink); background: var(--fear-bg); border: 1px solid var(--fear-bd);
     border-radius: 5px; padding: 0 5px; font-weight: 600; }
   .ptxt { font-size: 13.5px; line-height: 1.55; color: var(--text-primary); overflow-wrap: anywhere;
@@ -359,7 +392,7 @@
   .plab button.n[aria-pressed="true"] { background: var(--neg); }
   .plab button.x[aria-pressed="true"] { background: var(--muted); }
   .plab .pdict { margin-left: 4px; color: var(--muted); }
-  .plab .pdict.bad { color: var(--neg); font-weight: 600; }
+  .plab .pdict.bad { color: var(--neg-ink); font-weight: 600; }
   .pkeys { font-size: 11.5px; color: var(--muted); margin: 0 0 10px; }
   .pkeys kbd { font: inherit; font-size: 11px; padding: 1px 5px; border-radius: 4px;
     border: 1px solid var(--border); background: var(--surface-1); color: var(--text-secondary); }
@@ -398,7 +431,7 @@
   /* 순번. 정렬을 바꾸면 순서가 바뀌므로 이게 있어야 몇 번째인지 읽힌다. */
   .board .rk { width: 30px; padding-left: 10px; color: var(--faint); font-weight: 600; }
   .board tr[aria-selected="true"] .rk { box-shadow: inset 3px 0 0 var(--pos);
-    color: var(--pos); }
+    color: var(--pos-ink); }
 
   /* 종목 — 심볼 위, 한글 이름 아래. 한 줄에 몰면 이름이 길 때 표가 밀린다. */
   .board .sym { font-weight: 600; line-height: 18px; }
@@ -409,19 +442,19 @@
   .board .chg { line-height: 18px; }
   .board .chgv { display: block; font-size: 12px; font-weight: 400; opacity: .75;
     line-height: 16px; }
-  .board .up { color: var(--up); }
-  .board .down { color: var(--down); }
+  .board .up { color: var(--neg-ink); }
+  .board .down { color: var(--pos-ink); }
 
   /* 전일 대비 거래량. 100% 를 넘으면 오늘 몰린다는 뜻이라 눈에 띄어야 한다. */
   .board .rel { display: block; color: var(--faint); font-size: 12px; font-weight: 400;
     line-height: 16px; }
-  .board .rel.hot { color: var(--up); font-weight: 600; opacity: 1; }
+  .board .rel.hot { color: var(--neg-ink); font-weight: 600; opacity: 1; }
 
   /* 곡소리. 경보만 알약으로 띄운다 — 다 띄우면 아무것도 안 띄운 것과 같다. */
   .board .idx { font-weight: 600; }
   /* 값이 없는 게 대부분이다. 없는 칸이 있는 칸만큼 진해선 안 된다. */
   .board .idx.none { color: var(--faint); font-weight: 400; }
-  .board .idx.alert { color: #fff; background: var(--fear); border-radius: 5px;
+  .board .idx.alert { color: #fff; background: var(--alert-bg); border-radius: 5px;
     padding: 3px 7px; }
   .board .fdot { display: inline-block; width: 5px; height: 5px; border-radius: 50%;
     background: var(--neg); margin-left: 5px; vertical-align: middle; }
@@ -490,8 +523,26 @@
       position: sticky; top: 0; z-index: 5;
       background: var(--page); margin-left: -11px; margin-right: -11px;
       margin-top: calc(-1 * env(safe-area-inset-top));
-      padding: env(safe-area-inset-top) 11px 0; }
-    .tabs button { padding-left: 10px; padding-right: 10px; }
+      padding: env(safe-area-inset-top) 11px 0;
+      /* 글자를 200% 로 키우면(195px 폭) 탭 다섯이 안 들어간다. 단추가 38px 로
+         줄며 한글이 한 자씩 꺾여 78px 높이의 세로 글씨가 됐고, 그래도 8px 가
+         넘쳐 화면 전체가 옆으로 밀렸다. 탭 줄만 옆으로 밀리게 가둔다 — 390px
+         에선 다 들어가 아무것도 안 바뀐다. */
+      overflow-x: auto; scrollbar-width: none; }
+    .tabs button { white-space: nowrap; flex-shrink: 0; }
+    /* 옆으로 밀리게 가두면 줄 밖으로 삐져나온 것은 잘린다. 고른 탭 밑줄은 -1px
+       로 탭 줄 테두리에 걸쳐 있어 통째로 잘려 사라졌다 — 줄 안으로 들인다.
+       아래쪽 .tabs button 규칙이 뒤에 있어 이름을 두 번 적어 이긴다. */
+    .tabs.tabs button { margin-bottom: 0; }
+    /* 좌우 여백 10px 는 여기 있다가 아래쪽 기본 규칙(padding: 8px 13px)에 져서
+       여태 한 번도 안 먹었다. 390px 에선 탭이 다 들어가 줄일 이유가 없고, 줄이면
+       '글' 탭 누를 폭만 38 -> 32px 로 좁아진다. 글자를 키워 폭이 모자랄 때만
+       줄인다 — 200%(195px)에서 끝까지 보이는 탭이 셋에서 넷이 되고, 150%
+       (260px)에선 다섯이 다 들어간다. 13px 로 다섯이 다 들어가려면 278px 가
+       든다 — 그보다 좁을 때만 줄인다. */
+    @media (max-width: 280px) {
+      .tabs.tabs button { padding-left: 10px; padding-right: 10px; }
+    }
     .ptxt { font-size: 14.5px; }
 
     /* 머리가 150px 를 먹었다. 로고와 제목을 줄여 첫 화면을 차트에 내준다. */
@@ -509,6 +560,16 @@
     #foldOpts, #foldOpts::details-content { display: block; }
 
     /* 체크박스가 한 변 16px 였다. 상자는 그대로 두고 누르는 넓이만 손가락에 맞춘다. */
+    /* 글자를 200% 로 키우면(195px 폭) 기분 줄의 '쓰담 · 한 대' 단추가 카드
+       밖 204px 까지 나가 화면이 옆으로 밀렸다. 줄 안의 것들은 전부 nowrap 이라
+       줄지 못한다 — 자리가 모자라면 다음 줄로 내려보낸다. 390px 에선 한 줄에
+       다 들어가 그대로다. */
+    .pgrp { flex-wrap: wrap; }
+    /* 띄운 채 시스템 테마를 어둡게 -> 밝게 뒤집으면 크롬이 전환 중인 색을 옛 값에
+       멈춰 둬, 글 탭의 고른 칩(거르개·정렬·찍기)이 글자 #f2f4f6 에 바탕
+       rgb(215,225,240) — 대비 1.20 으로 안 보였다. 색 전환만 끄면 16.91 로
+       따라온다. 누른 반응(:active)은 전환이 아니라 그대로 남는다. */
+    .seg button { transition: none; }
     .mas { gap: 2px 8px; }
     .mas label { min-height: 44px; padding: 0 2px; }
 
@@ -581,7 +642,7 @@
   .px { font-size: 26px; font-weight: 650; letter-spacing: -.02em; margin: 10px 0 2px;
         font-variant-numeric: tabular-nums; }
   .pxd { font-size: 12.5px; font-variant-numeric: tabular-nums; }
-  .up { color: var(--neg); } .down { color: var(--pos); }
+  .up { color: var(--neg-ink); } .down { color: var(--pos-ink); }
 
   .rows { margin-top: 14px; display: grid; gap: 9px; }
   .row { display: grid; grid-template-columns: 62px 1fr auto; align-items: center; gap: 10px;
@@ -615,7 +676,7 @@
   .post.f .x { color: var(--fear-ink); font-weight: 500; }
   :root:where(:not([data-theme="dark"])) .card:not(.fear) .post.f .x { color: var(--fear-ink); }
 
-  .err { font-size: 12.5px; color: var(--neg); margin-top: 10px; }
+  .err { font-size: 12.5px; color: var(--neg-ink); margin-top: 10px; }
   .foot { font-size: 12.5px; color: var(--text-secondary); margin-top: 22px;
           background: var(--surface-1); border: 1px solid var(--border);
           border-radius: var(--radius-lg); padding: 18px 20px; max-width: 760px; }
@@ -640,7 +701,7 @@
   .tkchip .tkdel { appearance: none; border: 0; background: none; cursor: pointer;
     font: inherit; font-size: 14px; line-height: 1; color: var(--faint);
     padding: 0 3px; border-radius: 50%; }
-  .tkchip .tkdel:hover { color: var(--neg); }
+  .tkchip .tkdel:hover { color: var(--neg-ink); }
   .tkrow { display: flex; align-items: center; gap: 10px; padding: 9px 0;
     border-bottom: 1px solid var(--hairline); font-size: 12.5px; }
   .tkrow b { font-weight: 700; }
@@ -649,7 +710,7 @@
   .tkrow .st.warm { color: var(--fear-ink); }
   .tkdel { border: 0; background: none; color: var(--muted); cursor: pointer;
     font: inherit; font-size: 11.5px; text-decoration: underline; text-underline-offset: 2px; padding: 2px 4px; }
-  .tkdel:hover { color: var(--neg); }
+  .tkdel:hover { color: var(--neg-ink); }
 
   /* 계산식 */
   .eq { background: none; border-left: 2px solid var(--hairline); border-radius: 0;
@@ -687,14 +748,16 @@
   </div>
 
   <div class="tabs" role="tablist">
-    <button id="tabBoard" role="tab" aria-selected="true">메인</button>
-    <button id="tabMain" role="tab" aria-selected="false">실시간</button>
-    <button id="tabAnalysis" role="tab" aria-selected="false">분석</button>
-    <button id="tabPosts" role="tab" aria-selected="false">글</button>
-    <button id="tabHelp" role="tab" aria-selected="false">사용법</button>
+    <!-- 탭과 판을 짝지어 둔다. 없으면 읽기 도구는 탭을 골라도 어느 판이 열렸는지
+         모르고, 판도 이름 없는 덩어리로 들린다. 숨긴 판은 hidden 이라 알아서 빠진다. -->
+    <button id="tabBoard" role="tab" aria-controls="viewBoard" aria-selected="true">메인</button>
+    <button id="tabMain" role="tab" aria-controls="viewMain" aria-selected="false">실시간</button>
+    <button id="tabAnalysis" role="tab" aria-controls="viewAnalysis" aria-selected="false">분석</button>
+    <button id="tabPosts" role="tab" aria-controls="viewPosts" aria-selected="false">글</button>
+    <button id="tabHelp" role="tab" aria-controls="viewHelp" aria-selected="false">사용법</button>
   </div>
 
-  <div id="viewBoard">
+  <div id="viewBoard" role="tabpanel" aria-labelledby="tabBoard">
     <div class="card">
       <div class="boardwrap">
         <table class="board" id="board"><thead id="boardHead"><tr>
@@ -729,7 +792,7 @@
     </div>
   </div><!-- /viewBoard -->
 
-  <div id="viewMain" hidden>
+  <div id="viewMain" role="tabpanel" aria-labelledby="tabMain" hidden>
 
   <!-- 폰에서는 이 둘을 한 판으로 합쳐 두 줄로 만든다. 자세한 건 640px 규칙. -->
   <div class="ctrlwrap">
@@ -803,11 +866,11 @@
   </div>
   </div><!-- /viewMain -->
 
-  <div id="viewAnalysis" hidden>
+  <div id="viewAnalysis" role="tabpanel" aria-labelledby="tabAnalysis" hidden>
     <iframe id="snapFrame" title="본주 × 레버리지 상관 분석" loading="lazy"></iframe>
   </div>
 
-  <div id="viewPosts" hidden>
+  <div id="viewPosts" role="tabpanel" aria-labelledby="tabPosts" hidden>
     <div class="ctrls">
       <div class="seg" id="pTicker"></div>
       <!-- 기분·정렬·라벨이 폰에서 각각 한 줄을 먹어 40px 씩 세 줄, 120px 였다.
@@ -867,13 +930,14 @@
       <div class="feed-head" id="pCount">불러오는 중…</div>
       <p class="pkeys" id="pKeys" hidden>글을 누르고 <kbd>1</kbd> 긍정 · <kbd>2</kbd> 중립 · <kbd>3</kbd> 부정 —
       찍으면 다음 글로 넘어갑니다. <kbd>↑</kbd><kbd>↓</kbd> 로 오갑니다.</p>
-      <div class="plist" id="pList"></div>
+      <!-- 읽기 도구에 글 목록이라고 알린다. 몇 건인지 먼저 들린다. -->
+      <div class="plist" id="pList" role="list"></div>
       <div class="pmore"><button class="btn" id="pMore" hidden>더 보기</button></div>
 
     </div>
   </div>
 
-  <div class="foot" id="viewHelp" hidden>
+  <div class="foot" id="viewHelp" role="tabpanel" aria-labelledby="tabHelp" hidden>
     <h3>곡소리 지수</h3>
     <div class="eq">k     = 그 봉이 덮는 구간에 온 공포 글 수
 μ, σ  = 그 <b>종목</b> · 그 <b>미 동부 시각</b> · <b>같은 봉 길이</b>의 평소 공포 글 수
@@ -1928,12 +1992,15 @@ function paintPosts() {
     + (d.total ? '' : ' — 아직 수집한 글이 없습니다. collect 를 먼저 돌리세요.');
 
   $('pCount').innerHTML += P.label && d.labeled != null
-    ? ` · <span style="color:var(--pos)">찍음 ${d.labeled.toLocaleString()}건</span>` : '';
+    ? ` · <span style="color:var(--pos-ink)">찍음 ${d.labeled.toLocaleString()}건</span>` : '';
 
+  // 글 머리(날짜·시각·점수·공포)를 제목으로 둔다. 읽기 도구는 글 목록을 한 덩어리
+  // 580 노드로 받아, 다음 글로 가려면 글자·점수·시각을 하나씩 다 들어야 했다.
+  // 제목이 있으면 VoiceOver 로터·TalkBack 제목 이동으로 글 단위로 건너뛴다.
   $('pList').innerHTML = P.rows.length
     ? P.rows.map(r => `
-      <div class="pitem${r.f ? ' f' : ''}"${P.label ? ' tabindex="0" data-id="' + r.id + '"' : ''}>
-        <div class="ph">
+      <div class="pitem${r.f ? ' f' : ''}" role="listitem"${P.label ? ' tabindex="0" data-id="' + r.id + '"' : ''}>
+        <div class="ph" role="heading" aria-level="3">
           <span>${fmtYMD(r.at)}</span><span>${fmtHM(r.at)}</span>
           <span class="ps ${r.s > 0 ? 'p' : r.s < 0 ? 'n' : ''}">${sgn(r.s)}</span>
           ${r.f ? '<span class="pf">공포</span>' : ''}
@@ -1943,7 +2010,7 @@ function paintPosts() {
         ${P.label ? labRow(r) : ''}
         ${r.img ? `<div class="pimg"><img src="${esc(r.img)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>` : ''}
       </div>`).join('')
-    : '<div class="pitem"><div class="ptxt" style="color:var(--muted)">조건에 맞는 글이 없습니다</div></div>';
+    : '<div class="pitem" role="listitem"><div class="ptxt" style="color:var(--muted)">조건에 맞는 글이 없습니다</div></div>';
 
   $('pMore').hidden = P.page + 1 >= d.pages;
   $('pMore').textContent = `더 보기 (${P.rows.length.toLocaleString()} / ${d.matched.toLocaleString()})`;
