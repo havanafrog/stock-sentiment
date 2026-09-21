@@ -72,6 +72,11 @@
     --radius-lg: 10px;          /* 패널 */
     --ring: inset 0 0 0 1px rgba(9, 9, 11, 0.10);    /* 그림자를 안 쓴다. 깊이는 선이 낸다 */
     --on-solid: #ffffff;        /* 진한 배경 위 글자 */
+    /* 곡소리 경보 알약 바탕. --fear 그대로면 흰 글자가 밝은 화면 3.71, 어두운 화면
+       (#f66570) 2.99 였다. 색조(355)는 두고 밝기만 내려 흰 글자 4.58 로 맞춘다.
+       두 테마에서 같은 값이라 어두운 쪽은 따로 안 적는다 — 여기 값을 물려받는다.
+       선·게이지는 --fear 그대로다. */
+    --alert-bg: #e91324;
   }
   @media (prefers-color-scheme: dark) {
     :root:where(:not([data-theme="light"])) .app {
@@ -449,7 +454,7 @@
   .board .idx { font-weight: 600; }
   /* 값이 없는 게 대부분이다. 없는 칸이 있는 칸만큼 진해선 안 된다. */
   .board .idx.none { color: var(--faint); font-weight: 400; }
-  .board .idx.alert { color: #fff; background: var(--fear); border-radius: 5px;
+  .board .idx.alert { color: #fff; background: var(--alert-bg); border-radius: 5px;
     padding: 3px 7px; }
   .board .fdot { display: inline-block; width: 5px; height: 5px; border-radius: 50%;
     background: var(--neg); margin-left: 5px; vertical-align: middle; }

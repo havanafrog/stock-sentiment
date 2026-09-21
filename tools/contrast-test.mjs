@@ -75,6 +75,8 @@ for (const [scheme, manual] of [['light', null], ['dark', null], ['light', 'dark
   for (const tab of tabs) {
     await js(`document.querySelector('${tab}')?.click();'ok'`);
     await new Promise(r => setTimeout(r, 1800));
+    // 자료에 따라 뜨고 안 뜨는 것(경보 알약 등)은 여섯째 인자의 JS 로 억지로 띄워 잰다.
+    if (process.argv[6]) await js(process.argv[6] + ";'ok'");
     const res = JSON.parse(await js(probe));
     console.log(`\n== ${tab} ${W}x${H} media:${scheme} manual:${manual || '-'} page:${res.page} doc:${res.doc} scrollW:${res.scrollW} ==`);
     for (const b of res.bad) console.log(`  ${String(b.ratio).padStart(5)}  ${b.color} on ${b.bg}  ${b.size}/${b.weight}  ${b.sel}  x${b.n}  "${b.text}"`);
