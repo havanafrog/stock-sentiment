@@ -7,8 +7,9 @@
 //   chrome --headless=new --remote-debugging-port=9222 --user-data-dir=<빈폴더> about:blank
 //   node tools/contrast-test.mjs "http://127.0.0.1:8741/?k=<키>" 390 844 "#tabBoard,#tabMain,#tabPosts"
 //
-// 주의: manual:dark / manual:light 줄은 띄운 뒤에 테마를 뒤집은 값이라, 크롬이
-// 전환 중인 속성을 갱신 안 해 옛 색이 남을 수 있다. 그 자체가 볼 거리이긴 하다.
+// 테마 넷(시스템 밝음·어두움 × 손으로 고른 어두움·밝음)을 각각 새로 띄워 잰다.
+// 띄운 채로 테마만 뒤집으면 크롬이 전환 중인 속성을 갱신 안 해 옛 색이 남는다 —
+// 그 상태의 값은 화면에 실제로 칠해진 값이 아니라 갱신 버그의 값이다.
 const URL_ = process.argv[2];
 const W = +(process.argv[3] || 390), H = +(process.argv[4] || 844);
 const t = await (await fetch('http://127.0.0.1:9222/json/new?about:blank', { method: 'PUT' })).json();
@@ -19,9 +20,8 @@ await new Promise(r => ws.addEventListener('open', r));
 const send = (m, p = {}) => new Promise(res => { const n = ++id; waiting.set(n, res); ws.send(JSON.stringify({ id: n, method: m, params: p })); });
 const js = async e => (await send('Runtime.evaluate', { expression: e, returnByValue: true })).result?.result?.value;
 
+await send('Page.enable');   // 새 문서 전에 스크립트를 박으려면 이 판이 켜져 있어야 한다
 await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceScaleFactor: 1, mobile: W < 700 });
-await send('Page.navigate', { url: URL_ });
-await new Promise(r => setTimeout(r, 9000));
 
 const probe = `JSON.stringify((()=>{
   const lin=c=>{c/=255;return c<=0.03928?c/12.92:Math.pow((c+0.055)/1.055,2.4)};
@@ -56,15 +56,25 @@ const probe = `JSON.stringify((()=>{
     bad:[...seen.values()].sort((a,b)=>a.ratio-b.ratio)};
 })())`;
 
-const setTheme = v => js(v ? `document.documentElement.setAttribute('data-theme','${v}');'ok'` : `document.documentElement.removeAttribute('data-theme');'ok'`);
 const tabs = process.argv[5] ? process.argv[5].split(',') : ['#tabBoard'];
-for (const tab of tabs) {
-  await js(`document.querySelector('${tab}').click();'ok'`);
-  await new Promise(r => setTimeout(r, 1800));
-  for (const [scheme, manual] of [['light', null], ['dark', null], ['light', 'dark'], ['dark', 'light']]) {
-    await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: scheme }] });
-    await setTheme(manual);
-    await new Promise(r => setTimeout(r, 400));
+let injected = null;
+for (const [scheme, manual] of [['light', null], ['dark', null], ['light', 'dark'], ['dark', 'light']]) {
+  await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: scheme }] });
+  // 손으로 고른 테마는 첫 그림 전에 박아야 한다 — 뒤에 붙이면 갱신 버그에 걸린다.
+  if (injected) await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: injected });
+  injected = manual
+    ? (await send('Page.addScriptToEvaluateOnNewDocument', {
+        // 새 문서가 생기는 순간엔 <html> 이 아직 없다 — 생기자마자 박고 그만둔다.
+        source: `new MutationObserver((m,o)=>{if(document.documentElement){
+          document.documentElement.setAttribute('data-theme','${manual}');o.disconnect();}})
+          .observe(document,{childList:true})` })).result?.identifier
+    : null;
+  // 박힌 값이 진짜 들어갔는지는 아래 page: 색으로 드러난다 — 안 들어가면 테마가 안 바뀐다.
+  await send('Page.navigate', { url: URL_ });
+  await new Promise(r => setTimeout(r, 9000));
+  for (const tab of tabs) {
+    await js(`document.querySelector('${tab}')?.click();'ok'`);
+    await new Promise(r => setTimeout(r, 1800));
     const res = JSON.parse(await js(probe));
     console.log(`\n== ${tab} ${W}x${H} media:${scheme} manual:${manual || '-'} page:${res.page} doc:${res.doc} scrollW:${res.scrollW} ==`);
     for (const b of res.bad) console.log(`  ${String(b.ratio).padStart(5)}  ${b.color} on ${b.bg}  ${b.size}/${b.weight}  ${b.sel}  x${b.n}  "${b.text}"`);
