@@ -572,6 +572,10 @@
     .seg button { transition: none; }
     .mas { gap: 2px 8px; }
     .mas label { min-height: 44px; padding: 0 2px; }
+    /* 평단 줄의 '선' 체크박스. 라벨까지 쳐도 누르는 높이가 20px 로 AA 24px 에
+       못 미쳤다. 옆 평단 입력칸 높이(28px)만큼 세운다. 글 탭의 .pnote 윗여백
+       10px 가 여기에도 걸려 있어, 그대로 세우면 줄이 40 -> 49px 로 커졌다 — 뺀다. */
+    .pgrp label.pnote { display: flex; align-items: center; min-height: 28px; margin-top: 0; }
 
     /* 누를 자리를 손가락에 맞춘다. 재 보니 탭 37px, 종목칩·기간칩 31px 이었다.
        보이는 크기는 그대로 두고 누르는 높이만 키운다 — 촘촘한 판이 헐거워지면
