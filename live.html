@@ -619,7 +619,10 @@
     #cReset { position: relative; }
     #cReset::after { content: ''; position: absolute; left: -8px; right: -8px; bottom: 0;
       height: 32px; }
-    .tklist { row-gap: 12px; }
+    /* 아래쪽 .tklist 기본 규칙(gap: 6px)이 뒤에 있어 이 줄은 여태 한 번도 안
+       먹었다. 줄 간격이 33px 라 34px 판이 윗줄·아랫줄에서 1px 겹쳐 있었다.
+       이름을 두 번 적어 이긴다. */
+    .tklist.tklist { row-gap: 12px; }
     .tkchip .tkdel, .tkdel { position: relative; }
     .tkchip .tkdel::after, .tkdel::after {
       content: ''; position: absolute; left: 50%; top: 50%;
