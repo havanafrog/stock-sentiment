@@ -106,6 +106,13 @@ for (const [scheme, manual] of [['light', null], ['dark', null], ['light', 'dark
     ['라벨 모드', '#tabPosts', `document.querySelector('#pLabOn button[data-on="1"]').click()`],
     // 가격 차트 가운데를 짚은 채로 — 십자선과 그 값 딱지(.xlab on .xlabbg)가 뜬다.
     ['차트 짚기', '#tabMain', `document.querySelector('#cPrice').scrollIntoView({ block: 'center' })`],
+    // 실패·빈 상태. 서버는 건드리지 않고 페이지 안에서만 만든다.
+    ['실패', '#tabMain', `for (const k in LAST.tickers) LAST.tickers[k].error = 'HTTP 503 Service Unavailable (시험)';
+      paint(LAST); BAR.err = 'HTTP 503 Service Unavailable (시험)'; drawBars()`],
+    ['실패', '#tabBoard', `tkSay('✗ HTTP 503 Service Unavailable (시험)', 'no')`],
+    ['빈 목록', '#tabPosts', `const q = document.querySelector('#pQ'); q.value = '없는말시험ㅁㄴㅇㄹ'; q.dispatchEvent(new Event('input'))`],
+    // fetch 를 망가뜨리므로 맨 뒤에 둔다 — 다음 테마는 새로 불러온다.
+    ['실패', '#tabPosts', `window.fetch = () => Promise.reject(new Error('Failed to fetch (시험)')); loadPosts(true)`],
   ]) {
     await js(`document.querySelector('${tab}').click();'ok'`);
     await new Promise(r => setTimeout(r, 1800));
@@ -118,14 +125,21 @@ for (const [scheme, manual] of [['light', null], ['dark', null], ['light', 'dark
       // 고치기 전까지 이 판에선 가린다 — 고치면 이 줄을 뺀다.
       await js(`document.querySelector('#ctip').style.opacity = 0;'ok'`);
     }
-    await new Promise(r => setTimeout(r, name === '라벨 모드' ? 4000 : 800));
+    await new Promise(r => setTimeout(r, tab === '#tabPosts' ? 4000 : 800));   // 글은 다시 불러온다
     if (name === '라벨 모드')   // 글 셋에 긍정·중립·부정을 하나씩 눌린 모습으로
       await js(`[...document.querySelectorAll('#pList .plab')].slice(0, 3).forEach((p, i) =>
         p.querySelectorAll('button').forEach((b, j) => b.setAttribute('aria-pressed', String(i === j))));'ok'`);
     const res = JSON.parse(await js(probe));
     // 딱지가 안 뜨면 '미달 없음' 은 잰 게 아니다 — 뜬 개수를 같이 적는다.
-    const shown = name === '차트 짚기' ? ` · 값 딱지 ${await js(`[...document.querySelectorAll('.xlab')].filter(t => t.getAttribute('opacity') === '1' && t.textContent).length`)}개` : '';
-    console.log(`\n== [숨은 상태: ${name}] ${tab} ${W}x${H} media:${scheme} manual:${manual || '-'}${shown} ==`);
+    const CHECK = {
+      '차트 짚기#tabMain': `'값 딱지 ' + [...document.querySelectorAll('.xlab')].filter(t => t.getAttribute('opacity') === '1' && t.textContent).length + '개'`,
+      '실패#tabMain': `'.err ' + [...document.querySelectorAll('.err')].filter(e => e.getClientRects().length).length + '개'`,
+      '실패#tabBoard': `'tkMsg ' + JSON.stringify(document.querySelector('#tkMsg').textContent.slice(0, 12))`,
+      '빈 목록#tabPosts': `'빈 안내 ' + document.querySelector('#pList').textContent.includes('조건에 맞는 글이 없습니다')`,
+      '실패#tabPosts': `'실패 안내 ' + document.querySelector('#pCount').textContent.includes('불러오지 못했습니다')`,
+    }[name + tab];
+    const shown = CHECK ? ` · ${await js(CHECK)}` : '';
+    console.log(`\n== [숨은 상태: ${name}] ${tab} ${W}x${H} media:${scheme} manual:${manual || '-'} scrollW:${res.scrollW}${shown} ==`);
     for (const b of res.bad) console.log(`  ${String(b.ratio).padStart(5)}  ${b.color} on ${b.bg}  ${b.size}/${b.weight}  ${b.sel}  x${b.n}  "${b.text}"`);
     if (!res.bad.length) console.log('  (AA 미달 없음)');
   }
