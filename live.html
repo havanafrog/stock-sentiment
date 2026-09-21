@@ -50,6 +50,15 @@
     --hairline: #eaeaee;
     --pos: #3182f6;             /* 감정 긍정 = blue500 */
     --neg: #f04452;             /* 감정 부정 = red500 */
+    /* 글자로 쓰는 파랑·빨강. 원래 색은 흰 카드(#ffffff) 위에서 둘 다 대비 3.71 이라
+       11~13px 글자가 AA 4.5 에 못 미쳤다 — 등락률, 점수, '오른다/내린다' 가 전부
+       이 색이다. 색조(215/355)와 채도는 그대로 두고 밝기만 내린다.
+       선·점·막대·칠한 바탕은 tossinvest 실측값 그대로 --pos/--neg 를 쓴다.
+       칠해지는 네 배경(카드 #ffffff, 지면 #f7f7f8, 고른 줄 #e8f3ff, 칩 #f1f1f3) 에서
+       전부 4.5 를 넘게 맞췄다 — --faint 때와 같은 기준이다.
+       #0a66ea 5.12 / 4.78 / 4.55 / 4.54,  #db1222 5.10 / 4.76 / 4.54 / 4.52 */
+    --pos-ink: #0a66ea;
+    --neg-ink: #db1222;
     --neutral: #f1f1f3;
     --accent-wash: #e8f3ff;     /* blue50 */
     --fear: #f04452;            /* 공포 선·게이지 (red500) */
@@ -79,6 +88,8 @@
       --text-primary: #f2f4f6; --text-secondary: #b0b8c1; --muted: #8b95a1; --faint: #828c9a;
       --grid: #2b2d35; --border: rgba(255, 255, 255, 0.07); --hairline: #2b2d35;
       --pos: #64a8ff; --neg: #f66570; --neutral: #2b2d35;
+      /* 어두운 화면에선 원래 색이 이미 AA 를 넘는다 — 글자용을 따로 낮출 이유가 없다. */
+      --pos-ink: #64a8ff; --neg-ink: #f66570;
       --accent-wash: rgba(100, 168, 255, 0.14);
         --fear: #f66570;
     --fear-bg: #2e1517; --fear-ink: #feafb4; --fear-bd: rgba(246, 101, 112, .35);
@@ -105,6 +116,8 @@
     --text-primary: #f4f4f5; --text-secondary: #a1a1aa; --muted: #888891; --faint: #7e7e8a;
     --grid: #202024; --border: rgba(255, 255, 255, 0.10); --hairline: #1d1d21;
     --pos: #64a8ff; --neg: #f66570; --neutral: #18181c;
+    /* 어두운 화면에선 원래 색이 이미 AA 를 넘는다 — 글자용을 따로 낮출 이유가 없다. */
+    --pos-ink: #64a8ff; --neg-ink: #f66570;
     --accent-wash: rgba(100, 168, 255, 0.14);
     --fear: #f66570;
     --fear-bg: #2e1517; --fear-ink: #feafb4; --fear-bd: rgba(246, 101, 112, .35);
@@ -213,8 +226,8 @@
     width: var(--fill); background: currentColor; opacity: .12; transition: width .25s ease; }
   /* 글자는 전부 요소로 감싸 둔다. 맨 텍스트는 z 순서를 못 가져서 위 덮개에 깔린다. */
   .vote button > * { position: relative; }
-  .vote button[data-v="U"] { color: var(--up); }
-  .vote button[data-v="D"] { color: var(--down); }
+  .vote button[data-v="U"] { color: var(--neg-ink); }
+  .vote button[data-v="D"] { color: var(--pos-ink); }
   /* 고른 쪽은 색으로 꽉 채운다. 테두리 한 줄로는 무엇을 골랐는지 멀리서 안 보인다. */
   .vote button[data-v="U"][aria-pressed="true"] { background: var(--up); }
   .vote button[data-v="D"][aria-pressed="true"] { background: var(--down); }
@@ -225,8 +238,8 @@
   .vote button:disabled, .mood button:disabled { cursor: default; opacity: .55; }
   .fld.avg { flex: 0 0 84px; width: 84px; padding: 5px 9px; font-size: 12px; }
   .pnl { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .pnl.up { color: var(--up); }
-  .pnl.down { color: var(--down); }
+  .pnl.up { color: var(--neg-ink); }
+  .pnl.down { color: var(--pos-ink); }
 
   /* 큰 퍼센트 옆 단위 이름. 토스는 시각별 등락률을 안 준다 — 주는 건 전일 종가와
      지금 값뿐이라 분 단위는 서버가 1분에 한 점씩 찍는 계열에서 직접 낸다. */
@@ -288,7 +301,7 @@
   .ctip .r b { font-variant-numeric: tabular-nums; }
   .ctip .sep { border-top: 1px solid var(--hairline); margin: 5px 0; }
   .lnk { border: 0; background: none; padding: 0 0 0 6px; font: inherit; cursor: pointer;
-    color: var(--pos); text-decoration: underline; text-underline-offset: 2px; }
+    color: var(--pos-ink); text-decoration: underline; text-underline-offset: 2px; }
 
   /* 실시간 그래프 */
   .charts { margin-top: 12px; padding-top: 11px; border-top: 1px solid var(--border); }
@@ -337,8 +350,8 @@
   .ph { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted);
     margin-bottom: 3px; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
   .ph .ps { font-weight: 600; }
-  .ph .ps.p { color: var(--pos); }
-  .ph .ps.n { color: var(--neg); }
+  .ph .ps.p { color: var(--pos-ink); }
+  .ph .ps.n { color: var(--neg-ink); }
   .ph .pf { color: var(--fear-ink); background: var(--fear-bg); border: 1px solid var(--fear-bd);
     border-radius: 5px; padding: 0 5px; font-weight: 600; }
   .ptxt { font-size: 13.5px; line-height: 1.55; color: var(--text-primary); overflow-wrap: anywhere;
@@ -359,7 +372,7 @@
   .plab button.n[aria-pressed="true"] { background: var(--neg); }
   .plab button.x[aria-pressed="true"] { background: var(--muted); }
   .plab .pdict { margin-left: 4px; color: var(--muted); }
-  .plab .pdict.bad { color: var(--neg); font-weight: 600; }
+  .plab .pdict.bad { color: var(--neg-ink); font-weight: 600; }
   .pkeys { font-size: 11.5px; color: var(--muted); margin: 0 0 10px; }
   .pkeys kbd { font: inherit; font-size: 11px; padding: 1px 5px; border-radius: 4px;
     border: 1px solid var(--border); background: var(--surface-1); color: var(--text-secondary); }
@@ -398,7 +411,7 @@
   /* 순번. 정렬을 바꾸면 순서가 바뀌므로 이게 있어야 몇 번째인지 읽힌다. */
   .board .rk { width: 30px; padding-left: 10px; color: var(--faint); font-weight: 600; }
   .board tr[aria-selected="true"] .rk { box-shadow: inset 3px 0 0 var(--pos);
-    color: var(--pos); }
+    color: var(--pos-ink); }
 
   /* 종목 — 심볼 위, 한글 이름 아래. 한 줄에 몰면 이름이 길 때 표가 밀린다. */
   .board .sym { font-weight: 600; line-height: 18px; }
@@ -409,13 +422,13 @@
   .board .chg { line-height: 18px; }
   .board .chgv { display: block; font-size: 12px; font-weight: 400; opacity: .75;
     line-height: 16px; }
-  .board .up { color: var(--up); }
-  .board .down { color: var(--down); }
+  .board .up { color: var(--neg-ink); }
+  .board .down { color: var(--pos-ink); }
 
   /* 전일 대비 거래량. 100% 를 넘으면 오늘 몰린다는 뜻이라 눈에 띄어야 한다. */
   .board .rel { display: block; color: var(--faint); font-size: 12px; font-weight: 400;
     line-height: 16px; }
-  .board .rel.hot { color: var(--up); font-weight: 600; opacity: 1; }
+  .board .rel.hot { color: var(--neg-ink); font-weight: 600; opacity: 1; }
 
   /* 곡소리. 경보만 알약으로 띄운다 — 다 띄우면 아무것도 안 띄운 것과 같다. */
   .board .idx { font-weight: 600; }
@@ -581,7 +594,7 @@
   .px { font-size: 26px; font-weight: 650; letter-spacing: -.02em; margin: 10px 0 2px;
         font-variant-numeric: tabular-nums; }
   .pxd { font-size: 12.5px; font-variant-numeric: tabular-nums; }
-  .up { color: var(--neg); } .down { color: var(--pos); }
+  .up { color: var(--neg-ink); } .down { color: var(--pos-ink); }
 
   .rows { margin-top: 14px; display: grid; gap: 9px; }
   .row { display: grid; grid-template-columns: 62px 1fr auto; align-items: center; gap: 10px;
@@ -615,7 +628,7 @@
   .post.f .x { color: var(--fear-ink); font-weight: 500; }
   :root:where(:not([data-theme="dark"])) .card:not(.fear) .post.f .x { color: var(--fear-ink); }
 
-  .err { font-size: 12.5px; color: var(--neg); margin-top: 10px; }
+  .err { font-size: 12.5px; color: var(--neg-ink); margin-top: 10px; }
   .foot { font-size: 12.5px; color: var(--text-secondary); margin-top: 22px;
           background: var(--surface-1); border: 1px solid var(--border);
           border-radius: var(--radius-lg); padding: 18px 20px; max-width: 760px; }
@@ -640,7 +653,7 @@
   .tkchip .tkdel { appearance: none; border: 0; background: none; cursor: pointer;
     font: inherit; font-size: 14px; line-height: 1; color: var(--faint);
     padding: 0 3px; border-radius: 50%; }
-  .tkchip .tkdel:hover { color: var(--neg); }
+  .tkchip .tkdel:hover { color: var(--neg-ink); }
   .tkrow { display: flex; align-items: center; gap: 10px; padding: 9px 0;
     border-bottom: 1px solid var(--hairline); font-size: 12.5px; }
   .tkrow b { font-weight: 700; }
@@ -649,7 +662,7 @@
   .tkrow .st.warm { color: var(--fear-ink); }
   .tkdel { border: 0; background: none; color: var(--muted); cursor: pointer;
     font: inherit; font-size: 11.5px; text-decoration: underline; text-underline-offset: 2px; padding: 2px 4px; }
-  .tkdel:hover { color: var(--neg); }
+  .tkdel:hover { color: var(--neg-ink); }
 
   /* 계산식 */
   .eq { background: none; border-left: 2px solid var(--hairline); border-radius: 0;
@@ -1928,7 +1941,7 @@ function paintPosts() {
     + (d.total ? '' : ' — 아직 수집한 글이 없습니다. collect 를 먼저 돌리세요.');
 
   $('pCount').innerHTML += P.label && d.labeled != null
-    ? ` · <span style="color:var(--pos)">찍음 ${d.labeled.toLocaleString()}건</span>` : '';
+    ? ` · <span style="color:var(--pos-ink)">찍음 ${d.labeled.toLocaleString()}건</span>` : '';
 
   $('pList').innerHTML = P.rows.length
     ? P.rows.map(r => `
