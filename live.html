@@ -589,6 +589,10 @@
        (밝은 테마 회색 #64646d 위에선 흰 글자라야 5.86). */
     .plab button[aria-pressed="true"] { color: #0a0a0b; }
     .plab button.x[aria-pressed="true"] { color: var(--surface-1); }
+    /* 카드의 곡소리 경보 태그. 흰 10.5px 글자가 --neg 바탕에서 밝게 3.71, 어둡게
+       2.99 였다. 판의 경보 알약이 이미 쓰는 진한 경보색(--alert-bg)으로 맞춘다 —
+       두 경보가 같은 색이 되고 흰 글자가 선다. 아래쪽 .tag.fear 가 뒤에 있어 이름을 겹친다. */
+    .tag.tag.fear { background: var(--alert-bg); }
     .mas { gap: 2px 8px; }
     .mas label { min-height: 44px; padding: 0 2px; }
     /* 평단 줄의 '선' 체크박스. 라벨까지 쳐도 누르는 높이가 20px 로 AA 24px 에
