@@ -95,6 +95,26 @@ for (const [scheme, manual] of [['light', null], ['dark', null], ['light', 'dark
     for (const b of res.bad) console.log(`  ${String(b.ratio).padStart(5)}  ${b.color} on ${b.bg}  ${b.size}/${b.weight}  ${b.sel}  x${b.n}  "${b.text}"`);
     if (!res.bad.length) console.log('  (AA 미달 없음)');
   }
+  // 평소엔 안 뜨는 상태. 기본으로 돌리면 못 보던 미달이 셋 다 여기서 나왔다.
+  // 서버에는 아무것도 보내지 않는다 — 라벨 단추는 누르면 /api/label 로 저장되므로
+  // 누르지 않고 aria-pressed 만 바꿔 눌린 모습을 만든다.
+  for (const [name, tab, setup] of [
+    ['경보', '#tabMain', `LAST.alert = 0; paint(LAST)`],           // 카드 곡소리 태그
+    ['경보', '#tabBoard', `LAST.alert = 0; paint(LAST)`],          // 판 경보 알약
+    ['라벨 모드', '#tabPosts', `document.querySelector('#pLabOn button[data-on="1"]').click()`],
+  ]) {
+    await js(`document.querySelector('${tab}').click();'ok'`);
+    await new Promise(r => setTimeout(r, 1800));
+    await js(setup + ";'ok'");
+    await new Promise(r => setTimeout(r, name === '라벨 모드' ? 4000 : 800));
+    if (name === '라벨 모드')   // 글 셋에 긍정·중립·부정을 하나씩 눌린 모습으로
+      await js(`[...document.querySelectorAll('#pList .plab')].slice(0, 3).forEach((p, i) =>
+        p.querySelectorAll('button').forEach((b, j) => b.setAttribute('aria-pressed', String(i === j))));'ok'`);
+    const res = JSON.parse(await js(probe));
+    console.log(`\n== [숨은 상태: ${name}] ${tab} ${W}x${H} media:${scheme} manual:${manual || '-'} ==`);
+    for (const b of res.bad) console.log(`  ${String(b.ratio).padStart(5)}  ${b.color} on ${b.bg}  ${b.size}/${b.weight}  ${b.sel}  x${b.n}  "${b.text}"`);
+    if (!res.bad.length) console.log('  (AA 미달 없음)');
+  }
 }
 // 탭을 닫고 끝낸다. process.exit 는 소켓 닫는 중에 윈도우 node 를 죽인다.
 ws.close(); await fetch('http://127.0.0.1:9222/json/close/' + t.id);

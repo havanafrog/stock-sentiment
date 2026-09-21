@@ -31,9 +31,9 @@ await sleep(9000);
 // 페이지 안에서 돈다. 보이는 누를 것마다 화면 가운데로 굴려 놓고 격자를 찍는다.
 // 분석 탭은 index.html 을 iframe 으로 끼운 것이라 바깥에서 찍으면 iframe 만 잡힌다 —
 // 그 탭은 iframe 안 문서(DOC)에서 찍는다. iframe 은 제 키만큼 늘어나 안쪽 스크롤이 없다.
-const MEASURE = (DOC = 'document') => `(async () => {
+const MEASURE = (DOC = 'document', ONLY = '') => `(async () => {
   const D = ${DOC}, getComputedStyle = e => D.defaultView.getComputedStyle(e);
-  const SEL = 'button, a[href], input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab], [tabindex]:not([tabindex="-1"])';
+  const SEL = ${JSON.stringify(ONLY)} || 'button, a[href], input:not([type=hidden]), select, textarea, summary, [role=button], [role=tab], [tabindex]:not([tabindex="-1"])';
   const out = [];
   for (const el of D.querySelectorAll(SEL)) {
     if (!el.getClientRects().length || getComputedStyle(el).visibility === 'hidden') continue;
@@ -60,16 +60,22 @@ const MEASURE = (DOC = 'document') => `(async () => {
 
 let bad = 0;
 const FRAME = `document.querySelector('#snapFrame').contentDocument`;
-for (const [tab, label] of [['#tabBoard', '판'], ['#tabMain', '실시간'], ['#tabAnalysis', '분석'], ['#tabPosts', '글'], ['#tabHelp', '도움']]) {
+// 마지막 판은 평소엔 안 뜨는 글 탭 라벨 모드다. 라벨 단추는 누르면 /api/label 로
+// 저장되므로 누르지 않고 격자로만 잰다. 글마다 같은 단추 셋이라 앞 두 글만 잰다.
+const LAB_ON = `document.querySelector('#pLabOn button[data-on="1"]').click()`;
+for (const [tab, label, setup, only] of [['#tabBoard', '판'], ['#tabMain', '실시간'], ['#tabAnalysis', '분석'],
+  ['#tabPosts', '글'], ['#tabHelp', '도움'], ['#tabPosts', '글·라벨 모드', LAB_ON, '#pList .pitem:nth-child(-n+2) .plab button']]) {
   await js(`document.querySelector('${tab}').click()`);
   await sleep(tab === '#tabAnalysis' ? 8000 : 3000);   // iframe 이 불러와 제 키를 알릴 때까지
+  if (setup) { await js(setup); await sleep(4000); }
   await js(`document.querySelectorAll('details').forEach(d => d.open = true)`);
   if (tab === '#tabAnalysis') await js(`${FRAME}.querySelectorAll('details').forEach(d => d.open = true)`);
   if (tab === '#tabMain') await js(`BAR.view = [BAR.rows.length - 30, BAR.rows.length - 1]; drawBars()`);
   await sleep(800);
   const rows = tab === '#tabAnalysis'
     ? [...await js(MEASURE()), ...(await js(MEASURE(FRAME))).map(r => ({ ...r, name: 'iframe ' + r.name }))]
-    : await js(MEASURE());
+    : await js(MEASURE('document', only));
+  if (only && !rows.length) { bad++; console.log(`\n== ${label}  FAIL  잴 단추가 안 떴다`); continue; }
   const small = rows.filter(r => r.w < 24 || r.h < 24);
   const fails = small.filter(r => !r.inline), inl = small.filter(r => r.inline);
   bad += fails.length;
