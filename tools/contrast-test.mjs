@@ -38,6 +38,8 @@ const probe = `JSON.stringify((()=>{
   document.querySelectorAll('body *').forEach(el=>{
     let cs=getComputedStyle(el);
     if(cs.visibility==='hidden'||cs.display==='none'||+cs.opacity===0)return;
+    // 숨긴 툴팁처럼 조상이 투명해도 안 보인다 — 안쪽 글자는 제 opacity 가 1 이다.
+    for(let p=el.parentElement;p;p=p.parentElement)if(+getComputedStyle(p).opacity===0)return;
     // 빈 입력칸은 안내 글자(::placeholder)가 글자다. 기본 회색은 테마를 안 따라간다.
     const ph=el.matches('input[placeholder]:placeholder-shown, textarea[placeholder]:placeholder-shown');
     const own=ph||[...el.childNodes].some(n=>n.nodeType===3&&n.textContent.trim());
@@ -50,7 +52,7 @@ const probe = `JSON.stringify((()=>{
       if(!/^rgb/.test(cs.fill))return;
       fg=parse(cs.fill);fg[3]*=+cs.fillOpacity;
       const rc=el.previousElementSibling;
-      if(rc&&rc.tagName==='rect'){const rs=getComputedStyle(rc),f=parse(rs.fill),a=f[3]*rs.fillOpacity;
+      if(rc&&rc.tagName==='rect'){const rs=getComputedStyle(rc),f=parse(rs.fill),a=f[3]*rs.fillOpacity*rs.opacity;
         if(/^rgb/.test(rs.fill))bg=[0,1,2].map(k=>f[k]*a+bg[k]*(1-a)).concat(1);}
     }
     else fg=parse(cs.color);
@@ -102,16 +104,28 @@ for (const [scheme, manual] of [['light', null], ['dark', null], ['light', 'dark
     ['경보', '#tabMain', `LAST.alert = 0; paint(LAST)`],           // 카드 곡소리 태그
     ['경보', '#tabBoard', `LAST.alert = 0; paint(LAST)`],          // 판 경보 알약
     ['라벨 모드', '#tabPosts', `document.querySelector('#pLabOn button[data-on="1"]').click()`],
+    // 가격 차트 가운데를 짚은 채로 — 십자선과 그 값 딱지(.xlab on .xlabbg)가 뜬다.
+    ['차트 짚기', '#tabMain', `document.querySelector('#cPrice').scrollIntoView({ block: 'center' })`],
   ]) {
     await js(`document.querySelector('${tab}').click();'ok'`);
     await new Promise(r => setTimeout(r, 1800));
     await js(setup + ";'ok'");
+    if (name === '차트 짚기') {
+      await new Promise(r => setTimeout(r, 400));
+      const b = JSON.parse(await js(`JSON.stringify(document.querySelector('#cPrice').getBoundingClientRect())`));
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) });
+      // 툴팁(#ctip)은 .app 밖이라 테마 변수를 못 받아 늘 1.06 으로 잡힌다(사람 답 대기).
+      // 고치기 전까지 이 판에선 가린다 — 고치면 이 줄을 뺀다.
+      await js(`document.querySelector('#ctip').style.opacity = 0;'ok'`);
+    }
     await new Promise(r => setTimeout(r, name === '라벨 모드' ? 4000 : 800));
     if (name === '라벨 모드')   // 글 셋에 긍정·중립·부정을 하나씩 눌린 모습으로
       await js(`[...document.querySelectorAll('#pList .plab')].slice(0, 3).forEach((p, i) =>
         p.querySelectorAll('button').forEach((b, j) => b.setAttribute('aria-pressed', String(i === j))));'ok'`);
     const res = JSON.parse(await js(probe));
-    console.log(`\n== [숨은 상태: ${name}] ${tab} ${W}x${H} media:${scheme} manual:${manual || '-'} ==`);
+    // 딱지가 안 뜨면 '미달 없음' 은 잰 게 아니다 — 뜬 개수를 같이 적는다.
+    const shown = name === '차트 짚기' ? ` · 값 딱지 ${await js(`[...document.querySelectorAll('.xlab')].filter(t => t.getAttribute('opacity') === '1' && t.textContent).length`)}개` : '';
+    console.log(`\n== [숨은 상태: ${name}] ${tab} ${W}x${H} media:${scheme} manual:${manual || '-'}${shown} ==`);
     for (const b of res.bad) console.log(`  ${String(b.ratio).padStart(5)}  ${b.color} on ${b.bg}  ${b.size}/${b.weight}  ${b.sel}  x${b.n}  "${b.text}"`);
     if (!res.bad.length) console.log('  (AA 미달 없음)');
   }
