@@ -583,9 +583,13 @@
     .mas { gap: 2px 8px; }
     .mas label { min-height: 44px; padding: 0 2px; }
     /* 평단 줄의 '선' 체크박스. 라벨까지 쳐도 누르는 높이가 20px 로 AA 24px 에
-       못 미쳤다. 옆 평단 입력칸 높이(28px)만큼 세운다. 글 탭의 .pnote 윗여백
-       10px 가 여기에도 걸려 있어, 그대로 세우면 줄이 40 -> 49px 로 커졌다 — 뺀다. */
-    .pgrp label.pnote { display: flex; align-items: center; min-height: 28px; margin-top: 0; }
+       못 미쳤다. 옆 평단 입력칸 높이(28px)만큼 세운다. */
+    .pgrp label.pnote { display: flex; align-items: center; min-height: 28px; }
+    /* 글 탭 구역의 .pnote(색 muted·12px·윗여백 10px)는 글 탭에 그런 요소가 없어
+       실시간 탭의 .pnote 에만 걸려, 위쪽 .pnote(faint·11px)를 덮고 있었다.
+       '0명' 이 제목보다 10px 처져 제목 줄이 20 -> 30px 가 됐다. 위쪽 뜻으로 되돌린다.
+       margin 줄임말은 .ptitle .pnote 의 margin-left: auto(오른쪽 붙임)를 지우니 쓰지 않는다. */
+    .pnote.pnote { font-size: 11px; color: var(--faint); margin-top: 0; }
 
     /* 누를 자리를 손가락에 맞춘다. 재 보니 탭 37px, 종목칩·기간칩 31px 이었다.
        보이는 크기는 그대로 두고 누르는 높이만 키운다 — 촘촘한 판이 헐거워지면
