@@ -7,6 +7,8 @@
 //
 // 접기는 모두 편 상태로, 차트는 확대해서 '전체 보기'를 띄운 상태로 잰다.
 // 입력칸에 딸린 라벨('평단', '선', '라벨', '미 동부 거래일')은 따로 세지 않는다.
+// 문장 안에 든 링크(앞뒤에 글자가 이어지는 인라인 <a>)는 2.5.8 의 예외라 FAIL 이
+// 아니라 '문장 속' 으로 따로 적는다 — 넓히려면 줄 간격을 벌려야 해 글이 흐트러진다.
 //
 // 헤드리스 크롬을 CDP 로 몰고 간다. 먼저 이렇게 띄워 두고 돌린다:
 //   chrome --headless=new --remote-debugging-port=9222 --user-data-dir=<빈폴더> about:blank
@@ -47,7 +49,9 @@ const MEASURE = (DOC = 'document') => `(async () => {
         if (mine(D.elementFromPoint(x, y))) { n++; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
     const name = (el.id ? '#' + el.id : el.tagName.toLowerCase() + (el.className ? '.' + String(el.className).split(' ')[0] : ''))
       + ' "' + (el.getAttribute('aria-label') || el.textContent || el.value || el.type || '').trim().replace(/\\s+/g, ' ').slice(0, 18) + '"';
-    out.push({ name, box: Math.round(r.width) + 'x' + Math.round(r.height),
+    const inline = el.tagName === 'A' && getComputedStyle(el).display === 'inline'
+      && [...el.parentElement.childNodes].some(n => n !== el && n.nodeType === 3 && n.textContent.trim());
+    out.push({ name, inline, box: Math.round(r.width) + 'x' + Math.round(r.height),
       hit: n ? (x1 - x0 + 1) + 'x' + (y1 - y0 + 1) : '0x0', w: n ? x1 - x0 + 1 : 0, h: n ? y1 - y0 + 1 : 0 });
   }
   window.scrollTo(0, 0);
@@ -66,10 +70,12 @@ for (const [tab, label] of [['#tabBoard', '판'], ['#tabMain', '실시간'], ['#
   const rows = tab === '#tabAnalysis'
     ? [...await js(MEASURE()), ...(await js(MEASURE(FRAME))).map(r => ({ ...r, name: 'iframe ' + r.name }))]
     : await js(MEASURE());
-  const fails = rows.filter(r => r.w < 24 || r.h < 24);
+  const small = rows.filter(r => r.w < 24 || r.h < 24);
+  const fails = small.filter(r => !r.inline), inl = small.filter(r => r.inline);
   bad += fails.length;
-  console.log(`\n== ${label} (${W}x${H})  누를 것 ${rows.length} · FAIL ${fails.length}`);
+  console.log(`\n== ${label} (${W}x${H})  누를 것 ${rows.length} · FAIL ${fails.length}${inl.length ? ` · 문장 속 ${inl.length}` : ''}`);
   for (const r of fails) console.log(`  FAIL  ${r.name}  눌림 ${r.hit}  (상자 ${r.box})`);
+  for (const r of inl) console.log(`  문장 속 ${r.name}  눌림 ${r.hit}  (상자 ${r.box})`);
   if (tab === '#tabMain') {
     const c = rows.find(r => r.name.startsWith('#cReset'));
     console.log(`  ${c ? '      ' : 'FAIL  '}'전체 보기' ${c ? '눌림 ' + c.hit + ' (상자 ' + c.box + ')' : '안 떴다'}`);
