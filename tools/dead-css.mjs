@@ -33,7 +33,7 @@ const MEASURE = `(() => {
     }
   };
   const targets = r => r.selectorText.split(/,(?![^(]*\\))/).flatMap(s => {
-    const m = s.match(/::?(after|before|details-content|-webkit-details-marker|-webkit-scrollbar)\\s*$/);
+    const m = s.match(/::?(after|before|placeholder|details-content|-webkit-details-marker|-webkit-scrollbar)\\s*$/);
     if (m && m[1] === '-webkit-scrollbar') return [];
     const base = m ? s.slice(0, m.index) : s;
     return [...document.querySelectorAll(base.trim() || '*')]
