@@ -529,12 +529,20 @@
          넘쳐 화면 전체가 옆으로 밀렸다. 탭 줄만 옆으로 밀리게 가둔다 — 390px
          에선 다 들어가 아무것도 안 바뀐다. */
       overflow-x: auto; scrollbar-width: none; }
-    .tabs button { padding-left: 10px; padding-right: 10px;
-      white-space: nowrap; flex-shrink: 0; }
+    .tabs button { white-space: nowrap; flex-shrink: 0; }
     /* 옆으로 밀리게 가두면 줄 밖으로 삐져나온 것은 잘린다. 고른 탭 밑줄은 -1px
        로 탭 줄 테두리에 걸쳐 있어 통째로 잘려 사라졌다 — 줄 안으로 들인다.
        아래쪽 .tabs button 규칙이 뒤에 있어 이름을 두 번 적어 이긴다. */
     .tabs.tabs button { margin-bottom: 0; }
+    /* 좌우 여백 10px 는 여기 있다가 아래쪽 기본 규칙(padding: 8px 13px)에 져서
+       여태 한 번도 안 먹었다. 390px 에선 탭이 다 들어가 줄일 이유가 없고, 줄이면
+       '글' 탭 누를 폭만 38 -> 32px 로 좁아진다. 글자를 키워 폭이 모자랄 때만
+       줄인다 — 200%(195px)에서 끝까지 보이는 탭이 셋에서 넷이 되고, 150%
+       (260px)에선 다섯이 다 들어간다. 13px 로 다섯이 다 들어가려면 278px 가
+       든다 — 그보다 좁을 때만 줄인다. */
+    @media (max-width: 280px) {
+      .tabs.tabs button { padding-left: 10px; padding-right: 10px; }
+    }
     .ptxt { font-size: 14.5px; }
 
     /* 머리가 150px 를 먹었다. 로고와 제목을 줄여 첫 화면을 차트에 내준다. */
