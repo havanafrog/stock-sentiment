@@ -21,9 +21,16 @@ await send('Emulation.setDeviceMetricsOverride', { width: W, height: H, deviceSc
 await send('Page.navigate', { url: URL_ });
 await new Promise(r => setTimeout(r, 9000));
 let bad = 0;
-for (const tab of ['#tabBoard', '#tabMain', '#tabAnalysis', '#tabPosts', '#tabHelp']) {
+// 탭마다 두 번 잰다 — 처음 뜬 대로, 그리고 접기를 모두 편 뒤. 폰은 접기가 닫혀
+// 있어 그 안의 넘침(기간 칸 등)은 사람이 펴야 드러난다.
+for (const tab of ['#tabBoard', '#tabMain', '#tabAnalysis', '#tabPosts', '#tabHelp']) for (const open of [false, true]) {
   await js(`document.querySelector('${tab}').click()`);
   await new Promise(r => setTimeout(r, 1800));
+  if (open) {
+    const n = await js(`[...document.querySelectorAll('details:not([open])')].filter(d => d.getClientRects().length).map(d => d.open = true).length`);
+    if (!n) continue;   // 펼 것이 없는 탭은 한 번이면 된다
+    await new Promise(r => setTimeout(r, 500));
+  }
   const res = JSON.parse(await js(`JSON.stringify((()=>{
     const vw=document.documentElement.clientWidth; const out=[];
     const nm=e=>e.id?'#'+e.id:e.tagName.toLowerCase()+(typeof e.className==='string'&&e.className?'.'+e.className.trim().split(/\\s+/).join('.'):'');
@@ -42,7 +49,7 @@ for (const tab of ['#tabBoard', '#tabMain', '#tabAnalysis', '#tabPosts', '#tabHe
     return {vw,scrollW:document.documentElement.scrollWidth,roots:out.slice(0,8)};})())`));
   const over = res.scrollW > res.vw;
   if (over) bad++;
-  console.log(`  ${over ? 'FAIL' : 'PASS'}  ${tab}  문서 폭 ${res.scrollW} / 화면 ${res.vw}`);
+  console.log(`  ${over ? 'FAIL' : 'PASS'}  ${tab}${open ? ' (접기 폄)' : ''}  문서 폭 ${res.scrollW} / 화면 ${res.vw}`);
   for (const r of res.roots) console.log('        ' + r);
 }
 console.log(bad ? `\n  ${bad}개 탭이 옆으로 밀린다\n` : '\n  모두 통과\n');
