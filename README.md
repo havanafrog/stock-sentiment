@@ -280,9 +280,11 @@ node test/run-css-tests.mjs          CSS 토큰
 
 ## 딴 과제에도 쓸 것
 
-화면을 재서 고치는 법과 기능을 가르는 기준을 따로 적어 뒀습니다 —
-**[docs/METHOD.md](docs/METHOD.md)**. 이 저장소 이야기가 아니라 방법 이야기라
-다른 과제에 그대로 가져갈 수 있습니다.
+이 저장소 이야기가 아니라 방법 이야기라 다른 과제에 그대로 가져갈 수 있습니다.
+
+- **[docs/METHOD.md](docs/METHOD.md)** — 화면을 재서 고치는 법, 기능을 가르는 기준
+- **[docs/MONITORING.md](docs/MONITORING.md)** — Claude Code 창 여럿을 지켜보는 법.
+  창에 아무것도 붙이지 않고 이미 쓰고 있는 기록을 밖에서 읽습니다
 
 ## 투자 판단에 쓰지 마세요
 
