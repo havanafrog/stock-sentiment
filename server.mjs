@@ -28,6 +28,7 @@ import { readFileSync, writeFileSync, appendFileSync, existsSync, statSync, unli
 import { join, dirname, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 import { resolveStock, fetchLatest, fetchPrice, fetchRate, fetchBars, UNITS, MAX_COUNT, et, sleep } from './toss.mjs';
 import { loadTickers, saveTickers, okSymbol, TICKERS_FILE } from './tickers.mjs';
 import { spawn } from 'node:child_process';
@@ -1131,9 +1132,35 @@ function broadcast() {
 }
 
 // ── 정적 서빙 ────────────────────────────────────────────────
+/**
+ * 받는 쪽이 받아 준다면 눌러서 보낸다.
+ *
+ * 느린 3G(지연 400ms, 400kbps)에서 판의 첫 줄이 5.8초에 떴다. live.html 이
+ * 156KB 인데 그대로 나가고 있었다 — 누르면 51KB 다. 첫 로드 합 287KB → 88KB.
+ * /api/live 도 63KB → 17KB 인데, 화면을 껐다 켜면 이걸 다시 받는다.
+ *
+ * 이미 눌려 있는 것(png 같은)은 다시 눌러야 커지기만 한다. 짧은 것도 머리글
+ * 값을 못 뽑으니 그냥 보낸다.
+ */
+const ZIP_MIN = 1024;
+function sendBody(res, code, headers, buf) {
+  const type = headers['Content-Type'] ?? '';
+  const packed = /^(image|video|audio)\/|zip|gzip|font\//.test(type);
+  const ok = /\bgzip\b/.test(res.req?.headers?.['accept-encoding'] ?? '');
+
+  if (!ok || packed || buf.length < ZIP_MIN) {
+    res.writeHead(code, headers);
+    return res.end(buf);
+  }
+  const gz = gzipSync(buf, { level: 6 });
+  res.writeHead(code, { ...headers, 'Content-Encoding': 'gzip', 'Vary': 'Accept-Encoding' });
+  res.end(gz);
+}
+
 function sendJSON(res, code, obj) {
-  res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-  res.end(JSON.stringify(obj));
+  sendBody(res, code, {
+    'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store',
+  }, Buffer.from(JSON.stringify(obj), 'utf8'));
 }
 
 /** 본문을 JSON 으로. 64KB 를 넘으면 끊는다 — 이 API 로 큰 걸 보낼 일이 없다. */
@@ -1179,12 +1206,11 @@ function serveStatic(req, res) {
     return res.end('없는 경로입니다');
   }
   const img = /.(png|jpg|jpeg|gif|svg|webp|ico)$/i.test(file);
-  res.writeHead(200, {
+  sendBody(res, 200, {
     'Content-Type': MIME[extname(file)] ?? 'application/octet-stream',
     // 이미지는 안 바뀐다. 나머지는 매번 새로 받아야 한다.
     'Cache-Control': img ? 'public, max-age=604800, immutable' : 'no-store',
-  });
-  res.end(readFileSync(file));
+  }, readFileSync(file));
 }
 
 // ── 기동 ─────────────────────────────────────────────────────
@@ -1274,13 +1300,12 @@ createServer((req, res) => {
       job: JOBS.get(t) ?? null,
     }));
     const n = list.length;
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-    return res.end(JSON.stringify({
+    return sendJSON(res, 200, {
       rows, count: n, pollMs: POLL_MS,
       // 한 바퀴가 주기를 넘기면 회차를 건너뛴다. 미리 알려준다.
       lastPollMs: lastPollDur,
       crowded: lastPollDur !== null && lastPollDur > POLL_MS * 0.7,
-    }));
+    });
   }
 
   if (path === '/api/tickers/resolve' && req.method === 'POST') {
@@ -1316,10 +1341,9 @@ createServer((req, res) => {
     const ticker = TICKERS.includes(q.get('t')) ? q.get('t') : TICKERS[0];
     const unit = UNITS[q.get('u')] ? q.get('u') : 'day:1';
     getBars(ticker, unit).then(rows => {
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-      // 객체로 보내면 450개에 90KB 다. 배열로 보내면 25KB.
-      res.end(JSON.stringify({ ticker, unit, units: UNITS,
-        rows: rows.map(c => [c.ms, c.open, c.high, c.low, c.close, c.volume, c.session]) }));
+      // 객체로 보내면 450개에 90KB 다. 배열로 보내면 25KB. 눌러 보내면 더 준다.
+      sendJSON(res, 200, { ticker, unit, units: UNITS,
+        rows: rows.map(c => [c.ms, c.open, c.high, c.low, c.close, c.volume, c.session]) });
     }).catch(e => {
       res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: e.message }));
@@ -1333,9 +1357,8 @@ createServer((req, res) => {
     const unit = UNITS[q.get('u')] ? q.get('u') : 'day:1';
     getBars(ticker, unit).then(bars => {
       const out = fearSeries(ticker, unit, bars.map(c => [c.ms]));
-      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
       // [시각, 공포글수, 전체글수, 지수]
-      res.end(JSON.stringify({ ticker, unit, alert: LEX.FEAR_ALERT, ...out }));
+      sendJSON(res, 200, { ticker, unit, alert: LEX.FEAR_ALERT, ...out });
     }).catch(e => {
       res.writeHead(502, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(JSON.stringify({ error: e.message }));
@@ -1351,8 +1374,7 @@ createServer((req, res) => {
       res.writeHead(500, { 'Content-Type': 'application/json; charset=utf-8' });
       return res.end(JSON.stringify({ error: e.message }));
     }
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-    return res.end(JSON.stringify(out));
+    return sendJSON(res, 200, out);
   }
 
   if (path === '/api/label' && req.method === 'GET') {   // 찍어 둔 정답 전부
@@ -1392,8 +1414,8 @@ createServer((req, res) => {
   }
 
   if (path === '/api/live') {          // curl 로 들여다볼 때 쓴다
-    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
-    return res.end(JSON.stringify(snapshot()));
+    // 화면을 껐다 켜면 이걸 다시 받는다. 63KB 가 17KB 가 된다.
+    return sendJSON(res, 200, snapshot());
   }
 
   serveStatic(req, res);
