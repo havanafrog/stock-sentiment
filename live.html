@@ -581,9 +581,6 @@
        rgb(215,225,240) — 대비 1.20 으로 안 보였다. 색 전환만 끄면 16.91 로
        따라온다. 누른 반응(:active)은 전환이 아니라 그대로 남는다. */
     .seg button { transition: none; }
-    /* 도움 탭 곡소리 식의 굵은 글자. 선·게이지용 빨강(--fear)을 글자에 써 흰 바탕에서
-       3.71 이었다. 글자용 빨강으로 바꾼다. 아래쪽 .eq b 가 뒤에 있어 이름을 두 번 적는다. */
-    .eq.eq b { color: var(--fear-ink); }
     /* 라벨 줄은 한 줄로 버텼다. 글자를 200% 로 키우면(195px) 단추 셋과 '사전: …'
        글자가 243px 까지 나가 화면이 옆으로 밀렸다 — 모자라면 다음 줄로 내린다.
        390px 에선 한 줄에 다 들어가 그대로다. */
@@ -762,7 +759,9 @@
     margin: 10px 0 14px; font-family: var(--mono);
     font-size: 12px; line-height: 1.75; white-space: pre-wrap; overflow-x: auto;
     color: var(--text-primary); font-weight: 500; }
-  .eq b { color: var(--fear); font-weight: 700; }
+  /* 곡소리 식의 굵은 글자. 선·게이지용 빨강(--fear)을 글자에 써 흰 바탕에서 3.71 이었다.
+     글자용 빨강으로 준다. */
+  .eq b { color: var(--fear-ink); font-weight: 700; }
   .foot h4 { font-size: 12.5px; margin: 12px 0 4px; color: var(--text-primary); }
 
   .tabs { display: flex; gap: 2px; margin: 0 0 18px; border-bottom: 1px solid var(--border); }
