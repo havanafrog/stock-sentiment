@@ -594,10 +594,6 @@
     /* 기간 칸 두 개도 한 줄로 버텼다. 글자 200%(195px)에서 기간 접기를 펴면 문서가
        287px 까지 밀렸다 — 모자라면 둘째 날짜를 다음 줄로 내린다. 390px 에선 그대로다. */
     .dates { flex-wrap: wrap; }
-    /* 카드의 곡소리 경보 태그. 흰 10.5px 글자가 --neg 바탕에서 밝게 3.71, 어둡게
-       2.99 였다. 판의 경보 알약이 이미 쓰는 진한 경보색(--alert-bg)으로 맞춘다 —
-       두 경보가 같은 색이 되고 흰 글자가 선다. 아래쪽 .tag.fear 가 뒤에 있어 이름을 겹친다. */
-    .tag.tag.fear { background: var(--alert-bg); }
     .mas { gap: 2px 8px; }
     .mas label { min-height: 44px; padding: 0 2px; }
     /* 평단 줄의 '선' 체크박스. 라벨까지 쳐도 누르는 높이가 20px 로 AA 24px 에
@@ -685,7 +681,9 @@
   .nm { font-size: 12.5px; color: var(--text-secondary); }
   .tag { font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 20px;
          background: var(--accent-wash); color: var(--text-primary); }
-  .tag.fear { background: var(--neg); color: var(--on-solid); }
+  /* 곡소리 경보 태그. 흰 10.5px 글자가 --neg 바탕에서 밝게 3.71, 어둡게 2.99 였다.
+     판의 경보 알약이 이미 쓰는 진한 경보색(--alert-bg)으로 맞춘다 — 두 경보가 같은 색이 되고 흰 글자가 선다. */
+  .tag.fear { background: var(--alert-bg); color: var(--on-solid); }
   .grow { flex: 1 1 auto; }
 
   .px { font-size: 26px; font-weight: 650; letter-spacing: -.02em; margin: 10px 0 2px;
