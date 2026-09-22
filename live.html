@@ -361,6 +361,10 @@
   .fld { border: 0; box-shadow: var(--ring); border-radius: var(--radius); background: var(--surface-1);
     color: var(--text-primary); font: inherit; font-size: 13px; padding: 7px 10px; }
   .fld:focus { outline: 2px solid var(--accent-wash); outline-offset: 1px; }
+  /* 입력칸 안내 글자. 브라우저 기본 회색 rgb(117,117,117) 이 테마를 안 따라가
+     어두운 입력칸에서 3.52(시스템 어둡게)·4.13(손으로 어둡게)였다. 테마의
+     가장 옅은 글자색을 준다. 파이어폭스는 안내 글자를 반투명하게 깔아 불투명으로 편다. */
+  .fld::placeholder { color: var(--faint); opacity: 1; }
   .dates { display: flex; align-items: center; gap: 6px; }
   .dates span { color: var(--muted); font-size: 12px; }
   .btn { border: 0; box-shadow: var(--ring); border-radius: var(--radius); background: var(--surface-1);
@@ -574,10 +578,6 @@
        rgb(215,225,240) — 대비 1.20 으로 안 보였다. 색 전환만 끄면 16.91 로
        따라온다. 누른 반응(:active)은 전환이 아니라 그대로 남는다. */
     .seg button { transition: none; }
-    /* 입력칸 안내 글자. 브라우저 기본 회색 rgb(117,117,117) 이 테마를 안 따라가
-       어두운 입력칸에서 3.52(시스템 어둡게)·4.13(손으로 어둡게)였다. 테마의
-       가장 옅은 글자색을 준다. 파이어폭스는 안내 글자를 반투명하게 깔아 불투명으로 편다. */
-    .fld::placeholder { color: var(--faint); opacity: 1; }
     /* 도움 탭 곡소리 식의 굵은 글자. 선·게이지용 빨강(--fear)을 글자에 써 흰 바탕에서
        3.71 이었다. 글자용 빨강으로 바꾼다. 아래쪽 .eq b 가 뒤에 있어 이름을 두 번 적는다. */
     .eq.eq b { color: var(--fear-ink); }
