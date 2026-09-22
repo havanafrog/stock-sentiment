@@ -393,10 +393,13 @@
     padding: 3px 12px; border-radius: 999px; border: 1px solid var(--border);
     background: var(--surface-1); color: var(--text-secondary); }
   .plab button:hover { background: var(--neutral); }
-  .plab button[aria-pressed="true"] { font-weight: 600; color: #fff; border-color: transparent; }
+  /* 눌린 단추. 흰 12px 글자가 파랑·빨강 바탕에서 밝게 3.71, 어둡게 2.45·2.99,
+     어두운 테마 회색(중립)에서 2.52~3.05 였다. 파랑·빨강은 중간 밝기라 검은 글자로,
+     중립은 테마에 따라 뒤집히는 카드색으로 준다(밝은 테마 회색 #64646d 위에선 흰 글자라야 5.86). */
+  .plab button[aria-pressed="true"] { font-weight: 600; color: #0a0a0b; border-color: transparent; }
   .plab button.p[aria-pressed="true"] { background: var(--pos); }
   .plab button.n[aria-pressed="true"] { background: var(--neg); }
-  .plab button.x[aria-pressed="true"] { background: var(--muted); }
+  .plab button.x[aria-pressed="true"] { background: var(--muted); color: var(--surface-1); }
   .plab .pdict { margin-left: 4px; color: var(--muted); }
   .plab .pdict.bad { color: var(--neg-ink); font-weight: 600; }
   .pkeys { font-size: 11.5px; color: var(--muted); margin: 0 0 10px; }
@@ -581,12 +584,6 @@
     /* 도움 탭 곡소리 식의 굵은 글자. 선·게이지용 빨강(--fear)을 글자에 써 흰 바탕에서
        3.71 이었다. 글자용 빨강으로 바꾼다. 아래쪽 .eq b 가 뒤에 있어 이름을 두 번 적는다. */
     .eq.eq b { color: var(--fear-ink); }
-    /* 글 탭 라벨 모드의 눌린 단추. 흰 12px 글자가 파랑·빨강 바탕에서 밝게 3.71,
-       어둡게 2.45·2.99, 어두운 테마 회색(중립)에서 2.52~3.05 였다. 파랑·빨강은
-       중간 밝기라 검은 글자로, 중립은 테마에 따라 뒤집히는 카드색으로 준다
-       (밝은 테마 회색 #64646d 위에선 흰 글자라야 5.86). */
-    .plab button[aria-pressed="true"] { color: #0a0a0b; }
-    .plab button.x[aria-pressed="true"] { color: var(--surface-1); }
     /* 라벨 줄은 한 줄로 버텼다. 글자를 200% 로 키우면(195px) 단추 셋과 '사전: …'
        글자가 243px 까지 나가 화면이 옆으로 밀렸다 — 모자라면 다음 줄로 내린다.
        390px 에선 한 줄에 다 들어가 그대로다. */
