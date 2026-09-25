@@ -887,7 +887,7 @@
       <!-- 이 카드는 15초마다 지워지는 쪽(#cards · #feed) 밖에 있다. 안에 두면
            평단을 치는 중에도 입력칸이 통째로 날아간다. -->
       <div class="card pulse" id="pulseCard">
-        <div class="ptitle">오늘 <b id="pulseSym">&mdash;</b> 어떻게 볼까
+        <div class="ptitle" role="heading" aria-level="2">오늘 <b id="pulseSym">&mdash;</b> 어떻게 볼까
           <span class="pnote" id="pulseCount"></span></div>
         <div class="vote" id="pulseVote">
           <button id="voteU" data-v="U"><i>&#9650;</i><span>오른다</span> <em id="voteUn">&mdash;</em></button>
@@ -1170,10 +1170,12 @@ function card(ticker, d, meta) {
   const isWail = wail !== null && wail >= meta.alert;
   const isFear = isWail;                       // 카드가 붉어지는 기준 = 곡소리
 
-
+  // 카드 머리·최근 글 머리는 2단, 차트 머리(.chead b)는 3단 제목으로 둔다. 실시간 탭
+  // 노드 315개에 제목이 페이지 제목 하나뿐이라, 읽기 도구로 가격 차트·곡소리 지수로
+  // 건너뛸 수 없었다.
   return [`
   <div class="card${isFear ? ' fear' : ''}">
-    <div class="head">
+    <div class="head" role="heading" aria-level="2">
       <span class="tk">${ticker}</span>
       <span class="nm">${d.name !== ticker ? d.name : ''}</span>
       <span class="grow"></span>
@@ -1223,33 +1225,33 @@ function card(ticker, d, meta) {
     ${d.error ? `<div class="err">수집 실패: ${d.error}</div>` : ''}
 
     <div class="charts">
-      <div class="chead"><b>가격</b><span id="cUnitLab"></span><span class="now" id="cNowP"></span></div>
+      <div class="chead"><b role="heading" aria-level="3">가격</b><span id="cUnitLab"></span><span class="now" id="cNowP"></span></div>
       <svg id="cPrice" viewBox="0 0 600 200" role="img" aria-label="봉 차트"></svg>
       <svg id="cVol" viewBox="0 0 600 46" role="img" aria-label="거래량"></svg>
-      <div class="chead" id="hMacd" hidden><b>MACD</b><span>12 / 26 / 9</span><span class="now" id="cNowM"></span></div>
+      <div class="chead" id="hMacd" hidden><b role="heading" aria-level="3">MACD</b><span>12 / 26 / 9</span><span class="now" id="cNowM"></span></div>
       <svg id="cMacd" viewBox="0 0 600 80" role="img" aria-label="MACD" hidden></svg>
-      <div class="chead" id="hRsi" hidden><b>RSI</b><span>14 · 30 / 70</span><span class="now" id="cNowR"></span></div>
+      <div class="chead" id="hRsi" hidden><b role="heading" aria-level="3">RSI</b><span>14 · 30 / 70</span><span class="now" id="cNowR"></span></div>
       <svg id="cRsi" viewBox="0 0 600 80" role="img" aria-label="RSI" hidden></svg>
-      <div class="chead" id="hMfi" hidden><b>매수 / 매도 압력</b>
+      <div class="chead" id="hMfi" hidden><b role="heading" aria-level="3">매수 / 매도 압력</b>
         <span>MFI 14 · 80 위 매수 몰림 · 20 아래 매도 몰림</span>
         <span class="now" id="cNowI"></span></div>
       <svg id="cMfi" viewBox="0 0 600 80" role="img" aria-label="매수 매도 압력" hidden></svg>
       <p class="cnote"><span id="cBarNote"></span>
         <button class="lnk" id="cReset" hidden>전체 보기</button></p>
       <details class="fold" id="foldWail" ${WAIL_OPEN ? 'open' : ''}><summary>곡소리 지수</summary>
-        <div class="chead"><b>곡소리 지수</b><span>50 = 평소 · ${meta.alert} = 경보 · 봉과 같은 구간</span>
+        <div class="chead"><b role="heading" aria-level="3">곡소리 지수</b><span>50 = 평소 · ${meta.alert} = 경보 · 봉과 같은 구간</span>
           <span class="now" id="cNowF"></span></div>
         <svg id="cFear" viewBox="0 0 600 90" role="img" aria-label="곡소리 지수 추이"></svg>
         <p class="cnote" id="cFearNote"></p>
       </details>
-      <div class="chead" id="hWm" hidden><b>곡소리 MACD</b><span>12 / 26 / 9 · 0선 돌파 = 흐름 전환</span>
+      <div class="chead" id="hWm" hidden><b role="heading" aria-level="3">곡소리 MACD</b><span>12 / 26 / 9 · 0선 돌파 = 흐름 전환</span>
         <span class="now" id="cNowW"></span></div>
       <svg id="cWm" viewBox="0 0 600 80" role="img" aria-label="곡소리 MACD" hidden></svg>
       <div class="cempty" id="cEmpty" hidden></div>
     </div>
   </div>`, `
   <div class="card">
-    <div class="feed-head">${ticker} 최근 1시간 · ${(d.recentN ?? d.recent.length).toLocaleString()}건 · 공포어는 붉게</div>
+    <div class="feed-head" role="heading" aria-level="2">${ticker} 최근 1시간 · ${(d.recentN ?? d.recent.length).toLocaleString()}건 · 공포어는 붉게</div>
     <div class="feed">
       ${d.recent.length ? d.recent.map(r => `
         <div class="post${r.fear ? ' f' : ''}">
