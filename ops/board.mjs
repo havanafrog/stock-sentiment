@@ -373,6 +373,88 @@ export function loopRounds(file = LOOP_FILE, want = 30) {
   }));
 }
 
+// ── 대화 ─────────────────────────────────────────────────────
+// 한 세션에서 사람과 주고받은 말. 카드를 누르면 서랍에 뜬다.
+const LOG_SPAN = 2 * 1024 * 1024;   // 한 번에 읽는 폭. 기록이 수십 MB 라 쪼개 읽는다
+const LOG_CUT = 6000;               // 한 말의 길이. 붙여 넣은 로그가 서랍을 다 먹는다
+
+/** 세션 아이디로 기록 파일을 찾는다. 아이디는 주소로 들어오니 모양부터 본다. */
+export function logFile(id, dirs = logDirs()) {
+  if (!/^[0-9a-f-]{36}$/.test(id ?? '')) return null;
+  for (const d of dirs) {
+    const f = join(d, id + '.jsonl');
+    if (existsSync(f)) return f;
+  }
+  return null;
+}
+
+/** 기록 줄들을 말 목록으로. 도구는 이어진 것끼리 한 묶음으로 접는다. */
+export function chatItems(rows) {
+  const out = [];
+  const push = it => out.push(it);
+  for (const r of rows) {
+    const m = r.message;
+    if (!m || r.isSidechain) continue;
+    const parts = typeof m.content === 'string' ? [{ type: 'text', text: m.content }]
+      : Array.isArray(m.content) ? m.content : [];
+    if (m.role === 'user') {
+      const text = parts.filter(c => c.type === 'text').map(c => c.text).join('\n').trim();
+      if (!text) continue;
+      // 다른 창이 보낸 지시. 사람 말은 아니지만 대화 흐름에서는 봐야 한다.
+      const cross = /^<cross-session-message from="([^"]*)"/.exec(text);
+      if (cross) {
+        push({ who: 'in', from: cross[1], at: r.timestamp,
+          text: text.replace(/<\/?cross-session-message[^>]*>/g, '').trim().slice(0, LOG_CUT) });
+      } else if (askedByHuman({ role: 'user', kind: 'text', text })) {
+        push({ who: 'me', at: r.timestamp, text: label(text).slice(0, LOG_CUT) });
+      }
+      continue;
+    }
+    if (m.role !== 'assistant') continue;
+    for (const c of parts) {
+      if (c.type === 'text' && c.text.trim()) {
+        push({ who: 'claude', at: r.timestamp, text: c.text.trim().slice(0, LOG_CUT) });
+      } else if (c.type === 'tool_use') {
+        const i = c.input ?? {};
+        const t = { name: c.name, text: squash(i.description ?? i.command ?? i.file_path ?? i.pattern
+          ?? i.to ?? i.query ?? i.url ?? i.skill ?? '').slice(0, 200) };
+        const last = out.at(-1);
+        if (last?.who === 'tools') last.tools.push(t);
+        else push({ who: 'tools', at: r.timestamp, tools: [t] });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * 기록 한 토막을 말 목록으로.
+ *   before 를 주면 그 앞 토막 — "더 보기"
+ *   from   을 주면 그 뒤 끝까지 — 도는 세션에 새로 붙은 말
+ *   둘 다 없으면 맨 끝 토막
+ * start·end 는 이 토막이 실제로 덮은 바이트 자리다. 다음 부름에 그대로 돌려준다.
+ */
+export function chatLog(file, { before = null, from = null } = {}) {
+  const size = statSync(file).size;
+  let start, end;
+  if (from != null) { start = Math.min(from, size); end = Math.min(size, start + LOG_SPAN); }
+  else { end = before != null ? Math.min(before, size) : size; start = Math.max(0, end - LOG_SPAN); }
+  const buf = Buffer.alloc(end - start);
+  const h = openSync(file, 'r');
+  try { readSync(h, buf, 0, buf.length, start); } finally { closeSync(h); }
+  // 앞쪽 잘린 줄은 버리고, 버린 만큼 start 를 민다. 뒤쪽 덜 쓴 줄도 버린다.
+  let lo = 0, hi = buf.length;
+  // 토막 안에 온전한 줄이 없으면(스크린샷 한 줄이 토막보다 길다) 통째로 건너뛴다 —
+  // 안 그러면 같은 자리를 계속 읽는다.
+  if (from == null && start > 0) { const nl = buf.indexOf(10); lo = nl < 0 || nl + 1 === buf.length ? 0 : nl + 1; }
+  const lastNl = buf.lastIndexOf(10);
+  hi = lastNl < lo ? lo : lastNl + 1;
+  if (from != null && hi === lo && buf.length === LOG_SPAN) hi = lo = buf.length;
+  const rows = buf.subarray(lo, hi).toString('utf8').split('\n').filter(Boolean)
+    .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  return { items: chatItems(rows), start: start + lo, end: start + hi, size };
+}
+
 export function board(now = Date.now()) {
   const claims = openClaims();
   const all = readLedger();
@@ -425,6 +507,14 @@ function main(argv) {
     if (path === '/api/board') {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
       return res.end(JSON.stringify(board()));
+    }
+    if (path === '/api/log') {
+      const q = new URL(req.url, 'http://x').searchParams;
+      const file = logFile(q.get('id'));
+      if (!file) { res.writeHead(404).end(); return; }
+      const num = k => (q.has(k) && /^\d+$/.test(q.get(k)) ? Number(q.get(k)) : null);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(JSON.stringify(chatLog(file, { before: num('before'), from: num('from') })));
     }
     if (path === '/' || path === '/index.html') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
@@ -576,6 +666,36 @@ function selftest() {
      && T[0].sends[0].message === '대비 고쳐라');
   ok('작업칸을 붙인다', T[0].where === 'auto');
   rmSync(team, { recursive: true, force: true });
+
+  // 대화 — 서랍에 뜨는 것
+  const C = chatItems([
+    { message: { role: 'user', content: '<system-reminder>x</system-reminder>' } },
+    { message: { role: 'user', content: '대비 고쳐' }, timestamp: at(0) },
+    { message: { role: 'assistant', content: [{ type: 'text', text: '봅니다' },
+      { type: 'tool_use', name: 'Read', input: { file_path: 'a' } }] } },
+    { message: { role: 'user', content: [{ type: 'tool_result', content: 'x' }] } },
+    { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Edit', input: { file_path: 'a' } }] } },
+    { isSidechain: true, message: { role: 'assistant', content: '곁가지' } },
+    { message: { role: 'user', content: '<cross-session-message from="main">일 해라</cross-session-message>' } },
+    { message: { role: 'assistant', content: [{ type: 'text', text: '고쳤다' }] } },
+  ]);
+  ok('대화는 사람·답·도구 묶음·받은 지시', C.map(c => c.who).join() === 'me,claude,tools,in,claude', C.map(c => c.who).join());
+  ok('이어진 도구는 한 묶음', C[2].tools.length === 2 && C[2].tools[1].name === 'Edit');
+  ok('받은 지시는 보낸 창과 말만', C[3].from === 'main' && C[3].text === '일 해라', C[3].text);
+  ok('이상한 아이디는 파일을 안 찾는다', logFile('../../etc/passwd') === null && logFile(null) === null);
+  const cf = join(tmpdir(), `ops-chat-${process.pid}.jsonl`);
+  const big = { message: { role: 'user', content: [{ type: 'tool_result', content: 'x'.repeat(LOG_SPAN + 10) }] } };
+  writeFileSync(cf, [JSON.stringify({ message: { role: 'user', content: '처음' } }), JSON.stringify(big),
+    JSON.stringify({ message: { role: 'user', content: '끝' } })].join('\n') + '\n');
+  try {
+    const tail = chatLog(cf);
+    ok('끝 토막은 끝 말', tail.items.length === 1 && tail.items[0].text === '끝' && tail.end === tail.size);
+    // 긴 줄을 건너 앞으로 가야 한다. 제자리를 맴돌면 안 된다.
+    let b = tail.start, seen = [];
+    for (let i = 0; i < 5 && b > 0; i++) { const p = chatLog(cf, { before: b }); seen.push(...p.items); ok('더 보기는 앞으로 간다', p.start < b); b = p.start; }
+    ok('앞 토막에서 처음 말을 찾는다', seen.some(x => x.text === '처음'));
+    ok('끝 뒤에는 새 말이 없다', chatLog(cf, { from: tail.end }).items.length === 0);
+  } finally { rmSync(cf, { force: true }); }
 
   const bd = board();
   ok('판을 만든다', Array.isArray(bd.sessions) && Array.isArray(bd.open) && bd.counts);

@@ -46,10 +46,59 @@
            grid-template-columns: repeat(auto-fill, minmax(min(440px, 100%), 1fr)); }
   .win { background: var(--surface); box-shadow: var(--ring); border-radius: 16px;
          padding: 16px 18px 14px; display: grid; gap: 10px; }
-  .win.pick { cursor: pointer; }
-  .win.pick:hover { box-shadow: inset 0 0 0 1.5px var(--calm); }
+  /* 카드를 누르면 그 세션 대화가 서랍에 뜬다. 창을 앞으로 가져오는 건 구석 단추. */
+  .win { cursor: pointer; }
+  .win:hover { box-shadow: inset 0 0 0 1.5px var(--calm); }
   .win.live { box-shadow: inset 0 0 0 1.5px var(--live); }
-  .win.live.pick:hover { box-shadow: inset 0 0 0 2px var(--live); }
+  .win.live:hover { box-shadow: inset 0 0 0 2px var(--live); }
+  .win.sel { box-shadow: inset 0 0 0 2px var(--calm); }
+  .where { font-size: 11px; font-weight: 650; color: var(--calm); background: var(--page);
+           border-radius: 6px; padding: 1px 7px; flex: none; }
+  .go { appearance: none; border: 0; background: none; font: inherit; font-size: 11.5px;
+        color: var(--sub); cursor: pointer; padding: 4px 6px; margin: -4px -6px -4px auto;
+        border-radius: 6px; min-height: 24px; }
+  .usd + .go { margin-left: 4px; }
+  .go:hover { background: var(--page); color: var(--text); }
+  .oldbox { margin-top: 14px; }
+  .oldbox > summary { font-size: 12px; color: var(--sub); cursor: pointer; padding: 6px 2px; }
+  .oldbox .cards { margin-top: 8px; opacity: .8; }
+
+  /* 서랍 — 한 세션의 대화. 카드 목록 위에 오른쪽으로 겹친다. 폰에서는 화면 전체. */
+  .drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(580px, 100vw);
+            background: var(--surface); box-shadow: -8px 0 32px rgba(0,0,0,.14);
+            display: flex; flex-direction: column; z-index: 10; }
+  .drawer[hidden] { display: none; }
+  .dh { display: flex; align-items: center; gap: 10px; padding: 14px 16px 12px;
+        border-bottom: 1px solid var(--hair); }
+  .dh .wn { font-size: 16px; }
+  .dh .ws { margin-left: 0; }
+  .x { appearance: none; border: 0; background: none; font: inherit; font-size: 18px;
+       color: var(--sub); cursor: pointer; margin-left: auto; width: 32px; height: 32px;
+       border-radius: 8px; flex: none; }
+  .x:hover { background: var(--page); color: var(--text); }
+  .db { flex: 1; overflow-y: auto; padding: 12px 16px 24px; display: flex;
+        flex-direction: column; gap: 8px; overscroll-behavior: contain; }
+  .more { align-self: center; appearance: none; border: 0; background: var(--page);
+          color: var(--sub); font: inherit; font-size: 12px; padding: 6px 14px;
+          border-radius: 999px; cursor: pointer; }
+  .bub { max-width: 86%; padding: 9px 13px; border-radius: 14px; font-size: 13px;
+         line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
+  .bub.me { align-self: flex-end; background: var(--calm); color: #fff;
+            border-bottom-right-radius: 4px; }
+  .bub.claude { align-self: flex-start; background: var(--page); color: var(--text);
+                border-bottom-left-radius: 4px; }
+  .bub.in { align-self: flex-start; background: none; color: var(--text);
+            box-shadow: inset 0 0 0 1.5px var(--warn); }
+  .bub .t { display: block; font-size: 10.5px; opacity: .7; margin-bottom: 2px; }
+  .tools { align-self: flex-start; font-size: 11.5px; color: var(--sub); max-width: 92%; }
+  .tools > summary { cursor: pointer; padding: 2px 4px; list-style: none; }
+  .tools > summary::-webkit-details-marker { display: none; }
+  .tools > summary::before { content: '▸ '; }
+  .tools[open] > summary::before { content: '▾ '; }
+  .tools ol { margin: 4px 0 2px; padding-left: 22px; display: grid; gap: 2px; }
+  .tools li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tools b { font-weight: 650; color: var(--calm); margin-right: 6px; }
+  .day { align-self: center; font-size: 10.5px; color: var(--sub); padding: 4px 0; }
 
   .wt { display: flex; align-items: baseline; gap: 10px; }
   /* min-width:0 이 없으면 flex 안에서 줄임표가 안 먹고 이름이 카드를 뚫고 나간다. */
@@ -176,12 +225,20 @@
     <button class="tab" role="tab" data-pane="pane-talk">지시 <span class="n" id="n-talk"></span></button>
   </div>
 
-  <div class="pane" id="pane-wins"><div class="cards" id="wins"></div></div>
+  <div class="pane" id="pane-wins"><div class="cards" id="wins"></div>
+    <details class="oldbox" id="oldbox" hidden><summary>지난 창 <span id="n-old"></span></summary>
+      <div class="cards" id="olds"></div></details></div>
   <div class="pane" id="pane-live" hidden><div class="card" id="live"></div></div>
   <div class="pane" id="pane-ledger" hidden><div class="card" id="ledger"></div></div>
   <div class="pane" id="pane-loop" hidden><div class="card" id="loop"></div></div>
   <div class="pane" id="pane-talk" hidden><div class="card" id="talk"></div></div>
 </div>
+
+<aside class="drawer" id="drawer" role="dialog" aria-modal="false" aria-labelledby="dname" hidden>
+  <div class="dh"><span class="wn" id="dname"></span><span class="ws" id="dphase"></span>
+    <button class="x" id="dclose" aria-label="대화 닫기">✕</button></div>
+  <div class="db" id="dbody"></div>
+</aside>
 
 <script>
 const $ = id => document.getElementById(id);
@@ -259,10 +316,10 @@ function winCard(x, now) {
   // 못 찾으면 — 창이 꺼진 것이다 — 그 자리에서 되살린다.
   const live = x.titled && x.name;   // 이름이 있어야 창을 제목으로 찾는다
   const steps = x.steps ?? [];
-  return `<div class="win ${x.moving ? 'live' : ''} pick"`
-    + ` data-id="${esc(x.id)}" data-name="${esc(live ? x.name : '')}"`
-    + ` title="${live ? '누르면 그 창이 앞으로' : '꺼진 창 — 누르면 되살립니다'}"`
+  return `<div class="win ${x.moving ? 'live' : ''} ${x.id === OPEN_ID ? 'sel' : ''}"`
+    + ` data-id="${esc(x.id)}" data-title="${esc(x.name || x.id.slice(0, 8))}" title="누르면 대화를 봅니다"`
     + `><div class="wt"><span class="wn">${esc(x.name || x.id.slice(0, 8))}</span>`
+    + (x.where ? `<span class="where">${esc(x.where)}</span>` : '')
     + `<span class="ws ${x.moving ? 'on' : esc(x.phase ?? '')}">`
     + (x.moving
         ? '<span class="dot"></span> 도는 중'
@@ -273,8 +330,10 @@ function winCard(x, now) {
     + (steps.length
         ? `<div class="flow">${steps.map((s, i) => step(s, now, i === steps.length - 1)).join('')}</div>`
         : '')
-    + `<div class="foot"><span>${x.where ? '작업칸 ' + esc(x.where) + ' · ' : ''}${esc(x.branch ?? '')}</span>`
+    + `<div class="foot"><span>${esc(x.branch ?? '')}</span>`
     + (x.cost ? `<span>${toks(x.cost)}</span><span class="usd">${money(x.cost.usd)}</span>` : '')
+    + `<button class="go pick" data-id="${esc(x.id)}" data-name="${esc(live ? x.name : '')}"`
+    + ` title="${live ? '그 창을 앞으로' : '꺼진 창 — 되살립니다'}">${live ? '창 열기' : '되살리기'}</button>`
     + '</div></div>';
 }
 
@@ -374,9 +433,17 @@ function draw(d) {
   if ($('talk').innerHTML !== talkHtml) $('talk').innerHTML = talkHtml;
   $('n-talk').textContent = (talk ?? []).length || '';
 
-  $('wins').innerHTML = sessions.length
-    ? sessions.map(x => winCard(x, now)).join('')
-    : '<div class="none">도는 창이 없습니다</div>';
+  // 하루 넘게 멈춘 창은 아래 "지난 창" 으로 접는다. 지금 도는 창이 묻히지 않게.
+  const fresh = sessions.filter(x => x.idleMs < OLD_MS);
+  const olds = sessions.filter(x => x.idleMs >= OLD_MS);
+  $('wins').innerHTML = fresh.length
+    ? fresh.map(x => winCard(x, now)).join('')
+    : '<div class="none">하루 안에 움직인 창이 없습니다</div>';
+  $('oldbox').hidden = !olds.length;
+  $('n-old').textContent = olds.length || '';
+  $('olds').innerHTML = olds.map(x => winCard(x, now)).join('');
+  const me = sessions.find(x => x.id === OPEN_ID);
+  if (me) $('dphase').innerHTML = phaseText(me);
 
   $('ledger').innerHTML = recent.length
     ? recent.map(r => ledgerRow(r, now)).join('')
@@ -397,7 +464,7 @@ function draw(d) {
   // 끌어 놓은 선택이 그때마다 사라진다 — 긴 답을 읽을 수가 없었다.
   if ($('loop').innerHTML !== lapHtml) $('loop').innerHTML = lapHtml;
 
-  $('n-wins').textContent = sessions.length || '';
+  $('n-wins').textContent = fresh.length || '';
   $('n-live').textContent = (live ?? []).length || '';
   $('n-ledger').textContent = recent.length || '';
   $('n-loop').textContent = laps.length || '';
@@ -439,7 +506,112 @@ async function go(e) {
     say('창 도우미가 없습니다 — node ops/focus.mjs');
   }
 }
-$('wins').addEventListener('click', go);
+// ── 대화 서랍 ────────────────────────────────────────────────
+// 카드를 누르면 그 세션에서 사람과 주고받은 말이 뜬다. 기록 끝 토막부터 읽고,
+// 위 "더 보기" 로 앞 토막을 더 부른다. 도는 세션이면 2초마다 새 말이 아래에 붙는다.
+const OLD_MS = 24 * 60 * 60 * 1000;
+let OPEN_ID = null, CHAT = [], HEAD = 0, TAIL = 0, pulling = false;
+const TOOLS_OPEN = new Set();
+addEventListener('toggle', e => {
+  const d = e.target.closest?.('.tools');
+  if (!d) return;
+  if (d.open) TOOLS_OPEN.add(d.dataset.k); else TOOLS_OPEN.delete(d.dataset.k);
+}, true);
+
+const phaseText = x => x.moving ? '<span class="dot"></span> 도는 중'
+  : esc(`${PHASE[x.phase] ?? ''} ${ago(x.idleMs)}`.trim());
+const hhmm = t => { const d = new Date(t); return isNaN(d) ? '' : d.toTimeString().slice(0, 5); };
+const dayOf = t => { const d = new Date(t); return isNaN(d) ? '' : `${d.getMonth() + 1}월 ${d.getDate()}일`; };
+
+function bubble(it, i) {
+  if (it.who === 'tools') {
+    const k = (it.at ?? '') + ':' + it.tools[0].name + it.tools[0].text;
+    return `<details class="tools" data-k="${esc(k)}"${TOOLS_OPEN.has(k) ? ' open' : ''}>`
+      + `<summary>도구 ${it.tools.length}번 · ${esc([...new Set(it.tools.map(t => t.name.replace(/^mcp__[a-z-]+__/, '')))].slice(0, 4).join(', '))}</summary>`
+      + `<ol>${it.tools.map(t => `<li><b>${esc(t.name.replace(/^mcp__[a-z-]+__/, ''))}</b>${esc(t.text)}</li>`).join('')}</ol></details>`;
+  }
+  const who = it.who === 'me' ? '나' : it.who === 'in' ? `${it.from} 이 보낸 지시` : 'Claude';
+  return `<div class="bub ${it.who}"><span class="t">${esc(who)} · ${hhmm(it.at)}</span>${esc(it.text)}</div>`;
+}
+
+function drawChat(stick) {
+  const body = $('dbody');
+  const atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 40;
+  let html = HEAD > 0 ? '<button class="more" id="dmore">더 보기</button>' : '';
+  let day = '';
+  CHAT.forEach((it, i) => {
+    const d = dayOf(it.at);
+    if (d && d !== day) { html += `<div class="day">${d}</div>`; day = d; }
+    html += bubble(it, i);
+  });
+  if (!CHAT.length) html += '<div class="none">이 토막에는 주고받은 말이 없습니다</div>';
+  const prevH = body.scrollHeight, prevTop = body.scrollTop;
+  body.innerHTML = html;
+  // 새 말이 붙을 때 아래에서 읽고 있었으면 따라 내려간다. 위를 읽는 중이면 그대로.
+  if (stick === 'bottom' || (stick === 'follow' && atBottom)) body.scrollTop = body.scrollHeight;
+  else if (stick === 'keep') body.scrollTop = prevTop + (body.scrollHeight - prevH);
+  else body.scrollTop = prevTop;
+}
+
+// 앞 토막을 붙일 때 경계에서 도구 묶음이 둘로 갈릴 수 있다. 이어 붙인다.
+function joinChat(a, b) {
+  if (a.length && b.length && a.at(-1).who === 'tools' && b[0].who === 'tools') {
+    return [...a.slice(0, -1), { ...a.at(-1), tools: [...a.at(-1).tools, ...b[0].tools] }, ...b.slice(1)];
+  }
+  return [...a, ...b];
+}
+
+async function openChat(id, title) {
+  OPEN_ID = id; CHAT = []; HEAD = TAIL = 0;
+  $('dname').textContent = title;
+  $('dphase').innerHTML = '';
+  $('dbody').innerHTML = '<div class="none">불러오는 중…</div>';
+  $('drawer').hidden = false;
+  for (const w of document.querySelectorAll('.win')) w.classList.toggle('sel', w.dataset.id === id);
+  try {
+    const r = await (await fetch('/api/log?id=' + encodeURIComponent(id))).json();
+    if (OPEN_ID !== id) return;
+    CHAT = r.items; HEAD = r.start; TAIL = r.end;
+    drawChat('bottom');
+  } catch { $('dbody').innerHTML = '<div class="none">기록을 못 읽었습니다</div>'; }
+}
+
+async function moreChat() {
+  const id = OPEN_ID;
+  const r = await (await fetch(`/api/log?id=${encodeURIComponent(id)}&before=${HEAD}`)).json();
+  if (OPEN_ID !== id) return;
+  CHAT = joinChat(r.items, CHAT); HEAD = r.start;
+  drawChat('keep');
+}
+
+async function pullChat() {
+  if (!OPEN_ID || pulling || !TAIL) return;
+  pulling = true;
+  const id = OPEN_ID;
+  try {
+    const r = await (await fetch(`/api/log?id=${encodeURIComponent(id)}&from=${TAIL}`)).json();
+    if (OPEN_ID !== id || r.end === TAIL) return;
+    TAIL = r.end;
+    if (r.items.length) { CHAT = joinChat(CHAT, r.items); drawChat('follow'); }
+  } catch { /* 다음 갱신에 다시 */ } finally { pulling = false; }
+}
+
+function closeChat() {
+  OPEN_ID = null;
+  $('drawer').hidden = true;
+  for (const w of document.querySelectorAll('.win.sel')) w.classList.remove('sel');
+}
+
+function onCard(e) {
+  if (e.target.closest('.go')) return go(e);
+  const w = e.target.closest('.win');
+  if (w) openChat(w.dataset.id, w.dataset.title);
+}
+$('wins').addEventListener('click', onCard);
+$('olds').addEventListener('click', onCard);
+$('dclose').addEventListener('click', closeChat);
+$('dbody').addEventListener('click', e => { if (e.target.id === 'dmore') moreChat(); });
+addEventListener('keydown', e => { if (e.key === 'Escape' && OPEN_ID) closeChat(); });
 $('live').addEventListener('click', go);
 
 let stale = 0;
@@ -447,6 +619,7 @@ async function tick() {
   try {
     draw(await (await fetch('/api/board')).json());
     stale = 0;
+    pullChat();
   } catch {
     // 서버가 잠깐 없어도 화면은 남긴다. 계속 못 받으면 그때 말한다.
     if (++stale > 3) $('tally').textContent = '서버가 안 보입니다';
