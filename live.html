@@ -346,8 +346,10 @@
   .gl { stroke: var(--border); stroke-width: 1; }
   .ax { stroke: var(--muted); stroke-width: 1; opacity: .5; }
   .ctk { font-size: 9px; fill: var(--muted); }
-  /* 지금 값 배지. 눈금을 덮고 앉는다 — 어차피 그 자리에서 제일 알고 싶은 수다. */
-  .cnow { font-size: 9px; font-weight: 700; fill: #fff; }
+  /* 지금 값 배지. 눈금을 덮고 앉는다 — 어차피 그 자리에서 제일 알고 싶은 수다.
+     흰 9px 글자는 빨강 바탕에서 밝게 3.71, 어둡게 2.99 로 AA 4.5 에 못 미쳤다.
+     배지 바탕은 모두 중간 밝기라 검은 글자가 낫다 — 빨강 5.66, 파랑 5.65, 어두운 테마 7 이상. */
+  .cnow { font-size: 9px; font-weight: 700; fill: #0a0a0b; }
   /* 날짜가 바뀌는 자리와 양 끝은 진하게 — 나머지 시각은 사이를 메우는 눈금이다. */
   .ctk.d, .ctk.e { fill: var(--text-secondary); font-weight: 600; }
   .cempty { font-size: 11.5px; color: var(--muted); padding: 6px 0; }
@@ -359,6 +361,10 @@
   .fld { border: 0; box-shadow: var(--ring); border-radius: var(--radius); background: var(--surface-1);
     color: var(--text-primary); font: inherit; font-size: 13px; padding: 7px 10px; }
   .fld:focus { outline: 2px solid var(--accent-wash); outline-offset: 1px; }
+  /* 입력칸 안내 글자. 브라우저 기본 회색 rgb(117,117,117) 이 테마를 안 따라가
+     어두운 입력칸에서 3.52(시스템 어둡게)·4.13(손으로 어둡게)였다. 테마의
+     가장 옅은 글자색을 준다. 파이어폭스는 안내 글자를 반투명하게 깔아 불투명으로 편다. */
+  .fld::placeholder { color: var(--faint); opacity: 1; }
   .dates { display: flex; align-items: center; gap: 6px; }
   .dates span { color: var(--muted); font-size: 12px; }
   .btn { border: 0; box-shadow: var(--ring); border-radius: var(--radius); background: var(--surface-1);
@@ -387,10 +393,13 @@
     padding: 3px 12px; border-radius: 999px; border: 1px solid var(--border);
     background: var(--surface-1); color: var(--text-secondary); }
   .plab button:hover { background: var(--neutral); }
-  .plab button[aria-pressed="true"] { font-weight: 600; color: #fff; border-color: transparent; }
+  /* 눌린 단추. 흰 12px 글자가 파랑·빨강 바탕에서 밝게 3.71, 어둡게 2.45·2.99,
+     어두운 테마 회색(중립)에서 2.52~3.05 였다. 파랑·빨강은 중간 밝기라 검은 글자로,
+     중립은 테마에 따라 뒤집히는 카드색으로 준다(밝은 테마 회색 #64646d 위에선 흰 글자라야 5.86). */
+  .plab button[aria-pressed="true"] { font-weight: 600; color: #0a0a0b; border-color: transparent; }
   .plab button.p[aria-pressed="true"] { background: var(--pos); }
   .plab button.n[aria-pressed="true"] { background: var(--neg); }
-  .plab button.x[aria-pressed="true"] { background: var(--muted); }
+  .plab button.x[aria-pressed="true"] { background: var(--muted); color: var(--surface-1); }
   .plab .pdict { margin-left: 4px; color: var(--muted); }
   .plab .pdict.bad { color: var(--neg-ink); font-weight: 600; }
   .pkeys { font-size: 11.5px; color: var(--muted); margin: 0 0 10px; }
@@ -572,23 +581,6 @@
        rgb(215,225,240) — 대비 1.20 으로 안 보였다. 색 전환만 끄면 16.91 로
        따라온다. 누른 반응(:active)은 전환이 아니라 그대로 남는다. */
     .seg button { transition: none; }
-    /* 차트의 지금 값 배지. 흰 9px 글자가 빨강 바탕에서 밝게 3.71, 어둡게 2.99 로
-       AA 4.5 에 못 미쳤다. 파랑(내림)도 셈으로 밝게 3.7 이다. 배지 바탕은 모두 중간
-       밝기라 검은 글자가 낫다 — 빨강 5.66, 파랑 5.65, 어두운 테마 7 이상. */
-    .cnow { fill: #0a0a0b; }
-    /* 입력칸 안내 글자. 브라우저 기본 회색 rgb(117,117,117) 이 테마를 안 따라가
-       어두운 입력칸에서 3.52(시스템 어둡게)·4.13(손으로 어둡게)였다. 테마의
-       가장 옅은 글자색을 준다. 파이어폭스는 안내 글자를 반투명하게 깔아 불투명으로 편다. */
-    .fld::placeholder { color: var(--faint); opacity: 1; }
-    /* 도움 탭 곡소리 식의 굵은 글자. 선·게이지용 빨강(--fear)을 글자에 써 흰 바탕에서
-       3.71 이었다. 글자용 빨강으로 바꾼다. 아래쪽 .eq b 가 뒤에 있어 이름을 두 번 적는다. */
-    .eq.eq b { color: var(--fear-ink); }
-    /* 글 탭 라벨 모드의 눌린 단추. 흰 12px 글자가 파랑·빨강 바탕에서 밝게 3.71,
-       어둡게 2.45·2.99, 어두운 테마 회색(중립)에서 2.52~3.05 였다. 파랑·빨강은
-       중간 밝기라 검은 글자로, 중립은 테마에 따라 뒤집히는 카드색으로 준다
-       (밝은 테마 회색 #64646d 위에선 흰 글자라야 5.86). */
-    .plab button[aria-pressed="true"] { color: #0a0a0b; }
-    .plab button.x[aria-pressed="true"] { color: var(--surface-1); }
     /* 라벨 줄은 한 줄로 버텼다. 글자를 200% 로 키우면(195px) 단추 셋과 '사전: …'
        글자가 243px 까지 나가 화면이 옆으로 밀렸다 — 모자라면 다음 줄로 내린다.
        390px 에선 한 줄에 다 들어가 그대로다. */
@@ -596,10 +588,6 @@
     /* 기간 칸 두 개도 한 줄로 버텼다. 글자 200%(195px)에서 기간 접기를 펴면 문서가
        287px 까지 밀렸다 — 모자라면 둘째 날짜를 다음 줄로 내린다. 390px 에선 그대로다. */
     .dates { flex-wrap: wrap; }
-    /* 카드의 곡소리 경보 태그. 흰 10.5px 글자가 --neg 바탕에서 밝게 3.71, 어둡게
-       2.99 였다. 판의 경보 알약이 이미 쓰는 진한 경보색(--alert-bg)으로 맞춘다 —
-       두 경보가 같은 색이 되고 흰 글자가 선다. 아래쪽 .tag.fear 가 뒤에 있어 이름을 겹친다. */
-    .tag.tag.fear { background: var(--alert-bg); }
     .mas { gap: 2px 8px; }
     .mas label { min-height: 44px; padding: 0 2px; }
     /* 평단 줄의 '선' 체크박스. 라벨까지 쳐도 누르는 높이가 20px 로 AA 24px 에
@@ -687,7 +675,9 @@
   .nm { font-size: 12.5px; color: var(--text-secondary); }
   .tag { font-size: 10.5px; font-weight: 600; padding: 2px 7px; border-radius: 20px;
          background: var(--accent-wash); color: var(--text-primary); }
-  .tag.fear { background: var(--neg); color: var(--on-solid); }
+  /* 곡소리 경보 태그. 흰 10.5px 글자가 --neg 바탕에서 밝게 3.71, 어둡게 2.99 였다.
+     판의 경보 알약이 이미 쓰는 진한 경보색(--alert-bg)으로 맞춘다 — 두 경보가 같은 색이 되고 흰 글자가 선다. */
+  .tag.fear { background: var(--alert-bg); color: var(--on-solid); }
   .grow { flex: 1 1 auto; }
 
   .px { font-size: 26px; font-weight: 650; letter-spacing: -.02em; margin: 10px 0 2px;
@@ -769,7 +759,9 @@
     margin: 10px 0 14px; font-family: var(--mono);
     font-size: 12px; line-height: 1.75; white-space: pre-wrap; overflow-x: auto;
     color: var(--text-primary); font-weight: 500; }
-  .eq b { color: var(--fear); font-weight: 700; }
+  /* 곡소리 식의 굵은 글자. 선·게이지용 빨강(--fear)을 글자에 써 흰 바탕에서 3.71 이었다.
+     글자용 빨강으로 준다. */
+  .eq b { color: var(--fear-ink); font-weight: 700; }
   .foot h4 { font-size: 12.5px; margin: 12px 0 4px; color: var(--text-primary); }
 
   .tabs { display: flex; gap: 2px; margin: 0 0 18px; border-bottom: 1px solid var(--border); }
