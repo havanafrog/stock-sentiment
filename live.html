@@ -427,6 +427,13 @@
   .board th { font-weight: 500; color: var(--faint); font-size: 11px; text-align: right;
     padding: 0 12px 10px 0; cursor: pointer; user-select: none; white-space: nowrap; }
   .board th:first-child, .board th:nth-child(2) { text-align: left; }
+  /* 머리글·종목 글자는 단추다 — onclick 만 걸린 th·tr 에는 키보드·읽기 도구가 닿지
+     못했다(판 표 안 Tab 0곳). 모양은 글자 그대로 두고(.board .sym 이 이 줄보다 세다),
+     누를 자리는 ::after 로 제 칸 전체로 편다 — 손가락이 누르던 넓이 그대로다. */
+  .board button { appearance: none; background: none; border: 0; padding: 0; margin: 0;
+    font: inherit; color: inherit; letter-spacing: inherit; text-align: inherit; cursor: pointer; }
+  .board th[data-k], .board td:nth-child(2) { position: relative; }
+  .board button::after { content: ''; position: absolute; inset: 0; }
   .board th:hover { color: var(--text-secondary); }
   .board th[aria-sort] { color: var(--text-primary); font-weight: 600; }
   /* 정렬 중인 칸에만 방향을 붙인다. 늘 붙여 두면 머리글이 기호로 지저분해진다. */
@@ -815,13 +822,13 @@
       <div class="boardwrap">
         <table class="board" id="board" aria-label="종목 판"><thead id="boardHead"><tr>
           <th class="rk"></th>
-          <th data-k="sym">종목</th>
-          <th data-k="close">현재가</th>
-          <th data-k="chg">등락</th>
-          <th data-k="volume" class="c-vol">거래량</th>
-          <th data-k="value" class="c-value">거래대금</th>
-          <th data-k="strength" class="c-str">체결강도</th>
-          <th data-k="idx">곡소리</th>
+          <th data-k="sym"><button type="button">종목</button></th>
+          <th data-k="close"><button type="button">현재가</button></th>
+          <th data-k="chg"><button type="button">등락</button></th>
+          <th data-k="volume" class="c-vol"><button type="button">거래량</button></th>
+          <th data-k="value" class="c-value"><button type="button">거래대금</button></th>
+          <th data-k="strength" class="c-str"><button type="button">체결강도</button></th>
+          <th data-k="idx"><button type="button">곡소리</button></th>
         </tr></thead><tbody id="boardBody"></tbody></table>
       </div>
     </div>
@@ -2177,8 +2184,8 @@ function paintBoard(order, tickers, feary) {
     const idx = v.w60?.idx;
     return `<tr data-t="${t}" aria-selected="${t === UI.ticker}">`
       + `<td class="rk">${i + 1}</td>`
-      + `<td><span class="sym">${t}`
-        + `${feary.includes(t) ? '<span class="fdot"></span>' : ''}</span>`
+      + `<td><button type="button" class="sym">${t}`
+        + `${feary.includes(t) ? '<span class="fdot"></span>' : ''}</button>`
         + `<span class="nm">${esc(v.name ?? '')}</span></td>`
       + `<td>${p ? money(p.close) : '—'}</td>`
       + `<td class="chg ${dir}">`
