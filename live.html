@@ -777,8 +777,10 @@
 </style>
 </head>
 <body>
-<div class="ctip" id="ctip"></div>
 <div class="app">
+<!-- 차트 툴팁. .app 안에 둬야 테마 변수(바탕·글자색·--mono)를 받는다 — 밖에 두니
+     바탕이 비고 글자는 기본 검정이라 어두운 화면에서 대비 1.06 이었다. -->
+<div class="ctip" id="ctip"></div>
   <div class="top">
     <div class="brand">
       <img src="logo-128.png" alt="" width="30" height="30">
@@ -2371,7 +2373,8 @@ function showTip(i, cx, cy) {
   const r = BAR.rows[i]; if (!r) return;
   const f = BAR.fear[i];
   const chg = r[1] ? (r[4] / r[1] - 1) : 0;
-  const col = r[4] >= r[1] ? 'var(--up)' : 'var(--down)';
+  // 글자라 선 색(--up/--down)이 아닌 글자용 색을 쓴다 — 밝은 화면에서 3.67 이었다.
+  const col = r[4] >= r[1] ? 'var(--neg-ink)' : 'var(--pos-ink)';
   const row = (k, v, c) =>
     `<div class="r"><span>${k}</span><b${c ? ` style="color:${c}"` : ''}>${v}</b></div>`;
   tip.innerHTML =
@@ -2386,7 +2389,7 @@ function showTip(i, cx, cy) {
     + row('거래량', (r[5] ?? 0).toLocaleString())
     + '<div class="sep"></div>'
     + row('곡소리 지수', f && f[5] !== null && f[5] !== undefined ? f[5].toFixed(0) : '—',
-          f && f[5] >= ALERT ? 'var(--neg)' : '')
+          f && f[5] >= ALERT ? 'var(--neg-ink)' : '')
     + row('글 / 곡소리', f ? `${f[2].toLocaleString()} / ${(f[4] ?? 0).toLocaleString()}` : '—');
   tip.style.opacity = 1;
   const w = tip.offsetWidth, h = tip.offsetHeight;
