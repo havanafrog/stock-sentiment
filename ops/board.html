@@ -141,6 +141,7 @@
                text-overflow: ellipsis; white-space: nowrap; }
   .lap .plan.none { color: var(--faint); }
   .lap.stuck .no { color: var(--live); }
+  .msg .no { width: auto; min-width: 96px; }
   .lap .use { margin-left: auto; font-size: 11px; color: var(--faint); flex: none;
               font-variant-numeric: tabular-nums; }
   .again { font-size: 10.5px; color: var(--faint); text-align: center;
@@ -172,12 +173,14 @@
     <button class="tab" role="tab" data-pane="pane-live">열린 창 <span class="n" id="n-live"></span></button>
     <button class="tab" role="tab" data-pane="pane-ledger">장부 <span class="n" id="n-ledger"></span></button>
     <button class="tab" role="tab" data-pane="pane-loop">자동 <span class="n" id="n-loop"></span></button>
+    <button class="tab" role="tab" data-pane="pane-talk">지시 <span class="n" id="n-talk"></span></button>
   </div>
 
   <div class="pane" id="pane-wins"><div class="cards" id="wins"></div></div>
   <div class="pane" id="pane-live" hidden><div class="card" id="live"></div></div>
   <div class="pane" id="pane-ledger" hidden><div class="card" id="ledger"></div></div>
   <div class="pane" id="pane-loop" hidden><div class="card" id="loop"></div></div>
+  <div class="pane" id="pane-talk" hidden><div class="card" id="talk"></div></div>
 </div>
 
 <script>
@@ -270,7 +273,7 @@ function winCard(x, now) {
     + (steps.length
         ? `<div class="flow">${steps.map((s, i) => step(s, now, i === steps.length - 1)).join('')}</div>`
         : '')
-    + `<div class="foot"><span>${esc(x.branch ?? '')}</span>`
+    + `<div class="foot"><span>${x.where ? '작업칸 ' + esc(x.where) + ' · ' : ''}${esc(x.branch ?? '')}</span>`
     + (x.cost ? `<span>${toks(x.cost)}</span><span class="usd">${money(x.cost.usd)}</span>` : '')
     + '</div></div>';
 }
@@ -319,7 +322,7 @@ function ledgerRow(r, now) {
 const OPENED = new Set();
 // toggle 은 위로 안 올라온다. 잡는 단계에서 받아야 한다.
 addEventListener('toggle', e => {
-  const d = e.target.closest?.('.lap');
+  const d = e.target.closest?.('.lap, .msg');
   if (!d) return;
   const k = d.dataset.lap;
   if (d.open) OPENED.add(k); else OPENED.delete(k);
@@ -348,9 +351,28 @@ function lapRow(r, now) {
     + `</div></details>`;
 }
 
+// 창끼리 주고받은 지시 한 줄. 본채가 하위 창에 일을 넘기면 여기 쌓인다.
+// 접힌 줄에는 누가 누구에게와 첫 줄, 펴면 전문.
+function talkRow(m, now) {
+  const at = Date.parse(m.at);
+  const first = (m.message.split('\n').find(l => l.trim()) || '').trim();
+  const key = 'm' + (m.at ?? '') + m.from;
+  return `<details class="lap msg" data-lap="${esc(key)}"${OPENED.has(key) ? ' open' : ''}>`
+    + `<summary><span class="no">${esc(m.from)} → ${esc(m.to)}</span>`
+    + `<span class="plan">${esc(cut(m.summary || first || '(빈 지시)', 90))}</span>`
+    + `<span class="use">${Number.isFinite(at) ? ago(now - at) : ''}${m.idle ? ' · 끝나면 알림' : ''}</span></summary>`
+    + `<div class="body"><div><pre>${esc(m.message || '(끝나면 알려 달라는 신청만)')}</pre></div></div></details>`;
+}
+
 function draw(d) {
   const now = Date.now();
-  const { sessions, live, spend, repo, open, recent, counts, handoff, loop } = d;
+  const { sessions, live, spend, repo, open, recent, counts, handoff, loop, talk } = d;
+
+  const talkHtml = (talk ?? []).length
+    ? talk.map(m => talkRow(m, now)).join('')
+    : '<div class="none" style="padding:10px 12px">아직 창끼리 주고받은 지시가 없습니다</div>';
+  if ($('talk').innerHTML !== talkHtml) $('talk').innerHTML = talkHtml;
+  $('n-talk').textContent = (talk ?? []).length || '';
 
   $('wins').innerHTML = sessions.length
     ? sessions.map(x => winCard(x, now)).join('')

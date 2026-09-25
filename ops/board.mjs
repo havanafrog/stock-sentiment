@@ -38,6 +38,25 @@ export function projectSlug(cwd) {
 export const LOG_DIR = process.env.OPS_LOG_DIR
   || join(homedir(), '.claude', 'projects', projectSlug(REPO));
 
+/**
+ * 볼 기록 폴더 전부. 하위 창은 따로 판 작업칸(git worktree)에서 돌아서 기록이
+ * 옆 폴더에 쌓인다 — 저장소 폴더가 stock-sentiment-auto 면 기록 폴더도 이름 끝에
+ * -auto 가 붙는다. 그래서 LOG_DIR 이름으로 시작하는 형제 폴더를 다 본다.
+ *
+ * 통 안에서는 형제 폴더가 안 보인다. OPS_LOG_DIRS=/logs,/logs-auto 처럼 준다.
+ */
+export function logDirs(env = process.env.OPS_LOG_DIRS) {
+  if (env) return env.split(',').map(s => s.trim()).filter(Boolean);
+  const up = dirname(LOG_DIR), me = basename(LOG_DIR);
+  if (!existsSync(up)) return [LOG_DIR];
+  return [LOG_DIR, ...readdirSync(up).filter(f => f.startsWith(me + '-')).sort().map(f => join(up, f))];
+}
+
+/** 작업칸 이름. 첫 폴더가 본채(''), 나머지는 뒤에 붙은 말 — -auto 면 auto. */
+export function whereOf(dir, first) {
+  return basename(dir).slice(basename(first).length).replace(/^-+/, '');
+}
+
 // 창 이름은 기록(jsonl)이 아니라 여기 있다. 한 창에 파일 하나, 파일 이름은 pid 다.
 export const SESSION_DIR = process.env.OPS_SESSION_DIR
   || join(homedir(), '.claude', 'sessions');
@@ -230,7 +249,7 @@ export function phaseOf(last, idle) {
   return last?.role === 'assistant' ? 'waiting' : 'busy';
 }
 
-export function sessions(dir = LOG_DIR, now = Date.now()) {
+export function sessions(dir = LOG_DIR, now = Date.now(), where = '') {
   if (!existsSync(dir)) return [];
   const named = sessionNames();
   const hookAsked = askedByHook();
@@ -245,6 +264,8 @@ export function sessions(dir = LOG_DIR, now = Date.now()) {
     try { rows = tailLines(file).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); }
     catch { continue; }
     if (!rows.length) continue;
+    // claude -p 로 부른 판(자동 작업)은 창이 아니다. 자동 탭이 따로 보여 준다.
+    if (rows.some(r => r.entrypoint === 'sdk-cli')) continue;
 
     // 마지막으로 "한 일". 도구 결과만 있는 줄은 건너뛴다 — 그건 남이 준 답이다.
     let last = null;
@@ -263,6 +284,19 @@ export function sessions(dir = LOG_DIR, now = Date.now()) {
         text: squash(d.text).slice(0, STEP_CUT), at: rows[i].timestamp });
     }
     steps.reverse();
+
+    // 이 창이 다른 창에 보낸 지시. 본채가 뇌 노릇을 하면 여기에 일이 쌓인다.
+    // 받은 쪽도 답을 SendMessage 로 보내므로, 보낸 것만 모아도 양쪽이 다 보인다.
+    const sends = [];
+    for (const r of rows) {
+      if (r.message?.role !== 'assistant' || !Array.isArray(r.message.content)) continue;
+      for (const c of r.message.content) {
+        if (c.type !== 'tool_use' || c.name !== 'SendMessage') continue;
+        const i = c.input ?? {};
+        sends.push({ at: r.timestamp, to: i.to ?? '', summary: i.summary ?? '',
+          message: String(i.message ?? '').slice(0, 4000), idle: !!i.notify_when_idle });
+      }
+    }
 
     // 사람이 마지막으로 시킨 것.
     let asked = null;
@@ -284,6 +318,8 @@ export function sessions(dir = LOG_DIR, now = Date.now()) {
     const id = basename(f, '.jsonl');
     out.push({
       id,
+      where,
+      sends,
       // 사람이 붙인 이름이 있으면 그게 이름이다 — 판에서 어느 창인지 그걸로 가른다.
       // 없으면 첫 요청, 그것도 없으면 아이디 앞 여덟 자.
       name: named.get(id)
@@ -340,7 +376,13 @@ export function loopRounds(file = LOOP_FILE, want = 30) {
 export function board(now = Date.now()) {
   const claims = openClaims();
   const all = readLedger();
-  const sess = sessions(LOG_DIR, now);
+  const dirs = logDirs();
+  const sess = dirs.flatMap(d => sessions(d, now, whereOf(d, dirs[0])))
+    .sort((a, b) => a.idleMs - b.idleMs);
+  // 창끼리 주고받은 지시. 보낸 창 이름을 붙여 시간순으로 한 줄에 모은다.
+  const talk = sess.flatMap(s => s.sends.map(m => ({ ...m, from: s.name || s.id.slice(0, 8), where: s.where })))
+    .sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 60);
+  for (const s of sess) delete s.sends;
   // 이 저장소 창인지는 등록부 경로로 못 가른다 — 통 안은 /repo 고 등록부는 윈도우
   // 경로다. 이 저장소 기록에 아이디가 있으면 여기 창이다.
   const live = liveSessions(SESSION_DIR, new Set(sess.map(s => s.id)));
@@ -355,6 +397,7 @@ export function board(now = Date.now()) {
     handoff: (() => { try { return handoffState(); } catch { return null; } })(),
     open: claims,
     loop: loopRounds(),
+    talk,
     recent: all.slice(-12).reverse(),
     counts: {
       claims: all.filter(r => r.kind === 'claim').length,
@@ -514,6 +557,26 @@ function selftest() {
      F.steps.every(s => s.kind === 'tool' && s.tool === 'Bash'));
   rmSync(flow, { recursive: true, force: true });
 
+  // 팀 — 하위 작업칸과 창끼리 주고받은 지시
+  ok('작업칸 이름', whereOf('/p/x-repo-auto', '/p/x-repo') === 'auto' && whereOf('/p/x-repo', '/p/x-repo') === '');
+  ok('통 안 폴더도', whereOf('/logs-auto', '/logs') === 'auto');
+  ok('OPS_LOG_DIRS 를 따른다', logDirs('/logs, /logs-auto').join() === '/logs,/logs-auto');
+  const team = join(tmpdir(), 'ops-team-' + process.pid);
+  mkdirSync(team, { recursive: true });
+  writeFileSync(join(team, 'aaaaaaaa-0000-0000-0000-000000000000.jsonl'), [
+    { message: { role: 'user', content: 'ui 고쳐' }, timestamp: at(0) },
+    { type: 'assistant', timestamp: at(1), message: { role: 'assistant', content: [
+      { type: 'tool_use', name: 'SendMessage', input: { to: 'ui', message: '대비 고쳐라', summary: '대비' } }] } },
+  ].map(r => JSON.stringify(r)).join('\n') + '\n');
+  writeFileSync(join(team, 'bbbbbbbb-0000-0000-0000-000000000000.jsonl'),
+    JSON.stringify({ entrypoint: 'sdk-cli', message: { role: 'user', content: '자동 판' }, timestamp: at(0) }) + '\n');
+  const T = sessions(team, Date.now(), 'auto');
+  ok('claude -p 판은 창이 아니다', T.length === 1, String(T.length));
+  ok('보낸 지시를 뽑는다', T[0].sends.length === 1 && T[0].sends[0].to === 'ui'
+     && T[0].sends[0].message === '대비 고쳐라');
+  ok('작업칸을 붙인다', T[0].where === 'auto');
+  rmSync(team, { recursive: true, force: true });
+
   const bd = board();
   ok('판을 만든다', Array.isArray(bd.sessions) && Array.isArray(bd.open) && bd.counts);
   ok('저장소도 담는다', bd.repo && typeof bd.repo.branch === 'string' && Array.isArray(bd.repo.dirty));
@@ -530,6 +593,7 @@ function selftest() {
 
   // 자동 — 혼자 도는 판의 자국
   ok('자동 줄도 담는다', Array.isArray(bd.loop));
+  ok('지시 줄도 담는다', Array.isArray(bd.talk) && bd.sessions.every(x => !('sends' in x)));
   ok('자동 파일이 없으면 빈 줄', loopRounds(join(HERE, '없는파일.jsonl')).length === 0);
 
   const lf = join(tmpdir(), `ops-loop-${process.pid}.jsonl`);

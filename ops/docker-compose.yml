@@ -91,6 +91,10 @@ services:
       # 세션 기록. 이 저장소 폴더 하나만 건다 — projects 전체를 걸면 다른 프로젝트
       # 대화까지 통에 보인다. 경로는 .env 의 OPS_LOG_DIR_HOST 에 있다.
       - ${OPS_LOG_DIR_HOST}:/logs:ro
+      # 하위 창이 도는 작업칸(git worktree)의 기록. 작업칸 폴더 이름 끝이 기록 폴더
+      # 끝에도 붙는다. 판은 /logs- 로 시작하는 폴더를 다 읽고 끝말(auto)을 작업칸
+      # 이름으로 적는다. 작업칸을 새로 파면 여기 한 줄을 더한다.
+      - ${OPS_LOG_DIR_HOST}-auto:/logs-auto:ro
       # 창 이름. 사람이 붙인 이름이 여기 있어야 판에서 창이 갈린다.
       # 이 폴더에는 다른 프로젝트 창도 들어 있지만 이름과 pid 뿐이라 대화는 없다.
       - ${CLAUDE_HOME}/.claude/sessions:/sessions:ro
