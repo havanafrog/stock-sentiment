@@ -520,6 +520,16 @@
   @media (min-width: 641px) { #pLabOnWrap, #pLabWrap { order: 1; } }
 
   /* 폰. 640px 안쪽에선 여백이 내용을 밀어낸다 — 눌러 담는다. */
+  /* 누를 자리 최소 24px (AA). 넓힌 규칙이 아래 640px 블록 안에만 있어 데스크톱은
+     × 16x14, 지표 체크박스 17px, 평단 '선' 19px, '전체 보기' 50x17 그대로였다.
+     보이지 않는 판만 깔아 모양·배치는 그대로 둔다. 폰은 아래 블록이 더 크게 덮는다. */
+  .tkdel, #cReset, .mas label, label.pnote { position: relative; }
+  .tkdel::after { content: ''; position: absolute; left: 50%; top: 50%;
+    width: 24px; height: 24px; transform: translate(-50%, -50%); }
+  #cReset::after { content: ''; position: absolute; left: -8px; right: -8px; bottom: 0; height: 24px; }
+  .mas label::after, label.pnote::after { content: ''; position: absolute; left: 0; right: 0;
+    top: 50%; height: 24px; transform: translateY(-50%); }
+
   @media (max-width: 640px) {
     /* 노치·둥근 모서리를 피해 앉힌다. 가로는 가로 모드에서만 0 이 아니고,
        아래는 홈 인디케이터 위로 띄운다. env() 를 모르는 브라우저는 0 으로 본다. */
