@@ -26,6 +26,13 @@ for (const tab of ['#tabBoard', '#tabMain', '#tabAnalysis', '#tabPosts', '#tabHe
   await js(`document.querySelector('${tab}').click()`);
   await new Promise(r => setTimeout(r, 1800));
   const live = (await send('Accessibility.getFullAXTree')).result.nodes.filter(n => !n.ignored);
+  // 윗 문서 나무에는 iframe 안이 안 든다 — 분석 탭(index.html)이 통째로 빠져 늘 '제목 1' 이었다.
+  // 화면에 보이는 iframe 의 나무를 따로 받아 합친다. 숨은 탭의 iframe 은 읽기 도구도 안 읽는다.
+  const shown = await js(`JSON.stringify([...document.querySelectorAll('iframe')]
+    .filter(f => f.getClientRects().length).map(f => f.src))`);
+  for (const f of (await send('Page.getFrameTree')).result.frameTree.childFrames || [])
+    if (JSON.parse(shown).includes(f.frame.url))
+      live.push(...(await send('Accessibility.getFullAXTree', { frameId: f.frame.id })).result.nodes.filter(n => !n.ignored));
   const n = r => live.filter(x => x.role?.value === r).length;
   const noName = live.filter(x => PRESS.includes(x.role?.value) && !(x.name?.value || '').trim());
   unnamed += noName.length;
