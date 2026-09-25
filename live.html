@@ -809,7 +809,7 @@
   <div id="viewBoard" role="tabpanel" aria-labelledby="tabBoard">
     <div class="card">
       <div class="boardwrap">
-        <table class="board" id="board"><thead id="boardHead"><tr>
+        <table class="board" id="board" aria-label="종목 판"><thead id="boardHead"><tr>
           <th class="rk"></th>
           <th data-k="sym">종목</th>
           <th data-k="close">현재가</th>
@@ -823,7 +823,9 @@
     </div>
 
     <div class="card">
-      <div class="tkhead">종목 추가</div>
+      <!-- 판 탭 제목이 페이지 제목뿐이라 읽기 도구가 여기로 건너뛸 수 없었다. 표는
+           보이는 머리가 없어 이름만 준다 — 표 이동(로터 '표')으로 찾아간다. -->
+      <div class="tkhead" role="heading" aria-level="2">종목 추가</div>
       <div class="tkadd">
         <div class="ctrl">
           <!-- 폰 자판이 티커를 단어로 고쳐 놓는다. 자동완성·자동수정을 끄고,
