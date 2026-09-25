@@ -360,7 +360,10 @@
   /* 글 탭 */
   .fld { border: 0; box-shadow: var(--ring); border-radius: var(--radius); background: var(--surface-1);
     color: var(--text-primary); font: inherit; font-size: 13px; padding: 7px 10px; }
-  .fld:focus { outline: 2px solid var(--accent-wash); outline-offset: 1px; }
+  /* 초점 테두리. --accent-wash 는 바탕 칠이라 테두리로는 흰 카드 1.12, 지면 1.05,
+     어두운 화면 1.21~1.28 — 어디에 초점이 있는지 안 보였다(비글자 기준 3). 글자용
+     파랑은 네 테마의 모든 바탕에서 4.5 를 넘게 맞춰 둔 색이다. */
+  .fld:focus { outline: 2px solid var(--pos-ink); outline-offset: 1px; }
   /* 입력칸 안내 글자. 브라우저 기본 회색 rgb(117,117,117) 이 테마를 안 따라가
      어두운 입력칸에서 3.52(시스템 어둡게)·4.13(손으로 어둡게)였다. 테마의
      가장 옅은 글자색을 준다. 파이어폭스는 안내 글자를 반투명하게 깔아 불투명으로 편다. */
