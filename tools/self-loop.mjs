@@ -53,13 +53,21 @@ const stamp = () => new Date().toISOString().replace('T', ' ').slice(0, 19);
 
 console.log(`고리 시작 — ${everySec}초 간격${maxRounds ? `, ${maxRounds}판` : ''}. 기록: ${LOG}`);
 
+let prev = null;                              // 앞판 답. 같은 말을 되풀이하면 멈춘다
 for (let round = 1; !maxRounds || round <= maxRounds; round++) {
   const args = ['-p', ...(round > 1 ? ['-c'] : []), prompt, '--output-format', 'json', ...FLAGS];
   const t0 = Date.now();
-  // SELF_LOOP_FAKE=1 이면 claude 를 안 부르고 답을 지어낸다. 되먹임이 실제로
-  // 도는지(답이 다음 물음이 되는지)만 확인하는 자리다.
-  const r = process.env.SELF_LOOP_FAKE
-    ? { stdout: JSON.stringify({ result: `${round}판 답 · 받은 물음: ${prompt.slice(0, 30)}`, total_cost_usd: 0.01, num_turns: 1, session_id: 'fake' }), stderr: '', status: 0 }
+  // SELF_LOOP_FAKE 를 주면 claude 를 안 부르고 답을 지어낸다. 되먹임과 멈춤이
+  // 제대로 도는지만 확인하는 자리다.
+  //   1      판마다 다른 답 — 답이 다음 물음이 되는지
+  //   stuck  2판부터 "사람 필요" — 거기서 멈추는지
+  //   same   늘 같은 답 — 2판에서 멈추는지
+  const FAKE = process.env.SELF_LOOP_FAKE;
+  const fakeSay = FAKE === 'stuck' ? (round >= 2 ? '**사람 필요:** 정해 주세요' : '1판 고쳤다')
+    : FAKE === 'same' ? '같은 말'
+    : `${round}판 답 · 받은 물음: ${prompt.slice(0, 30)}`;
+  const r = FAKE
+    ? { stdout: JSON.stringify({ result: fakeSay, total_cost_usd: 0.01, num_turns: 1, session_id: 'fake' }), stderr: '', status: 0 }
     : spawnSync('claude', args, { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, shell: false });
 
   let out = (r.stdout || '').trim();
@@ -87,6 +95,21 @@ for (let round = 1; !maxRounds || round <= maxRounds; round++) {
 
   if (!answer) { console.log('빈 답이라 멈춘다.'); break; }
   if (/^없음\.?$/m.test(answer)) { console.log('더 할 일이 없다고 해서 멈춘다.'); break; }
+
+  // 사람에게 물어야 하는 판이면 멈춘다. 안 멈추면 제 물음을 다음 판에 또 먹어,
+  // 답이 올 때까지 같은 말을 되풀이하며 돈만 쓴다 — 실제로 181판 중 162판을
+  // 그렇게 헛돌아 $154 중 $120 을 버렸다.
+  if (/^\**\s*사람 필요/m.test(answer.slice(0, 200))) {
+    console.log('사람 답이 필요하다고 해서 멈춘다. 답을 대기열 파일에 적고 다시 켜라.');
+    break;
+  }
+  // 다른 식으로 갇혀도 멈춘다. 앞판과 거의 같은 말이면 진전이 없는 것이다.
+  const head = s => s.replace(/\s+/g, ' ').slice(0, 300);
+  if (prev && head(prev) === head(answer)) {
+    console.log('앞판과 같은 답이라 멈춘다 — 진전이 없다.');
+    break;
+  }
+  prev = answer;
 
   // 이 답이 다음 판의 물음이 된다.
   prompt = answer.length > CAP ? answer.slice(0, CAP) + '\n…(줄임)' : answer;
