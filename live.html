@@ -2915,6 +2915,10 @@ async function tkCheck() {
 
 async function tkAdd() {
   if (!tkOk) return;
+  // 단추가 꺼지는 순간 초점이 BODY 로 떨어져 키보드로 누르면 판 탭 맨 위부터 다시
+  // Tab 해야 했다. 끝나면 초점을 돌려준다 — 키보드로 눌렀을 때만(손가락으로 누른 뒤
+  // 입력칸에 초점을 주면 폰 자판이 불쑥 뜬다).
+  const kb = $('tkAdd').matches(':focus-visible');
   $('tkAdd').disabled = true;
   tkSay('추가하는 중…');
   try {
@@ -2925,7 +2929,11 @@ async function tkAdd() {
     $('tkBase').value = '';
     tkOk = null;
     tkLoad();
-  } catch (e) { tkSay('✗ ' + e.message, 'no'); $('tkAdd').disabled = false; }
+    if (kb) $('tkBase').focus();          // 다음 티커를 칠 자리
+  } catch (e) {
+    tkSay('✗ ' + e.message, 'no'); $('tkAdd').disabled = false;
+    if (kb) $('tkAdd').focus();           // 다시 누를 자리
+  }
 }
 
 async function tkDel(base) {
