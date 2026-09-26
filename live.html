@@ -1973,6 +1973,7 @@ function setTitle(d) {
   document.title = `${money(px.close)}${pct} · ${t}`;
 }
 
+let PAINT_FAILED = '';     // 마지막으로 읽어 준 수집 실패 종목 묶음
 function paint(d) {
     LAST = d;
     RATE = d.rate?.rate ?? null;
@@ -2027,6 +2028,11 @@ function paint(d) {
       `${d.at ? fmtT(d.at) + ' 갱신' : '갱신 대기'} · ${d.pollMs / 1000}초마다 · `
       + `창 ${d.windowMin}분 / ${d.fastMin}분`
       + (d.pollErrors ? ` · 수집 실패 ${d.pollErrors}종목` : '');
+    // 수집 실패는 15초마다 다시 그려져 알림 칸에 그대로 두면 같은 말을 되읽는다.
+    // 실패한 종목 묶음이 바뀔 때만 한 번 읽힌다 — 다 나았다가 다시 나면 다시 읽힌다.
+    const failed = order.filter(t => d.tickers[t]?.error).join(', ');
+    if (failed !== PAINT_FAILED && failed) say('수집 실패: ' + failed);
+    PAINT_FAILED = failed;
 
     $('banner').innerHTML = feary.length
       ? `<div class="note warn"><b>공포 신호 ${feary.length}건</b> — ${feary.join(', ')} 가 `
