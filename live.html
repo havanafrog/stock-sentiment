@@ -1172,6 +1172,17 @@ const VOLF = new Intl.NumberFormat('ko', { notation: 'compact', maximumFractionD
 const fmtT = iso => HMS.format(new Date(iso));
 const pctf = v => (v === null ? '—' : (v * 100).toFixed(1) + '%');
 const sgn = v => (v >= 0 ? '+' : '') + v.toFixed(2);
+// 게이지 폭. 22.222222222222225% 같은 꼬리를 style 에 싣지 않는다.
+const pct1 = v => Math.round(v * 10) / 10;
+/**
+ * 곡소리 줄의 z. 지수(0~100)에서 되돌리면 0·100 에서 잘려 ±2.5 를 못 넘는다 —
+ * 202건 · 평소 3.5 ± 25.3 인데 +2.50 이 찍혔다. 같은 줄에 찍힌 숫자로 직접 낸다.
+ */
+function zOf(w) {
+  const base = w.wailBase, sd = w.wailSd;
+  if (!Number.isFinite(base) || !Number.isFinite(sd) || +sd.toFixed(1) === 0) return '—';
+  return sgn(((w.wailN ?? 0) - +base.toFixed(1)) / +sd.toFixed(1));
+}
 const esc = s => s.replace(/[<>&]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;' }[c]));
 
 // 선택은 새로고침해도 남는다
@@ -1273,17 +1284,17 @@ function card(ticker, d, meta) {
   // 게이지는 지수 그대로 0~100 이다. 눈금이 종목·시각과 무관하게 같은 뜻을 가진다.
   // 50 자리에 평소 표시를, 경보선에 눈금을 둔다.
   const fill = idx === null ? 0 : idx;
-  // 비율 게이지는 지수와 눈금이 다르다. 평소 비율의 3배를 상한으로 편다.
-  // 평소 곡소리 비율의 3배를 상한으로 편다
+  // 비율 게이지는 지수와 눈금이 다르다. 곡소리 비율 45% 를 상한으로 편다
+  // (실측 평소 19.8% 의 약 2.3배).
   const wr = (w.wailN ?? 0) / Math.max(1, w.n);
-  const fillR = Math.min(100, wr / 0.45 * 100);
+  const fillR = pct1(Math.min(100, wr / 0.45 * 100));
   // 곡소리도 공포와 같은 0~100 눈금이라 게이지가 그대로 비교된다.
   const wail = w.wail ?? null;
-  const fillW = wail === null ? 0 : wail;
+  const fillW = wail === null ? 0 : pct1(wail);
   // 체결강도. 100 이 균형이라 게이지 한가운데를 100 에 두고 0~200 으로 편다.
   // 200 을 넘는 날도 있어 자르되, 자른 건 숫자에 그대로 보인다.
   const stg = d.price?.strength ?? null;
-  const fillS = stg === null ? 0 : Math.min(100, stg / 200 * 100);
+  const fillS = stg === null ? 0 : pct1(Math.min(100, stg / 200 * 100));
   const isWail = wail !== null && wail >= meta.alert;
   const isFear = isWail;                       // 카드가 붉어지는 기준 = 곡소리
 
@@ -1334,7 +1345,7 @@ function card(ticker, d, meta) {
         ? `${w.why ?? '기준선 없음'} · 최근 ${winLabel(w.mins ?? 60)} 글 ${w.n}건`
         : `최근 <b>${winLabel(w.mins ?? 60)}</b> 글 <b>${w.n.toLocaleString()}건</b> 중 곡소리 <b>${(w.wailN ?? 0).toLocaleString()}건</b>`
           + `<br><span style="color:var(--muted)">평소 이 시각 이 길이엔 곡소리 글 `
-          + `${(w.wailBase ?? 0).toFixed(1)}건 ± ${(w.wailSd ?? 0).toFixed(1)}  →  z ${sgn((wail - 50) / 20)}`
+          + `${(w.wailBase ?? 0).toFixed(1)}건 ± ${(w.wailSd ?? 0).toFixed(1)}  →  z ${zOf(w)}`
           + (fellBack ? ' · 일봉은 60분 창으로 봅니다' : '')
           + '</span>'}
     </div>
