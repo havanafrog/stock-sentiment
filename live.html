@@ -864,7 +864,9 @@
         <div class="ctrl"><button class="btn" id="tkCheck">확인</button></div>
         <div class="ctrl"><button class="btn" id="tkAdd" disabled>추가</button></div>
       </div>
-      <div class="tkchk" id="tkMsg"></div>
+      <!-- 확인·추가·삭제 결과. 화면엔 뜨는데 읽기 도구는 누르고 나서 아무것도 못
+           들었다 — status 는 하던 말을 끊지 않고 바뀐 글을 통째로 읽어 준다. -->
+      <div class="tkchk" id="tkMsg" role="status"></div>
       <div class="tklist" id="tkList"></div>
       <p class="cnote" id="tkNote"></p>
     </div>
