@@ -409,6 +409,12 @@
   .pkeys kbd { font: inherit; font-size: 11px; padding: 1px 5px; border-radius: 4px;
     border: 1px solid var(--border); background: var(--surface-1); color: var(--text-secondary); }
   .pitem .pimg { margin: 6px 0 0; }
+  /* 사진을 감싼 단추. 모양은 사진 그대로 — 단추 틀만 지운다. 폭은 사진을 따라간다.
+     사진을 받기 전(lazy)엔 0x0 이라 초점이 보이지 않는 곳에 가 있었다 — 누를 자리
+     최소 24 를 준다. 못 받으면 단추째 빠진다(아래 error). */
+  .pimgb { appearance: none; display: block; max-width: 100%; min-width: 24px; min-height: 24px;
+    padding: 0; margin: 0; border: 0;
+    background: none; border-radius: var(--radius); cursor: inherit; }
   .pitem .pimg img { max-width: 100%; max-height: 220px; border-radius: var(--radius);
     display: block; cursor: zoom-in; background: var(--neutral); }
   .pitem .pimg img.big { max-height: none; cursor: zoom-out; }
@@ -1281,7 +1287,7 @@ function card(ticker, d, meta) {
         <div class="post${r.fear ? ' f' : ''}">
           <span class="t">${fmtHM(r.at)}</span>
           <span class="x">${esc(r.text).slice(0, 240)}</span>
-          ${r.img ? `<span class="pimg"><img src="${esc(r.img)}" alt="" loading="lazy" referrerpolicy="no-referrer"></span>` : ''}
+          ${r.img ? `<span class="pimg">${pimgBtn(r.img)}</span>` : ''}
         </div>`).join('')
         : '<div class="post"><span class="t"></span><span class="x" style="color:var(--muted)">최근 1시간에 올라온 글이 없습니다</span></div>'}
       ${(d.recentN ?? 0) > d.recent.length
@@ -2084,7 +2090,7 @@ function paintPosts() {
         </div>
         <div class="ptxt">${hl(esc(r.text), P.q)}</div>
         ${P.label ? labRow(r) : ''}
-        ${r.img ? `<div class="pimg"><img src="${esc(r.img)}" alt="" loading="lazy" referrerpolicy="no-referrer"></div>` : ''}
+        ${r.img ? `<div class="pimg">${pimgBtn(r.img)}</div>` : ''}
       </div>`).join('')
     : '<div class="pitem" role="listitem"><div class="ptxt" style="color:var(--muted)">조건에 맞는 글이 없습니다</div></div>';
 
@@ -2817,11 +2823,22 @@ document.addEventListener('visibilitychange', () => {
 });
 
 // 사진은 기본을 작게 두고 누르면 편다. 안 그러면 흐름이 사진으로만 채워진다.
+// img 만 누를 수 있었을 땐 키보드로 닿지 않았고(alt="" 라 읽기 도구는 사진이 있는
+// 줄도 몰랐다) — 단추로 감싸 Tab·Enter·Space 로도 펴고, 편 상태를 알린다.
+function pimgBtn(src) {
+  return `<button type="button" class="pimgb" aria-expanded="false" aria-label="글에 붙은 사진 크게 보기">`
+    + `<img src="${esc(src)}" alt="" loading="lazy" referrerpolicy="no-referrer"></button>`;
+}
 addEventListener('click', ev => {
-  const img = ev.target;
-  if (img?.tagName !== 'IMG' || !img.closest('.pimg')) return;
-  img.classList.toggle('big');
+  const b = ev.target.closest?.('.pimgb'); if (!b) return;
+  const big = b.querySelector('img').classList.toggle('big');
+  b.setAttribute('aria-expanded', String(big));
 });
+// 사진 서버가 막으면 사진이 0x0 이 된다. 보이지 않는 단추에 Tab·읽기 도구가 들르지
+// 않게 단추를 뺀다 — 전처럼 빈 칸만 남는다. error 는 거품이 안 올라 잡는 쪽에서 받는다.
+addEventListener('error', ev => {
+  if (ev.target?.parentElement?.classList?.contains('pimgb')) ev.target.parentElement.remove();
+}, true);
 
 // ── 종목 관리 ──
 // 목록은 서버가 data/tickers.json 에 들고 있다. 여기서는 읽고 고치기만 한다.

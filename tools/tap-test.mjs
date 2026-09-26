@@ -40,6 +40,8 @@ const MEASURE = (DOC = 'document', ONLY = '') => `(async () => {
     if (el.disabled) continue;
     el.scrollIntoView({ block: 'center', inline: 'center' });
     await new Promise(r => requestAnimationFrame(r));
+    // 굴리면 lazy 사진을 받으러 가고, 못 받으면 앱이 그 단추를 뺀다 — 빠진 것은 누를 것이 아니다.
+    if (!el.isConnected) continue;
     const r = el.getBoundingClientRect();
     const own = [el, ...(el.labels || [])];
     const mine = h => h && own.some(o => o.contains(h));
