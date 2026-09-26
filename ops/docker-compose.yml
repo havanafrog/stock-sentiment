@@ -95,6 +95,7 @@ services:
       # 끝에도 붙는다. 판은 /logs- 로 시작하는 폴더를 다 읽고 끝말(auto)을 작업칸
       # 이름으로 적는다. 작업칸을 새로 파면 여기 한 줄을 더한다.
       - ${OPS_LOG_DIR_HOST}-auto:/logs-auto:ro
+      - ${OPS_LOG_DIR_HOST}-train:/logs-train:ro
       # 창 이름. 사람이 붙인 이름이 여기 있어야 판에서 창이 갈린다.
       # 이 폴더에는 다른 프로젝트 창도 들어 있지만 이름과 pid 뿐이라 대화는 없다.
       - ${CLAUDE_HOME}/.claude/sessions:/sessions:ro

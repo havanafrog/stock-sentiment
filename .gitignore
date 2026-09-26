@@ -41,3 +41,7 @@ ops/whoasked.json
 tools/claude-loop.log
 tools/self-loop.log
 tools/self-loop.jsonl
+
+# agent 마다 tools/agent-setup.mjs 가 넣는 스킬 — 저장소 것(ops)만 올린다
+.claude/skills/*
+!.claude/skills/ops/

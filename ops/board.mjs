@@ -29,6 +29,24 @@ import { tally } from './cost.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = dirname(HERE);
 
+/**
+ * 작업칸 → 그 agent 의 역할과 도구. agents/agents.json 이 정한 대로 보여 준다
+ * (실제로 걸렸는지는 tools/agent-setup.mjs 가 건다). 작업칸 끝말(auto)로 짝짓는다.
+ */
+export function toolsOf(where, file = join(REPO, 'agents', 'agents.json')) {
+  let all;
+  try { all = JSON.parse(readFileSync(file, 'utf8')); } catch { return null; }
+  for (const [role, a] of Object.entries(all)) {
+    if (role.startsWith('$') || !a?.dir) continue;
+    const tail = a.dir.includes('-') ? a.dir.slice(a.dir.lastIndexOf('-') + 1) : '';
+    if (role === 'main' ? !where : tail === where) {
+      return { role, skills: a.skills ?? [],
+        plugins: Object.entries(a.plugins ?? {}).filter(([, v]) => v).map(([k]) => k.split('@')[0]) };
+    }
+  }
+  return null;
+}
+
 /** 작업 경로 → 기록 폴더 이름. Claude 가 쓰는 규칙과 같아야 한다. */
 export function projectSlug(cwd) {
   // 영숫자 말고는 전부 - 다. '8. 주식감성' 도 '8-------' 가 된다 — 실제 폴더로 확인했다.
@@ -329,6 +347,7 @@ export function sessions(dir = LOG_DIR, now = Date.now(), where = '') {
     out.push({
       id,
       where,
+      tools: toolsOf(where),
       sends,
       heard: [...heard],
       // 사람이 붙인 이름이 있으면 그게 이름이다 — 판에서 어느 창인지 그걸로 가른다.
@@ -719,6 +738,10 @@ function selftest() {
   ok('지시를 보낸 창이면 이름 없어도 main',
      teamOf([S('x', '/ops'), S('y', 'a', { sends: [{ to: 'b', message: 'm' }] })]).main === 'y0000000');
   ok('main 이 없으면 서브도 없다', teamOf([S('x', 'a')]).subs.length === 0);
+  ok('본채는 main 도구', toolsOf('')?.role === 'main');
+  ok('작업칸 끝말로 역할을 찾는다', toolsOf('auto')?.role === 'ui' && toolsOf('train')?.skills.includes('backtest-expert'));
+  ok('꺼 둔 플러그인은 안 보인다', !toolsOf('train').plugins.includes('superpowers'));
+  ok('모르는 작업칸은 null', toolsOf('nope') === null);
 
   // 대화 — 서랍에 뜨는 것
   const C = chatItems([
