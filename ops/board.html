@@ -211,6 +211,21 @@
 
   /* 자동 — 혼자 도는 판. 한 판이 줄 하나고, 눌러서 펴면 물음과 답 전문이 나온다.
      물음은 앞판의 답이라 길다. 접어 두지 않으면 한 판이 화면을 다 먹는다. */
+  /* 접는 묶음 — 끝난 일, 같은 앞머리 메모, 다른 과제 창. 펴 둔 것은 OPENED 가 기억한다. */
+  .fold { border-bottom: 1px solid var(--hair); }
+  .fold:last-child { border-bottom: 0; }
+  .fold > summary { display: flex; gap: 8px; align-items: baseline; padding: 9px 12px; min-height: 24px;
+                    cursor: pointer; list-style: none; font-size: 12.5px; color: var(--sub); }
+  .fold > summary::-webkit-details-marker { display: none; }
+  .fold > summary::before { content: '▸'; color: var(--faint); width: 10px; flex: none; }
+  .fold[open] > summary::before { content: '▾'; }
+  .fold > summary:hover { background: var(--page); }
+  .fold > summary b { color: var(--text); font-weight: 650; }
+  .fold > summary .cnt { margin-left: auto; font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+  .fold .fold > summary { padding-left: 24px; }
+  .fold .row, .fold .lv { padding-left: 24px; }
+  .grp { border-bottom: 1px solid var(--hair); }
+  .grp .row { border-bottom: 0; }
   .lap { border-bottom: 1px solid var(--hair); }
   .lap:last-child { border-bottom: 0; }
   .lap > summary { display: flex; gap: 10px; align-items: baseline; padding: 9px 12px;
@@ -533,12 +548,52 @@ function ledgerRow(r, now) {
     + `<span class="when">${esc(who)} · ${Number.isFinite(at) ? ago(now - at) : ''}</span></div>`;
 }
 
+// 접는 묶음. key 로 펴 둔 상태를 기억한다.
+function fold(key, head, count, body) {
+  return `<details class="fold" data-lap="${esc(key)}"${OPENED.has(key) ? ' open' : ''}>`
+    + `<summary>${head}<span class="cnt">${esc(count)}</span></summary>${body}</details>`;
+}
+
+// 장부 — 열린 일은 펴 두고, 끝난 일(마지막 판정이 확인)은 한 묶음으로 접는다.
+// 번호 없는 메모는 앞머리끼리 접는다.
+function ledgerHtml(g, now) {
+  if (!g || (!g.claims.length && !g.notes.length)) return '<div class="none" style="padding:10px 12px">장부가 비어 있습니다</div>';
+  const claim = c => `<div class="grp">${c.rows.map(r => ledgerRow(r, now)).join('')}</div>`;
+  const live = g.claims.filter(c => !c.done), done = g.claims.filter(c => c.done);
+  return live.map(claim).join('')
+    + (done.length ? fold('led:done', '<b>끝난 일</b> 마지막 판정이 확인', `${done.length}건`,
+        done.map(c => fold('led:' + c.id, `<b>${esc(c.id)}</b> ${esc(cut(c.rows[0].what ?? c.rows[0].text ?? '', 60))}`,
+          c.rows.map(r => r.kind === 'verdict' ? r.v : '').filter(Boolean).join(' → '),
+          c.rows.map(r => ledgerRow(r, now)).join(''))).join('')) : '')
+    + g.notes.map(n => fold('note:' + n.label, `<b>${esc(n.label)}</b> 메모`, `${n.rows.length}건`,
+        n.rows.map(r => ledgerRow(r, now)).join(''))).join('');
+}
+
+// 열린 창 — 이 과제 창은 펴 두고, 다른 과제는 과제별로, 다른 과제의 기척 없는 창은 따로 접는다.
+function liveHtml(live, now) {
+  if (!live.length) return '<div class="none" style="padding:10px 12px">열린 창이 없습니다</div>';
+  const stale = w => now - w.updatedAt > STALE_MS;
+  // 이 과제 창은 조용해도 펴 둔다 — 쉬는 서브 창(idle)도 등록부 기척이 오래 안 바뀐다.
+  const mine = live.filter(w => w.here);
+  const others = new Map();
+  for (const w of live.filter(w => !w.here && !stale(w))) {
+    const k = w.project ?? '(모름)';
+    others.set(k, [...(others.get(k) ?? []), w]);
+  }
+  const ghosts = live.filter(w => !w.here && stale(w));
+  return mine.map(w => liveRow(w, now)).join('')
+    + [...others].map(([p, ws]) => fold('live:' + p, `<b>${esc(p)}</b>`, `${ws.length}창`,
+        ws.map(w => liveRow(w, now)).join(''))).join('')
+    + (ghosts.length ? fold('live:ghost', '<b>기척 없는 창</b> 10분 넘게 조용함', `${ghosts.length}창`,
+        ghosts.map(w => liveRow(w, now)).join('')) : '');
+}
+
 // 펴 놓은 판. 화면은 2초마다 통째로 다시 그리는데, 그때 <details> 의 열린 상태가
 // 같이 날아가 사람이 읽던 글이 저절로 접혔다. 어느 판을 폈는지는 화면 밖에 둔다.
 const OPENED = new Set();
 // toggle 은 위로 안 올라온다. 잡는 단계에서 받아야 한다.
 addEventListener('toggle', e => {
-  const d = e.target.closest?.('.lap, .msg');
+  const d = e.target.closest?.('.lap, .msg, .fold');
   if (!d) return;
   const k = d.dataset.lap;
   if (d.open) OPENED.add(k); else OPENED.delete(k);
@@ -582,7 +637,7 @@ function talkRow(m, now) {
 
 function draw(d) {
   const now = Date.now();
-  const { sessions, live, spend, repo, open, recent, counts, handoff, loop, talk } = d;
+  const { sessions, live, spend, repo, open, recent, groups, counts, handoff, loop, talk } = d;
 
   const talkHtml = (talk ?? []).length
     ? talk.map(m => talkRow(m, now)).join('')
@@ -628,13 +683,12 @@ function draw(d) {
   const me = sessions.find(x => x.id === OPEN_ID);
   if (me) $('dphase').innerHTML = phaseText(me);
 
-  $('ledger').innerHTML = recent.length
-    ? recent.map(r => ledgerRow(r, now)).join('')
-    : '<div class="none" style="padding:10px 12px">장부가 비어 있습니다</div>';
+  // 바뀐 게 없으면 손대지 않는다 — 펴 둔 묶음의 스크롤이 날아가지 않게.
+  const ledHtml = groups ? ledgerHtml(groups, now) : recent.map(r => ledgerRow(r, now)).join('');
+  if ($('ledger').innerHTML !== ledHtml) $('ledger').innerHTML = ledHtml;
 
-  $('live').innerHTML = (live ?? []).length
-    ? live.map(w => liveRow(w, now)).join('')
-    : '<div class="none" style="padding:10px 12px">열린 창이 없습니다</div>';
+  const lvHtml = liveHtml(live ?? [], now);
+  if ($('live').innerHTML !== lvHtml) $('live').innerHTML = lvHtml;
 
   const laps = loop ?? [];
   // 다시 켜면 판 번호가 1 부터 새로 시작해서 목록이 2 1 7 6 … 으로 보인다.
