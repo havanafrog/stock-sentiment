@@ -82,8 +82,9 @@
           color: var(--sub); font: inherit; font-size: 12px; padding: 6px 14px;
           border-radius: 999px; cursor: pointer; }
   .bub { max-width: 86%; padding: 9px 13px; border-radius: 14px; font-size: 13px;
-         line-height: 1.55; white-space: pre-wrap; word-break: break-word; }
-  .bub.me { align-self: flex-end; background: var(--calm); color: #fff;
+         line-height: 1.55; word-break: break-word; }
+  /* 흰 글자에 --calm(#3182f6) 이면 대비 3.71 이라 AA 미달. 같은 색조를 내려 5.12. */
+  .bub.me { align-self: flex-end; background: #0a66ea; color: #fff;
             border-bottom-right-radius: 4px; }
   .bub.claude { align-self: flex-start; background: var(--page); color: var(--text);
                 border-bottom-left-radius: 4px; }
@@ -198,9 +199,40 @@
            background: var(--page); letter-spacing: .02em; }
   .lap .body { padding: 2px 12px 12px; display: grid; gap: 10px; }
   .lap .body h4 { margin: 0; font-size: 11px; font-weight: 650; color: var(--faint); }
-  .lap .body pre { margin: 3px 0 0; font: inherit; font-size: 12px; color: var(--sub);
-                   white-space: pre-wrap; word-break: break-word;
-                   max-height: 260px; overflow: auto; }
+  .lap .body .md { margin-top: 3px; font-size: 12.5px; color: var(--text); word-break: break-word; }
+
+  /* 마크다운 — 대화에 섞인 **굵게**·목록·표·코드를 읽히게. 판 안에서 작게 그린다. */
+  .md > :first-child { margin-top: 0; }
+  .md > :last-child { margin-bottom: 0; }
+  .md p { margin: 0 0 6px; }
+  .md h1, .md h2, .md h3, .md h4, .md h5, .md h6 { font-size: 1.05em; font-weight: 700;
+    margin: 10px 0 4px; color: inherit; }
+  .md h1, .md h2 { font-size: 1.15em; }
+  .md ul, .md ol { margin: 0 0 6px; padding-left: 20px; }
+  .md li { margin: 1px 0; }
+  .md code { font: 12px ui-monospace, Consolas, monospace; background: rgba(127,127,127,.16);
+    padding: 1px 4px; border-radius: 4px; }
+  .md pre { margin: 4px 0 8px; padding: 8px 10px; background: rgba(127,127,127,.12);
+    border-radius: 8px; overflow-x: auto; white-space: pre; }
+  .md pre code { background: none; padding: 0; }
+  .md blockquote { margin: 0 0 6px; padding: 2px 10px; border-left: 3px solid var(--hair);
+    color: var(--sub); }
+  .bub.me .md blockquote { color: inherit; border-left-color: rgba(255,255,255,.5); }
+  .md hr { border: 0; border-top: 1px solid var(--hair); margin: 8px 0; }
+  .md .tw { overflow-x: auto; margin: 4px 0 8px; }
+  .md table { border-collapse: collapse; font-size: 12px; }
+  .md th, .md td { border: 1px solid var(--hair); padding: 3px 8px; text-align: left;
+    vertical-align: top; }
+  .md th { font-weight: 650; background: rgba(127,127,127,.08); }
+  /* 긴 글은 앞만 보이고 '펼치기' 로 연다. 한 답이 서랍을 다 먹지 않게. */
+  .fold { position: relative; max-height: 300px; overflow: hidden; }
+  .fold::after { content: ''; position: absolute; left: 0; right: 0; bottom: 0; height: 48px;
+    background: linear-gradient(transparent, var(--fold-bg, var(--surface))); pointer-events: none; }
+  .bub.claude .fold { --fold-bg: var(--page); }
+  .bub.me .fold { --fold-bg: #0a66ea; }
+  .unfold { appearance: none; border: 0; background: none; font: inherit; font-size: 12px;
+    font-weight: 650; color: var(--text); text-decoration: underline; cursor: pointer; padding: 4px 0 0; }
+  .bub.me .unfold { color: #fff; }
 
   .warn-strip { background: var(--surface); box-shadow: inset 0 0 0 1.5px var(--warn);
                 border-radius: 12px; padding: 9px 14px; margin-bottom: 12px;
@@ -245,6 +277,84 @@ const $ = id => document.getElementById(id);
 // 따옴표까지 막는다 — 창 이름이 data-name 속성 안에 들어간다.
 const esc = s => String(s ?? '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
 const cut = (t, n) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
+
+// ── 마크다운 ─────────────────────────────────────────────────
+// 대화는 마크다운으로 오는데 원문 그대로 두면 ** 와 | 가 읽기를 막는다.
+// 라이브러리 없이 판 안에서 그린다 — 판은 로컬 전용이라 망 없이도 돌아야 한다.
+// 먼저 전부 이스케이프하고 나서 마크다운만 푼다. 대화 속 태그는 글자로 남는다.
+// ponytail: 중첩 목록·각주·이미지는 안 푼다. 들여쓴 목록은 한 단으로 편다.
+function inline(s) {
+  // 코드 조각 안은 건드리지 않는다. 백틱으로 갈라 짝수 칸만 푼다.
+  return s.split(/(`[^`]+`)/).map((p, i) => i % 2
+    ? `<code>${p.slice(1, -1)}</code>`
+    : p.replace(/\*\*(.+?)\*\*/g, '<b>$1</b>')
+       .replace(/(^|[^*\w])\*(?!\s)(.+?)\*(?!\w)/g, '$1<i>$2</i>')
+       .replace(/\[([^\]]+)\]\((?:[^)\s]+)\)/g, '<u>$1</u>')).join('');
+}
+function md(src) {
+  const L = esc(src ?? '').replace(/\r/g, '').split('\n');
+  const out = [];
+  let para = [];
+  const flush = () => { if (para.length) out.push(`<p>${para.map(inline).join('<br>')}</p>`); para = []; };
+  const row = l => l.trim().replace(/^\||\|$/g, '').split('|').map(c => inline(c.trim()));
+  for (let i = 0; i < L.length; i++) {
+    const l = L[i];
+    if (/^\s*```/.test(l)) {                               // 코드 블록
+      flush();
+      const body = [];
+      while (++i < L.length && !/^\s*```/.test(L[i])) body.push(L[i]);
+      out.push(`<pre><code>${body.join('\n')}</code></pre>`);
+    } else if (/^\s*\|.*\|\s*$/.test(l) && /^\s*\|?[\s:|-]+\|?\s*$/.test(L[i + 1] ?? '') && L[i + 1].includes('-')) {
+      flush();                                             // 표: 머리줄 + |---| 줄
+      const head = row(l);
+      const body = [];
+      i++;
+      while (i + 1 < L.length && /^\s*\|/.test(L[i + 1])) body.push(row(L[++i]));
+      out.push(`<div class="tw"><table><thead><tr>${head.map(c => `<th>${c}</th>`).join('')}</tr></thead>`
+        + `<tbody>${body.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`);
+    } else if (/^\s*(#{1,6})\s+/.test(l)) {
+      flush();
+      const n = l.match(/^\s*(#{1,6})/)[1].length;
+      out.push(`<h${n}>${inline(l.replace(/^\s*#{1,6}\s+/, ''))}</h${n}>`);
+    } else if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(l)) {
+      flush(); out.push('<hr>');
+    } else if (/^\s*([-*+]|\d+[.)])\s+/.test(l)) {        // 목록 — 이어진 줄을 한 묶음으로
+      flush();
+      const ol = /^\s*\d/.test(l);
+      const items = [];
+      const same = ol ? /^\s*\d+[.)]\s+/ : /^\s*[-*+]\s+/;
+      for (; i < L.length && same.test(L[i]); i++) items.push(L[i].replace(/^\s*([-*+]|\d+[.)])\s+/, ''));
+      i--;
+      out.push(`<${ol ? 'ol' : 'ul'}>${items.map(t => `<li>${inline(t)}</li>`).join('')}</${ol ? 'ol' : 'ul'}>`);
+    } else if (/^\s*&gt;\s?/.test(l)) {                   // 인용 (> 는 이미 &gt; 로 바뀌었다)
+      flush();
+      const q = [];
+      for (; i < L.length && /^\s*&gt;\s?/.test(L[i]); i++) q.push(L[i].replace(/^\s*&gt;\s?/, ''));
+      i--;
+      out.push(`<blockquote>${q.map(inline).join('<br>')}</blockquote>`);
+    } else if (!l.trim()) {
+      flush();
+    } else para.push(l);
+  }
+  flush();
+  return out.join('');
+}
+
+// 긴 글은 접어 둔다. 편 것은 화면 밖에 기억한다 — 판이 다시 그려도 안 접히게.
+const UNFOLD = new Set();
+const LONG = t => (t ?? '').length > 1200 || (t ?? '').split('\n').length > 22;
+function mdBox(text, key) {
+  const long = LONG(text) && !UNFOLD.has(key);
+  return `<div class="md${long ? ' fold' : ''}">${md(text)}</div>`
+    + (long ? `<button class="unfold" data-k="${esc(key)}">펼치기</button>` : '');
+}
+addEventListener('click', e => {
+  const b = e.target.closest?.('.unfold');
+  if (!b) return;
+  UNFOLD.add(b.dataset.k);
+  b.previousElementSibling?.classList.remove('fold');
+  b.remove();
+});
 
 // 토큰은 수천만까지 간다. 자릿수를 다 적으면 못 읽는다.
 function short(n) {
@@ -405,8 +515,8 @@ function lapRow(r, now) {
     + `<span class="plan ${r.plan ? '' : 'none'}">${esc(cut(plan, 90))}</span>`
     + `<span class="use">${esc(use)}</span></summary>`
     + `<div class="body">`
-    + `<div><h4>물음 (앞판의 답)</h4><pre>${esc(r.ask || '')}</pre></div>`
-    + `<div><h4>답</h4><pre>${esc(r.say || r.err || '(없음)')}</pre></div>`
+    + `<div><h4>물음 (앞판의 답)</h4>${mdBox(r.ask || '', 'a' + key)}</div>`
+    + `<div><h4>답</h4>${mdBox(r.say || r.err || '(없음)', 's' + key)}</div>`
     + `</div></details>`;
 }
 
@@ -420,7 +530,7 @@ function talkRow(m, now) {
     + `<summary><span class="no">${esc(m.from)} → ${esc(m.to)}</span>`
     + `<span class="plan">${esc(cut(m.summary || first || '(빈 지시)', 90))}</span>`
     + `<span class="use">${Number.isFinite(at) ? ago(now - at) : ''}${m.idle ? ' · 끝나면 알림' : ''}</span></summary>`
-    + `<div class="body"><div><pre>${esc(m.message || '(끝나면 알려 달라는 신청만)')}</pre></div></div></details>`;
+    + `<div class="body"><div>${mdBox(m.message || '(끝나면 알려 달라는 신청만)', key)}</div></div></details>`;
 }
 
 function draw(d) {
@@ -531,7 +641,7 @@ function bubble(it, i) {
       + `<ol>${it.tools.map(t => `<li><b>${esc(t.name.replace(/^mcp__[a-z-]+__/, ''))}</b>${esc(t.text)}</li>`).join('')}</ol></details>`;
   }
   const who = it.who === 'me' ? '나' : it.who === 'in' ? `${it.from} 이 보낸 지시` : 'Claude';
-  return `<div class="bub ${it.who}"><span class="t">${esc(who)} · ${hhmm(it.at)}</span>${esc(it.text)}</div>`;
+  return `<div class="bub ${it.who}"><span class="t">${esc(who)} · ${hhmm(it.at)}</span>${mdBox(it.text, 'b' + it.at + it.who + it.text.length)}</div>`;
 }
 
 function drawChat(stick) {
