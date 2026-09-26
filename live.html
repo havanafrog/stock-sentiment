@@ -254,8 +254,11 @@
   .vote button[aria-pressed="true"] { color: #fff; box-shadow: none; }
   .vote button[aria-pressed="true"] em { color: rgba(255, 255, 255, .78); }
   .vote button[aria-pressed="true"]::before { background: #fff; opacity: .22; }
-  .mood button:hover { color: var(--text-primary); }
-  .vote button:disabled, .mood button:disabled { cursor: default; opacity: .55; }
+  .mood button:hover:not([aria-disabled="true"]) { color: var(--text-primary); }
+  /* 기분 단추는 대기 중 disabled 대신 aria-disabled 다 — disabled 가 되는 순간 누른
+     단추의 초점이 BODY 로 떨어져 키보드로 누르면 자리를 잃었다. 모양은 같다. */
+  .vote button:disabled, .mood button:disabled, .mood button[aria-disabled="true"] {
+    cursor: default; opacity: .55; }
   .fld.avg { flex: 0 0 84px; width: 84px; padding: 5px 9px; font-size: 12px; }
   .pnl { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; }
   .pnl.up { color: var(--neg-ink); }
@@ -935,8 +938,8 @@
         <div class="pgrp">
           <span class="plab">기분 <b id="moodFace">&#128528;</b> <span id="moodHappy">0</span></span>
           <div class="mood" id="pulseMood">
-            <button id="moodPet" data-v="pet">쓰담 <em id="moodPetN">0</em></button>
-            <button id="moodHit" data-v="hit">한 대 <em id="moodHitN">0</em></button>
+            <button id="moodPet" data-v="pet" aria-describedby="moodNote">쓰담 <em id="moodPetN">0</em></button>
+            <button id="moodHit" data-v="hit" aria-describedby="moodNote">한 대 <em id="moodHitN">0</em></button>
           </div>
           <span class="pnote" id="moodNote"></span>
         </div>
@@ -2723,7 +2726,8 @@ function pulseWait(ms) {
   const note = $('moodNote'), btns = [$('moodPet'), $('moodHit')];
   const show = left => {
     const on = left > 0;
-    for (const b of btns) b.disabled = on;
+    for (const b of btns) b.setAttribute('aria-disabled', String(on));
+    // 단추에 aria-describedby 로 걸려 있다 — 초점이 남은 단추에서 '…초 뒤' 로 읽힌다.
     note.textContent = on ? `${Math.ceil(left / 1000)}초` : '';
   };
   show(ms);
@@ -2754,7 +2758,8 @@ $('pulseVote').onclick = ev => {
   pulseSend('vote', PULSE?.vote?.mine === b.dataset.v ? null : b.dataset.v);
 };
 $('pulseMood').onclick = ev => {
-  const b = ev.target.closest('button'); if (!b || b.disabled) return;
+  const b = ev.target.closest('button');
+  if (!b || b.getAttribute('aria-disabled') === 'true') return;   // 대기 중
   pulseSend('mood', b.dataset.v);
 };
 
