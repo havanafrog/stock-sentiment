@@ -811,6 +811,10 @@
 <!-- 차트 툴팁. .app 안에 둬야 테마 변수(바탕·글자색·--mono)를 받는다 — 밖에 두니
      바탕이 비고 글자는 기본 검정이라 어두운 화면에서 대비 1.06 이었다. -->
 <div class="ctip" id="ctip"></div>
+<!-- 실패만 읽어 주는 칸 (say()). 실패가 뜨는 자리(#pCount·#cBarNote)는 검색·확대
+     때마다 바뀌어 알림으로 두면 떠든다. 탭 판 밖에 둔다 — 숨은 판 안의 알림은
+     읽기 도구가 무시해, 판 탭에서 종목을 바꿀 때 난 봉 실패가 묻혔다. -->
+<div class="sr" id="say" role="status"></div>
   <div class="top">
     <div class="brand">
       <img src="logo-128.png" alt="" width="30" height="30">
@@ -1012,8 +1016,6 @@
     <div class="card">
       <!-- 글 머리(.ph, 3단)의 위 단. 없으면 제목 단계가 1 -> 3 으로 건너뛴다. -->
       <div class="feed-head" id="pCount" role="heading" aria-level="2">불러오는 중…</div>
-      <!-- 실패만 읽어 주는 칸. #pCount 는 검색 글자마다 바뀌어 알림으로 두면 떠든다. -->
-      <div class="sr" id="pSay" role="status"></div>
       <p class="pkeys" id="pKeys" hidden>글을 누르고 <kbd>1</kbd> 긍정 · <kbd>2</kbd> 중립 · <kbd>3</kbd> 부정 —
       찍으면 다음 글로 넘어갑니다. <kbd>↑</kbd><kbd>↓</kbd> 로 오갑니다.</p>
       <!-- 읽기 도구에 글 목록이라고 알린다. 몇 건인지 먼저 들린다. -->
@@ -1914,6 +1916,7 @@ async function loadBars() {
     BAR.rows = j.rows; BAR.units = j.units;
   } catch (e) {
     BAR.rows = []; BAR.err = e.message;
+    say('봉을 받지 못했습니다: ' + e.message);   // #cBarNote 는 확대마다 바뀌어 알림으로 못 둔다
   } finally {
     BAR.busy = false;
   }
@@ -2122,14 +2125,14 @@ function labRow(r) {
     + `</div>`;
 }
 
-/** 글 탭 실패를 머리(#pCount)에 쓰고 읽기 도구에도 읽힌다. 라벨 모드에선 실패해도
- *  화면을 안 보고 다음 글로 넘어가 모르고 지나갔다. 같은 실패가 되풀이돼도 다시
- *  읽히도록 한 번 비운 뒤 쓴다. */
-function pFail(msg) {
-  $('pCount').textContent = msg;
-  const s = $('pSay'); s.textContent = '';
+/** 실패를 읽기 도구에 읽힌다. 같은 실패가 되풀이돼도 다시 읽히도록 한 번 비운 뒤 쓴다. */
+function say(msg) {
+  const s = $('say'); s.textContent = '';
   setTimeout(() => { s.textContent = msg; }, 50);
 }
+/** 글 탭 실패를 머리(#pCount)에 쓰고 읽기 도구에도 읽힌다. 라벨 모드에선 실패해도
+ *  화면을 안 보고 다음 글로 넘어가 모르고 지나갔다. */
+function pFail(msg) { $('pCount').textContent = msg; say(msg); }
 
 /** 찍고 나면 다음 글로 옮긴다. 손이 멈추지 않아야 100건이 2분에 끝난다. */
 async function putLabel(item, y) {
