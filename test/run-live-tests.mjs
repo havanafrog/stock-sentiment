@@ -284,7 +284,7 @@ console.log('\n── I. 탭 제목 ──');
 
   // 시세가 없으면 원래 제목으로 — 빈 값이 탭에 남으면 안 된다
   L.setTitle(snap(null, 'SNDK'));
-  ok('시세 없으면 원래 제목', document.title === '실시간 커뮤니티 온도', document.title);
+  ok('시세 없으면 원래 제목', document.title === '곡소리계산기', document.title);
 
   // 시가가 없으면 등락률을 못 낸다 — 가격만 띄운다
   L.setTitle(snap({ close: 1608 }, 'SNDK'));

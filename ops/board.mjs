@@ -29,14 +29,52 @@ import { tally } from './cost.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = dirname(HERE);
 
+/**
+ * 작업칸 → 그 agent 의 역할과 도구. agents/agents.json 이 정한 대로 보여 준다
+ * (실제로 걸렸는지는 tools/agent-setup.mjs 가 건다). 작업칸 끝말(auto)로 짝짓는다.
+ */
+export function toolsOf(where, file = join(REPO, 'agents', 'agents.json')) {
+  let all;
+  try { all = JSON.parse(readFileSync(file, 'utf8')); } catch { return null; }
+  for (const [role, a] of Object.entries(all)) {
+    if (role.startsWith('$') || !a?.dir) continue;
+    const tail = a.dir.includes('-') ? a.dir.slice(a.dir.lastIndexOf('-') + 1) : '';
+    if (role === 'main' ? !where : tail === where) {
+      return { role, skills: a.skills ?? [],
+        plugins: Object.entries(a.plugins ?? {}).filter(([, v]) => v).map(([k]) => k.split('@')[0]) };
+    }
+  }
+  return null;
+}
+
 /** 작업 경로 → 기록 폴더 이름. Claude 가 쓰는 규칙과 같아야 한다. */
 export function projectSlug(cwd) {
-  return cwd.replace(/[:\\/]/g, '-');
+  // 영숫자 말고는 전부 - 다. '8. 주식감성' 도 '8-------' 가 된다 — 실제 폴더로 확인했다.
+  return cwd.replace(/[^a-zA-Z0-9]/g, '-');
 }
 
 // 통 안에서는 작업 경로가 /repo 라 폴더 이름이 안 맞는다. 밖에서 정해 준다.
 export const LOG_DIR = process.env.OPS_LOG_DIR
   || join(homedir(), '.claude', 'projects', projectSlug(REPO));
+
+/**
+ * 볼 기록 폴더 전부. 하위 창은 따로 판 작업칸(git worktree)에서 돌아서 기록이
+ * 옆 폴더에 쌓인다 — 저장소 폴더가 stock-sentiment-auto 면 기록 폴더도 이름 끝에
+ * -auto 가 붙는다. 그래서 LOG_DIR 이름으로 시작하는 형제 폴더를 다 본다.
+ *
+ * 통 안에서는 형제 폴더가 안 보인다. OPS_LOG_DIRS=/logs,/logs-auto 처럼 준다.
+ */
+export function logDirs(env = process.env.OPS_LOG_DIRS) {
+  if (env) return env.split(',').map(s => s.trim()).filter(Boolean);
+  const up = dirname(LOG_DIR), me = basename(LOG_DIR);
+  if (!existsSync(up)) return [LOG_DIR];
+  return [LOG_DIR, ...readdirSync(up).filter(f => f.startsWith(me + '-')).sort().map(f => join(up, f))];
+}
+
+/** 작업칸 이름. 첫 폴더가 본채(''), 나머지는 뒤에 붙은 말 — -auto 면 auto. */
+export function whereOf(dir, first) {
+  return basename(dir).slice(basename(first).length).replace(/^-+/, '');
+}
 
 // 창 이름은 기록(jsonl)이 아니라 여기 있다. 한 창에 파일 하나, 파일 이름은 pid 다.
 export const SESSION_DIR = process.env.OPS_SESSION_DIR
@@ -230,7 +268,7 @@ export function phaseOf(last, idle) {
   return last?.role === 'assistant' ? 'waiting' : 'busy';
 }
 
-export function sessions(dir = LOG_DIR, now = Date.now()) {
+export function sessions(dir = LOG_DIR, now = Date.now(), where = '') {
   if (!existsSync(dir)) return [];
   const named = sessionNames();
   const hookAsked = askedByHook();
@@ -245,6 +283,8 @@ export function sessions(dir = LOG_DIR, now = Date.now()) {
     try { rows = tailLines(file).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean); }
     catch { continue; }
     if (!rows.length) continue;
+    // claude -p 로 부른 판(자동 작업)은 창이 아니다. 자동 탭이 따로 보여 준다.
+    if (rows.some(r => r.entrypoint === 'sdk-cli')) continue;
 
     // 마지막으로 "한 일". 도구 결과만 있는 줄은 건너뛴다 — 그건 남이 준 답이다.
     let last = null;
@@ -263,6 +303,28 @@ export function sessions(dir = LOG_DIR, now = Date.now()) {
         text: squash(d.text).slice(0, STEP_CUT), at: rows[i].timestamp });
     }
     steps.reverse();
+
+    // 이 창이 다른 창에 보낸 지시. 본채가 뇌 노릇을 하면 여기에 일이 쌓인다.
+    // 받은 쪽도 답을 SendMessage 로 보내므로, 보낸 것만 모아도 양쪽이 다 보인다.
+    const sends = [];
+    for (const r of rows) {
+      if (r.message?.role !== 'assistant' || !Array.isArray(r.message.content)) continue;
+      for (const c of r.message.content) {
+        if (c.type !== 'tool_use' || c.name !== 'SendMessage') continue;
+        const i = c.input ?? {};
+        sends.push({ at: r.timestamp, to: i.to ?? '', summary: i.summary ?? '',
+          message: String(i.message ?? '').slice(0, 4000), idle: !!i.notify_when_idle });
+      }
+    }
+    // 이 창에 지시를 보낸 창들. 받은 말은 <cross-session-message from="…"> 로 감싸여 온다.
+    const heard = new Set();
+    for (const r of rows) {
+      if (r.message?.role !== 'user') continue;
+      const c = r.message.content;
+      const t = typeof c === 'string' ? c : Array.isArray(c) ? c.filter(x => x.type === 'text').map(x => x.text).join('') : '';
+      const m = /^<cross-session-message from="([^"]*)"/.exec(t.trim());
+      if (m) heard.add(m[1]);
+    }
 
     // 사람이 마지막으로 시킨 것.
     let asked = null;
@@ -284,6 +346,10 @@ export function sessions(dir = LOG_DIR, now = Date.now()) {
     const id = basename(f, '.jsonl');
     out.push({
       id,
+      where,
+      tools: toolsOf(where),
+      sends,
+      heard: [...heard],
       // 사람이 붙인 이름이 있으면 그게 이름이다 — 판에서 어느 창인지 그걸로 가른다.
       // 없으면 첫 요청, 그것도 없으면 아이디 앞 여덟 자.
       name: named.get(id)
@@ -337,10 +403,122 @@ export function loopRounds(file = LOOP_FILE, want = 30) {
   }));
 }
 
+// ── 대화 ─────────────────────────────────────────────────────
+// 한 세션에서 사람과 주고받은 말. 카드를 누르면 서랍에 뜬다.
+const LOG_SPAN = 2 * 1024 * 1024;   // 한 번에 읽는 폭. 기록이 수십 MB 라 쪼개 읽는다
+const LOG_CUT = 6000;               // 한 말의 길이. 붙여 넣은 로그가 서랍을 다 먹는다
+
+/** 세션 아이디로 기록 파일을 찾는다. 아이디는 주소로 들어오니 모양부터 본다. */
+export function logFile(id, dirs = logDirs()) {
+  if (!/^[0-9a-f-]{36}$/.test(id ?? '')) return null;
+  for (const d of dirs) {
+    const f = join(d, id + '.jsonl');
+    if (existsSync(f)) return f;
+  }
+  return null;
+}
+
+/** 기록 줄들을 말 목록으로. 도구는 이어진 것끼리 한 묶음으로 접는다. */
+export function chatItems(rows) {
+  const out = [];
+  const push = it => out.push(it);
+  for (const r of rows) {
+    const m = r.message;
+    if (!m || r.isSidechain) continue;
+    const parts = typeof m.content === 'string' ? [{ type: 'text', text: m.content }]
+      : Array.isArray(m.content) ? m.content : [];
+    if (m.role === 'user') {
+      const text = parts.filter(c => c.type === 'text').map(c => c.text).join('\n').trim();
+      if (!text) continue;
+      // 다른 창이 보낸 지시. 사람 말은 아니지만 대화 흐름에서는 봐야 한다.
+      const cross = /^<cross-session-message from="([^"]*)"/.exec(text);
+      if (cross) {
+        push({ who: 'in', from: cross[1], at: r.timestamp,
+          text: text.replace(/<\/?cross-session-message[^>]*>/g, '').trim().slice(0, LOG_CUT) });
+      } else if (askedByHuman({ role: 'user', kind: 'text', text })) {
+        push({ who: 'me', at: r.timestamp, text: label(text).slice(0, LOG_CUT) });
+      }
+      continue;
+    }
+    if (m.role !== 'assistant') continue;
+    for (const c of parts) {
+      if (c.type === 'text' && c.text.trim()) {
+        push({ who: 'claude', at: r.timestamp, text: c.text.trim().slice(0, LOG_CUT) });
+      } else if (c.type === 'tool_use') {
+        const i = c.input ?? {};
+        const t = { name: c.name, text: squash(i.description ?? i.command ?? i.file_path ?? i.pattern
+          ?? i.to ?? i.query ?? i.url ?? i.skill ?? '').slice(0, 200) };
+        const last = out.at(-1);
+        if (last?.who === 'tools') last.tools.push(t);
+        else push({ who: 'tools', at: r.timestamp, tools: [t] });
+      }
+    }
+  }
+  return out;
+}
+
+/**
+ * 기록 한 토막을 말 목록으로.
+ *   before 를 주면 그 앞 토막 — "더 보기"
+ *   from   을 주면 그 뒤 끝까지 — 도는 세션에 새로 붙은 말
+ *   둘 다 없으면 맨 끝 토막
+ * start·end 는 이 토막이 실제로 덮은 바이트 자리다. 다음 부름에 그대로 돌려준다.
+ */
+export function chatLog(file, { before = null, from = null } = {}) {
+  const size = statSync(file).size;
+  let start, end;
+  if (from != null) { start = Math.min(from, size); end = Math.min(size, start + LOG_SPAN); }
+  else { end = before != null ? Math.min(before, size) : size; start = Math.max(0, end - LOG_SPAN); }
+  const buf = Buffer.alloc(end - start);
+  const h = openSync(file, 'r');
+  try { readSync(h, buf, 0, buf.length, start); } finally { closeSync(h); }
+  // 앞쪽 잘린 줄은 버리고, 버린 만큼 start 를 민다. 뒤쪽 덜 쓴 줄도 버린다.
+  let lo = 0, hi = buf.length;
+  // 토막 안에 온전한 줄이 없으면(스크린샷 한 줄이 토막보다 길다) 통째로 건너뛴다 —
+  // 안 그러면 같은 자리를 계속 읽는다.
+  if (from == null && start > 0) { const nl = buf.indexOf(10); lo = nl < 0 || nl + 1 === buf.length ? 0 : nl + 1; }
+  const lastNl = buf.lastIndexOf(10);
+  hi = lastNl < lo ? lo : lastNl + 1;
+  if (from != null && hi === lo && buf.length === LOG_SPAN) hi = lo = buf.length;
+  const rows = buf.subarray(lo, hi).toString('utf8').split('\n').filter(Boolean)
+    .map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+  return { items: chatItems(rows), start: start + lo, end: start + hi, size };
+}
+
+/**
+ * 누가 위고 누가 아래인가. 창이 스스로 신고하지 않으니 기록에서 가른다.
+ *   main  이름에 main 이 들었거나 다른 창에 지시를 보낸 창. 여럿이면 가장 최근에 움직인 것
+ *   서브  main 에게 지시를 받았거나, main 이 이름으로 불렀거나, 하위 작업칸에서 도는 창
+ * 나머지는 따로 도는 창이다. 각 서브에는 main 이 마지막으로 준 지시를 붙인다.
+ * sessions 는 최근 움직인 순이어야 한다.
+ */
+export function teamOf(sess) {
+  const nm = s => s.name || s.id.slice(0, 8);
+  const main = sess.find(s => /main/i.test(s.name ?? '') || s.sends.length > 0);
+  if (!main) return { main: null, subs: [] };
+  const me = nm(main);
+  const subs = sess.filter(s => s !== main
+    && (s.heard.includes(me) || main.sends.some(m => m.to && m.to === s.name) || s.where));
+  return {
+    main: main.id,
+    subs: subs.map(s => {
+      const o = main.sends.filter(m => m.to === s.name).at(-1);
+      return { id: s.id, order: o ? { text: o.summary || o.message.split('\n')[0], at: o.at } : null };
+    }),
+  };
+}
+
 export function board(now = Date.now()) {
   const claims = openClaims();
   const all = readLedger();
-  const sess = sessions(LOG_DIR, now);
+  const dirs = logDirs();
+  const sess = dirs.flatMap(d => sessions(d, now, whereOf(d, dirs[0])))
+    .sort((a, b) => a.idleMs - b.idleMs);
+  // 창끼리 주고받은 지시. 보낸 창 이름을 붙여 시간순으로 한 줄에 모은다.
+  const talk = sess.flatMap(s => s.sends.map(m => ({ ...m, from: s.name || s.id.slice(0, 8), where: s.where })))
+    .sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 60);
+  const team = teamOf(sess);
+  for (const s of sess) { delete s.sends; delete s.heard; }
   // 이 저장소 창인지는 등록부 경로로 못 가른다 — 통 안은 /repo 고 등록부는 윈도우
   // 경로다. 이 저장소 기록에 아이디가 있으면 여기 창이다.
   const live = liveSessions(SESSION_DIR, new Set(sess.map(s => s.id)));
@@ -355,6 +533,8 @@ export function board(now = Date.now()) {
     handoff: (() => { try { return handoffState(); } catch { return null; } })(),
     open: claims,
     loop: loopRounds(),
+    talk,
+    team,
     recent: all.slice(-12).reverse(),
     counts: {
       claims: all.filter(r => r.kind === 'claim').length,
@@ -383,6 +563,14 @@ function main(argv) {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
       return res.end(JSON.stringify(board()));
     }
+    if (path === '/api/log') {
+      const q = new URL(req.url, 'http://x').searchParams;
+      const file = logFile(q.get('id'));
+      if (!file) { res.writeHead(404).end(); return; }
+      const num = k => (q.has(k) && /^\d+$/.test(q.get(k)) ? Number(q.get(k)) : null);
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
+      return res.end(JSON.stringify(chatLog(file, { before: num('before'), from: num('from') })));
+    }
     if (path === '/' || path === '/index.html') {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
       return res.end(PAGE());
@@ -406,6 +594,7 @@ function selftest() {
 
   ok('경로를 폴더 이름으로', projectSlug('C:\\Users\\a\\b') === 'C--Users-a-b', projectSlug('C:\\Users\\a\\b'));
   ok('리눅스 경로도', projectSlug('/home/a/b') === '-home-a-b');
+  ok('점·빈칸·한글도 - 로', projectSlug('C:\\M\\8. 주식감성\\s-s') === 'C--M-8-------s-s', projectSlug('C:\\M\\8. 주식감성\\s-s'));
 
   const D = row => describe(row);
   ok('글은 글로', D({ message: { role: 'user', content: '안녕' } }).text === '안녕');
@@ -514,6 +703,76 @@ function selftest() {
      F.steps.every(s => s.kind === 'tool' && s.tool === 'Bash'));
   rmSync(flow, { recursive: true, force: true });
 
+  // 팀 — 하위 작업칸과 창끼리 주고받은 지시
+  ok('작업칸 이름', whereOf('/p/x-repo-auto', '/p/x-repo') === 'auto' && whereOf('/p/x-repo', '/p/x-repo') === '');
+  ok('통 안 폴더도', whereOf('/logs-auto', '/logs') === 'auto');
+  ok('OPS_LOG_DIRS 를 따른다', logDirs('/logs, /logs-auto').join() === '/logs,/logs-auto');
+  const team = join(tmpdir(), 'ops-team-' + process.pid);
+  mkdirSync(team, { recursive: true });
+  writeFileSync(join(team, 'aaaaaaaa-0000-0000-0000-000000000000.jsonl'), [
+    { message: { role: 'user', content: 'ui 고쳐' }, timestamp: at(0) },
+    { type: 'assistant', timestamp: at(1), message: { role: 'assistant', content: [
+      { type: 'tool_use', name: 'SendMessage', input: { to: 'ui', message: '대비 고쳐라', summary: '대비' } }] } },
+  ].map(r => JSON.stringify(r)).join('\n') + '\n');
+  writeFileSync(join(team, 'bbbbbbbb-0000-0000-0000-000000000000.jsonl'),
+    JSON.stringify({ entrypoint: 'sdk-cli', message: { role: 'user', content: '자동 판' }, timestamp: at(0) }) + '\n');
+  const T = sessions(team, Date.now(), 'auto');
+  ok('claude -p 판은 창이 아니다', T.length === 1, String(T.length));
+  ok('보낸 지시를 뽑는다', T[0].sends.length === 1 && T[0].sends[0].to === 'ui'
+     && T[0].sends[0].message === '대비 고쳐라');
+  ok('작업칸을 붙인다', T[0].where === 'auto');
+  rmSync(team, { recursive: true, force: true });
+
+  // 상하 — main 과 서브 가르기
+  const S = (id, name, extra = {}) => ({ id: id.padEnd(8, '0'), name, where: '', sends: [], heard: [], ...extra });
+  const tm = teamOf([
+    S('m', '[main]', { sends: [{ to: 'ui', message: '대비 고쳐\n자세히', at: 'a' }, { to: 'ui', summary: '다시', message: 'x', at: 'b' }] }),
+    S('u', 'ui'),
+    S('t', '학습', { heard: ['[main]'] }),
+    S('w', null, { where: 'auto' }),
+    S('o', '/ops verify'),
+  ]);
+  ok('main 은 이름에 main', tm.main === 'm0000000');
+  ok('서브는 불린 창·받은 창·작업칸 창', tm.subs.map(x => x.id[0]).join('') === 'utw', tm.subs.map(x => x.id).join());
+  ok('서브에 마지막 지시를 붙인다', tm.subs[0].order.text === '다시' && tm.subs[1].order === null);
+  ok('지시를 보낸 창이면 이름 없어도 main',
+     teamOf([S('x', '/ops'), S('y', 'a', { sends: [{ to: 'b', message: 'm' }] })]).main === 'y0000000');
+  ok('main 이 없으면 서브도 없다', teamOf([S('x', 'a')]).subs.length === 0);
+  ok('본채는 main 도구', toolsOf('')?.role === 'main');
+  ok('작업칸 끝말로 역할을 찾는다', toolsOf('auto')?.role === 'ui' && toolsOf('train')?.skills.includes('backtest-expert'));
+  ok('꺼 둔 플러그인은 안 보인다', !toolsOf('train').plugins.includes('superpowers'));
+  ok('모르는 작업칸은 null', toolsOf('nope') === null);
+
+  // 대화 — 서랍에 뜨는 것
+  const C = chatItems([
+    { message: { role: 'user', content: '<system-reminder>x</system-reminder>' } },
+    { message: { role: 'user', content: '대비 고쳐' }, timestamp: at(0) },
+    { message: { role: 'assistant', content: [{ type: 'text', text: '봅니다' },
+      { type: 'tool_use', name: 'Read', input: { file_path: 'a' } }] } },
+    { message: { role: 'user', content: [{ type: 'tool_result', content: 'x' }] } },
+    { message: { role: 'assistant', content: [{ type: 'tool_use', name: 'Edit', input: { file_path: 'a' } }] } },
+    { isSidechain: true, message: { role: 'assistant', content: '곁가지' } },
+    { message: { role: 'user', content: '<cross-session-message from="main">일 해라</cross-session-message>' } },
+    { message: { role: 'assistant', content: [{ type: 'text', text: '고쳤다' }] } },
+  ]);
+  ok('대화는 사람·답·도구 묶음·받은 지시', C.map(c => c.who).join() === 'me,claude,tools,in,claude', C.map(c => c.who).join());
+  ok('이어진 도구는 한 묶음', C[2].tools.length === 2 && C[2].tools[1].name === 'Edit');
+  ok('받은 지시는 보낸 창과 말만', C[3].from === 'main' && C[3].text === '일 해라', C[3].text);
+  ok('이상한 아이디는 파일을 안 찾는다', logFile('../../etc/passwd') === null && logFile(null) === null);
+  const cf = join(tmpdir(), `ops-chat-${process.pid}.jsonl`);
+  const big = { message: { role: 'user', content: [{ type: 'tool_result', content: 'x'.repeat(LOG_SPAN + 10) }] } };
+  writeFileSync(cf, [JSON.stringify({ message: { role: 'user', content: '처음' } }), JSON.stringify(big),
+    JSON.stringify({ message: { role: 'user', content: '끝' } })].join('\n') + '\n');
+  try {
+    const tail = chatLog(cf);
+    ok('끝 토막은 끝 말', tail.items.length === 1 && tail.items[0].text === '끝' && tail.end === tail.size);
+    // 긴 줄을 건너 앞으로 가야 한다. 제자리를 맴돌면 안 된다.
+    let b = tail.start, seen = [];
+    for (let i = 0; i < 5 && b > 0; i++) { const p = chatLog(cf, { before: b }); seen.push(...p.items); ok('더 보기는 앞으로 간다', p.start < b); b = p.start; }
+    ok('앞 토막에서 처음 말을 찾는다', seen.some(x => x.text === '처음'));
+    ok('끝 뒤에는 새 말이 없다', chatLog(cf, { from: tail.end }).items.length === 0);
+  } finally { rmSync(cf, { force: true }); }
+
   const bd = board();
   ok('판을 만든다', Array.isArray(bd.sessions) && Array.isArray(bd.open) && bd.counts);
   ok('저장소도 담는다', bd.repo && typeof bd.repo.branch === 'string' && Array.isArray(bd.repo.dirty));
@@ -530,6 +789,7 @@ function selftest() {
 
   // 자동 — 혼자 도는 판의 자국
   ok('자동 줄도 담는다', Array.isArray(bd.loop));
+  ok('지시 줄도 담는다', Array.isArray(bd.talk) && bd.sessions.every(x => !('sends' in x)));
   ok('자동 파일이 없으면 빈 줄', loopRounds(join(HERE, '없는파일.jsonl')).length === 0);
 
   const lf = join(tmpdir(), `ops-loop-${process.pid}.jsonl`);

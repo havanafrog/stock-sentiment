@@ -43,7 +43,7 @@ const REG = new Map();
 const node = id => { if (!REG.has(id)) REG.set(id, makeNode(id)); return REG.get(id); };
 
 global.document = {
-  title: '실시간 커뮤니티 온도',
+  title: '곡소리계산기',
   getElementById: id => node(id),
   createElement: () => makeNode(),
   createElementNS: () => makeNode(),
@@ -71,7 +71,7 @@ global.localStorage = {
 /** 앱 스크립트를 새로 돌리고 내부 함수를 꺼내온다. */
 export function run() {
   REG.clear(); store.clear();
-  document.title = '실시간 커뮤니티 온도';
+  document.title = '곡소리계산기';
   const wrapped = CODE + `
 ;globalThis.__L = { spark, drawCharts, paint, card, UI, get LAST(){return LAST}, money, moneyShort, cur,
   sma, drawBars, drawFear, paintUnitSeg, viewRange, BAR, MIN_BARS, YSCALE, HAIRS, setTitle,

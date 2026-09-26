@@ -1,0 +1,46 @@
+{
+  "$comment": [
+    "agent 마다 쓰는 도구. node tools/agent-setup.mjs <역할> 로 그 작업칸에 건다.",
+    "스킬은 ~/.claude/skill-store/<이름> 에서 복사한다 — 전역(~/.claude/skills)에 두면 모든 창에 걸린다.",
+    "남이 만든 스킬은 저장소에 안 올린다. 여기는 이름만 적는다.",
+    "plugins 에 없는 플러그인은 전역 설정 그대로 간다. false 로 적어야 그 창에서 꺼진다."
+  ],
+  "main": {
+    "dir": "stock-sentiment",
+    "what": "뇌 — 일을 쪼개 서브에 넘기고, 결과를 검증해 합친다",
+    "plugins": {
+      "superpowers@claude-plugins-official": true,
+      "ponytail@ponytail": true,
+      "caveman@caveman": true,
+      "claude-context-optimizer@cco": true,
+      "notion-log@notion-log": true
+    },
+    "skills": ["planning-with-files"]
+  },
+  "ui": {
+    "dir": "stock-sentiment-auto",
+    "branch": "auto/ui",
+    "what": "live.html 화면 — 폰·데스크톱을 크롬으로 재서 고친다",
+    "plugins": {
+      "superpowers@claude-plugins-official": true,
+      "ponytail@ponytail": true,
+      "caveman@caveman": true,
+      "claude-context-optimizer@cco": false,
+      "notion-log@notion-log": false
+    },
+    "skills": ["taste"]
+  },
+  "train": {
+    "dir": "stock-sentiment-train",
+    "branch": "auto/train",
+    "what": "라벨링·사전·모델 — 이 PC GPU 로 돌리고 main 이 검증한다",
+    "plugins": {
+      "superpowers@claude-plugins-official": false,
+      "ponytail@ponytail": true,
+      "caveman@caveman": true,
+      "claude-context-optimizer@cco": false,
+      "notion-log@notion-log": false
+    },
+    "skills": ["lexicon-tuning", "backtest-expert", "signal-postmortem", "contrarian-setup-gate"]
+  }
+}

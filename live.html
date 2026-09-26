@@ -5,7 +5,7 @@
 <!-- viewport-fit=cover: 노치 있는 폰에서 지면색이 화면 끝까지 간다. 안 주면
      위아래에 흰 띠가 남는다. 대신 내용은 아래 safe-area 로 밀어 넣는다. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>실시간 커뮤니티 온도</title>
+<title>곡소리계산기</title>
 <link rel="icon" type="image/png" href="logo-128.png">
 <!-- 홈 화면에 추가하면 주소창 없이 앱처럼 열린다. 폰으로 자주 보는 화면이라
      이게 있고 없고가 크다.
@@ -18,7 +18,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="커뮤니티 온도">
+<meta name="apple-mobile-web-app-title" content="곡소리계산기">
 <meta name="theme-color" content="#f7f7f8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)">
 <style>
@@ -807,6 +807,68 @@
     border-bottom-color: var(--text-primary); }
   code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px;
          background: var(--neutral); padding: 1px 5px; border-radius: 4px; }
+
+  /* 앱 설치 — 설치할 수 있을 때만 뜬다. 이미 설치해서 앱으로 열었으면 안 뜬다. */
+  .install { margin-left: 8px; height: 28px; padding: 0 10px; border: 0; border-radius: var(--radius);
+    background: var(--text-primary); color: var(--page); font: inherit; font-size: 12px;
+    font-weight: 600; cursor: pointer; }
+  .install[hidden] { display: none; }
+  .ioshint { flex-basis: 100%; margin: 0; padding: 8px 10px; border-radius: var(--radius);
+    background: var(--accent-wash); color: var(--text-primary); font-size: 12.5px; }
+  .ioshint[hidden] { display: none; }
+  .ioshint button { float: right; border: 0; background: none; color: var(--text-secondary);
+    font: inherit; cursor: pointer; min-width: 24px; min-height: 24px; }
+
+  /* 익명 채팅 — 오른쪽 아래 단추로 열고 닫는다. 폰에서는 아래에서 올라오는 판.
+     .app 안에 둔다. 색 토큰이 :root 가 아니라 .app 에 걸려 있다. */
+  .chatbtn { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+    z-index: 40; min-width: 48px; height: 48px; padding: 0 16px; border: 0; border-radius: 24px;
+    background: var(--text-primary); color: var(--page); font: inherit; font-size: 13px;
+    font-weight: 600; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+  .chatbtn .n { display: inline-block; min-width: 18px; margin-left: 6px; padding: 0 5px;
+    border-radius: 9px; background: var(--alert-bg); color: #fff; font-size: 11px; line-height: 18px; }
+  .chatbtn .n:empty { display: none; }
+  .chat { position: fixed; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom));
+    z-index: 40; width: 360px; height: min(480px, calc(100vh - 110px));
+    display: flex; flex-direction: column; background: var(--surface-1); color: var(--text-primary);
+    border-radius: var(--radius-lg); box-shadow: var(--ring), 0 12px 40px rgba(0,0,0,.2); }
+  .chat[hidden] { display: none; }
+  .chat .ch { display: flex; align-items: center; gap: 8px; padding: 10px 8px 10px 14px;
+    border-bottom: 1px solid var(--hairline); font-size: 13px; font-weight: 600; }
+  .chat .ch .who { font-weight: 400; font-size: 12px; color: var(--text-secondary);
+    background: none; border: 0; font-family: inherit; cursor: pointer; padding: 6px 8px;
+    border-radius: var(--radius); margin-left: auto; min-height: 32px; }
+  .chat .ch .who:hover { background: var(--neutral); }
+  .chat .ch .x { background: none; border: 0; color: var(--text-secondary); font-size: 16px;
+    width: 36px; height: 36px; border-radius: var(--radius); cursor: pointer; }
+  .chat .ch .x:hover { background: var(--neutral); }
+  .chat .cl { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex;
+    flex-direction: column; gap: 6px; overscroll-behavior: contain; }
+  .chat .cm { max-width: 85%; align-self: flex-start; font-size: 13px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word; }
+  .chat .cm .nk { display: block; font-size: 11px; color: var(--text-secondary); margin: 0 0 1px 2px; }
+  .chat .cm .tx { display: inline-block; padding: 6px 11px; border-radius: 12px;
+    background: var(--neutral); color: var(--text-primary); }
+  .chat .cm.me { align-self: flex-end; text-align: right; }
+  /* 파란 바탕 흰 글자 — #0a66ea 에서 5.12. 두 테마 같은 값. */
+  .chat .cm.me .tx { background: #0a66ea; color: #fff; text-align: left; }
+  .chat .empty { margin: auto; color: var(--faint); font-size: 12.5px; text-align: center; }
+  .chat form { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--hairline); }
+  .chat input { flex: 1; min-width: 0; height: 40px; padding: 0 12px; font: inherit; font-size: 14px;
+    color: var(--text-primary); background: var(--page); border: 0; border-radius: var(--radius);
+    box-shadow: var(--ring); }
+  .chat form button { height: 40px; padding: 0 14px; border: 0; border-radius: var(--radius);
+    background: #0a66ea; color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .chat .cerr { font-size: 11.5px; color: var(--neg-ink); padding: 0 12px 6px; }
+  .chat .cerr:empty { display: none; }
+  @media (max-width: 640px) {
+    .chat.chat { left: 0; right: 0; bottom: 0; width: auto; height: 70vh; height: 70dvh;
+      border-radius: 14px 14px 0 0; padding-bottom: env(safe-area-inset-bottom); }
+    /* 판이 열리면 단추가 입력칸을 가린다. 판 위 닫기 단추가 대신한다. */
+    .chat:not([hidden]) ~ .chatbtn { display: none; }
+    /* 폰 입력칸이 16px 보다 작으면 사파리가 화면을 확대한다. */
+    .chat input { font-size: 16px; }
+  }
 </style>
 </head>
 <body>
@@ -818,15 +880,28 @@
      때마다 바뀌어 알림으로 두면 떠든다. 탭 판 밖에 둔다 — 숨은 판 안의 알림은
      읽기 도구가 무시해, 판 탭에서 종목을 바꿀 때 난 봉 실패가 묻혔다. -->
 <div class="sr" id="say" role="status"></div>
+<section class="chat" id="chat" role="dialog" aria-label="익명 채팅" hidden>
+  <div class="ch">익명 채팅
+    <button class="who" id="chatWho" type="button" title="이름 바꾸기"></button>
+    <button class="x" id="chatX" type="button" aria-label="채팅 닫기">✕</button></div>
+  <div class="cl" id="chatList" aria-live="polite"></div>
+  <div class="cerr" id="chatErr" role="alert"></div>
+  <form id="chatForm"><input id="chatIn" maxlength="200" autocomplete="off" placeholder="200자까지, 2초에 한 번" aria-label="보낼 말">
+    <button type="submit">보내기</button></form>
+</section>
+<button class="chatbtn" id="chatBtn" type="button" aria-controls="chat" aria-expanded="false">채팅<span class="n" id="chatN"></span></button>
   <div class="top">
     <div class="brand">
       <img src="logo-128.png" alt="" width="30" height="30">
-      <h1>실시간 커뮤니티 온도</h1>
+      <h1>곡소리계산기</h1>
     </div>
     <div class="bar">
       <span class="dot" id="dot"></span>
       <span id="status">연결 중…</span>
+      <button class="install" id="installBtn" type="button" hidden>앱으로 설치</button>
     </div>
+    <p class="ioshint" id="iosHint" hidden>아이폰은 사파리 아래 <b>공유</b> 단추 → <b>홈 화면에 추가</b>로 앱처럼 설치됩니다.
+      <button type="button" id="iosHintX" aria-label="안내 닫기">✕</button></p>
   </div>
 
   <div class="tabs" role="tablist">
@@ -936,7 +1011,7 @@
         </div>
 
         <div class="pgrp">
-          <span class="plab">기분 <b id="moodFace">&#128528;</b> <span id="moodHappy">0</span></span>
+          <span class="plab">기분 <b id="moodFace">&#128566;</b> <span id="moodHappy">0</span></span>
           <div class="mood" id="pulseMood">
             <button id="moodPet" data-v="pet" aria-describedby="moodNote">쓰담 <em id="moodPetN">0</em></button>
             <button id="moodHit" data-v="hit" aria-describedby="moodNote">한 대 <em id="moodHitN">0</em></button>
@@ -2713,7 +2788,8 @@ function pulseRender(d) {
   const { hit, pet, happy } = d.mood;
   $('moodHappy').textContent = (happy > 0 ? '+' : '') + happy.toLocaleString();
   // 얼굴은 세 단계면 된다. 눈금을 더 쪼개도 읽는 사람이 못 가른다.
-  $('moodFace').textContent = happy > 0 ? '\uD83D\uDE0A' : happy < 0 ? '\uD83D\uDE21' : '\uD83D\uDE10';
+  // \uACE1\uC18C\uB9AC\uD310 \u2014 \uD83E\uDD11 \uC88B\uB2E4 \u00B7 \uD83D\uDE36 \uADF8\uC800 \uADF8\uB807\uB2E4 \u00B7 \uD83D\uDE2D \uACE1\uC18C\uB9AC
+  $('moodFace').textContent = happy > 0 ? '\uD83E\uDD11' : happy < 0 ? '\uD83D\uDE2D' : '\uD83D\uDE36';
   $('moodPetN').textContent = pet.toLocaleString();
   $('moodHitN').textContent = hit.toLocaleString();
   pulseWait(d.wait);
@@ -2840,6 +2916,8 @@ function openStream() {
   es.onmessage = e => { try { paint(JSON.parse(e.data)); } catch (err) { console.error(err); } };
   es.onerror = () => {
     $('dot').className = 'dot err';
+    // 앱으로 설치해 망 없이 열었으면 서버 탓이 아니다. 그 말을 먼저 한다.
+    if (!navigator.onLine) { $('status').textContent = '오프라인 — 망이 돌아오면 다시 붙습니다'; return; }
     // 폰으로 보는 사람에게 "node server.mjs 가 떠 있는지 확인하세요" 는 할 수 있는
     // 말이 아니다. 기계에 따라 할 수 있는 말을 한다.
     $('status').textContent = isTouch()
@@ -3040,6 +3118,129 @@ let showTab = () => {};
   btn.help.onclick     = () => { location.hash = 'help';     show('help');     };
   addEventListener('hashchange', () => show(fromHash()));
   show(fromHash());
+})();
+
+// ── 앱 설치 ──────────────────────────────────────────────────
+// 일꾼(sw.js)은 화면 틀만 들고 있다. 시세는 늘 망에서 받는다.
+// 설치 단추는 브라우저가 "설치할 수 있다"(beforeinstallprompt)고 알릴 때만 뜬다 —
+// 안드로이드·크롬·엣지. 아이폰 사파리는 그 알림이 없어 안내 글만 한 번 띄운다.
+(() => {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* 없어도 사이트는 돈다 */ });
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if (standalone) return;
+  let ask = null;
+  addEventListener('beforeinstallprompt', e => { e.preventDefault(); ask = e; $('installBtn').hidden = false; });
+  $('installBtn').onclick = async () => {
+    if (!ask) return;
+    ask.prompt();
+    await ask.userChoice.catch(() => null);
+    ask = null; $('installBtn').hidden = true;
+  };
+  addEventListener('appinstalled', () => { $('installBtn').hidden = true; });
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !/crios|fxios/i.test(navigator.userAgent);
+  if (ios && !store.get('iosHintSeen', '')) {
+    $('iosHint').hidden = false;
+    $('iosHintX').onclick = () => { $('iosHint').hidden = true; store.set('iosHintSeen', '1'); };
+  }
+})();
+
+// 망이 끊기면 숫자가 멈춘 이유를 말한다. 일꾼 덕에 화면은 떠 있지만 숫자는 옛것이다.
+addEventListener('offline', () => { $('dot').className = 'dot err'; $('status').textContent = '오프라인 — 마지막으로 받은 숫자입니다'; });
+addEventListener('online', () => { if (!es || es.readyState === EventSource.CLOSED) openStream(); });
+
+// ── 익명 채팅 ────────────────────────────────────────────────
+// 들어온 사람끼리 떠드는 방 하나. 서버는 메모리에만 최근 100개를 들고 있다.
+// 새 말은 시세와 같은 스트림에 'chat' 이름을 달고 온다 — 연결을 따로 안 연다.
+(() => {
+  const box = $('chat'), list = $('chatList'), btn = $('chatBtn'), badge = $('chatN');
+  const input = $('chatIn'), err = $('chatErr');
+  // 내가 보낸 말. 서버는 누가 보냈는지 안 돌려주니 브라우저가 아이디로 기억한다.
+  // 새로고침해도 내 말이 '나' 로 남게 저장해 둔다. 서버도 100개만 들고 있어 그만큼만.
+  let MINE;
+  try { MINE = new Set(JSON.parse(store.get('chatMine', '[]'))); } catch { MINE = new Set(); }
+  const keepMine = () => store.set('chatMine', JSON.stringify([...MINE].slice(-100)));
+  let unread = 0, loaded = false;
+  // 이름은 브라우저 id 에서 뽑은 번호로 짓는다. 바꾸면 그걸 기억한다.
+  const auto = '익명 개구리 ' + (parseInt(whoId().slice(0, 6), 36) % 9000 + 1000);
+  const nick = () => store.get('chatNick', null) || auto;
+  $('chatWho').textContent = nick();
+
+  const hhmm = t => new Date(t).toTimeString().slice(0, 5);
+  function add(m) {
+    if (list.querySelector(`[data-id="${CSS.escape(String(m.id))}"]`)) return;   // 보낸 답과 스트림이 둘 다 온다
+    list.querySelector('.empty')?.remove();
+    const near = list.scrollHeight - list.scrollTop - list.clientHeight < 60;
+    const el = document.createElement('div');
+    el.className = 'cm' + (MINE.has(m.id) ? ' me' : '');
+    el.dataset.id = m.id;
+    const nk = document.createElement('span'); nk.className = 'nk';
+    nk.textContent = `${MINE.has(m.id) ? '나' : m.nick} · ${hhmm(m.at)}`;
+    const tx = document.createElement('span'); tx.className = 'tx'; tx.textContent = m.text;
+    el.append(nk, tx);
+    list.append(el);
+    while (list.children.length > 100) list.firstChild.remove();
+    if (near || MINE.has(m.id)) list.scrollTop = list.scrollHeight;
+    if (box.hidden && !MINE.has(m.id)) badge.textContent = String(++unread);
+  }
+
+  async function load() {
+    if (loaded) return;
+    try {
+      const { msgs } = await (await fetch('/api/chat', { cache: 'no-store' })).json();
+      loaded = true;
+      if (!msgs.length) list.innerHTML = '<div class="empty">아직 아무도 말하지 않았습니다.<br>첫 말을 남겨 보세요.</div>';
+      const keep = unread; msgs.forEach(add); unread = keep; badge.textContent = unread || '';
+    } catch { err.textContent = '앞 대화를 못 불러왔습니다.'; }
+  }
+
+  function toggle(open) {
+    box.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    store.set('chatOpen', open ? '1' : '');
+    if (open) {
+      unread = 0; badge.textContent = '';
+      load().then(() => { list.scrollTop = list.scrollHeight; });
+      input.focus({ preventScroll: true });
+    } else btn.focus({ preventScroll: true });
+  }
+  btn.onclick = () => toggle(box.hidden);
+  $('chatX').onclick = () => toggle(false);
+  box.addEventListener('keydown', e => { if (e.key === 'Escape') toggle(false); });
+
+  $('chatWho').onclick = () => {
+    const v = (prompt('채팅 이름 (16자까지, 비우면 자동 이름)', nick()) ?? nick()).trim().slice(0, 16);
+    store.set('chatNick', v === auto ? '' : v);
+    $('chatWho').textContent = nick();
+  };
+
+  $('chatForm').onsubmit = async e => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    err.textContent = '';
+    try {
+      const r = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nick: nick(), text, who: whoId() }) });
+      const j = await r.json();
+      if (!r.ok) { err.textContent = j.error ?? '못 보냈습니다.'; return; }
+      MINE.add(j.id); keepMine(); input.value = '';
+      list.querySelector(`[data-id="${CSS.escape(String(j.id))}"]`)?.remove();    // 스트림이 먼저 왔으면 내 말로 다시 그린다
+      add(j);
+    } catch { err.textContent = '못 보냈습니다 — 연결을 확인하세요.'; }
+  };
+
+  // 스트림은 끊기면 새로 열린다(openStream). 열릴 때마다 귀를 다시 단다.
+  const listen = s => s?.addEventListener('chat', e => {
+    try {
+      const m = JSON.parse(e.data);
+      if (loaded) add(m); else if (box.hidden) badge.textContent = String(++unread);
+    } catch { /* 깨진 줄 */ }
+  });
+  let hooked = es;
+  listen(es);
+  setInterval(() => { if (es !== hooked) { listen(es); hooked = es; } }, 1000);
+
+  if (store.get('chatOpen', '') === '1') toggle(true);
 })();
 </script>
 </body>
