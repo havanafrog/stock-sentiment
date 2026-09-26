@@ -158,6 +158,13 @@
   .kr { font-weight: 700; color: var(--text); }
   .ks { color: var(--sub); box-shadow: inset 0 0 0 1px var(--hair); }
   .kp { color: var(--sub); background: var(--page); }
+  /* 계획과 실제가 어긋난 것. 색만으로 가르지 않게 글자(빠짐·+)도 붙인다. */
+  .kit .miss { color: var(--text); background: none; box-shadow: inset 0 0 0 1.5px var(--live); }
+  .kit .miss::after { content: ' 빠짐'; font-weight: 700; }
+  .kit .extra { color: var(--sub); background: none; box-shadow: none; outline: 1px dashed var(--faint); outline-offset: -1px; }
+  .kit .extra::before { content: '+ '; }
+  .kit .plan { opacity: .75; }
+  .kit .shared { color: var(--faint); background: none; box-shadow: none; }
   .foot { display: flex; gap: 10px; align-items: baseline; font-size: 11.5px;
           color: var(--faint); font-variant-numeric: tabular-nums; }
   .usd { margin-left: auto; font-weight: 650; color: var(--sub); }
@@ -301,6 +308,12 @@
 const $ = id => document.getElementById(id);
 // 따옴표까지 막는다 — 창 이름이 data-name 속성 안에 들어간다.
 const esc = s => String(s ?? '').replace(/[<>&"]/g, c => ({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));
+const KIT_TIP = { ok: '계획대로 걸림', miss: '계획에 있는데 이 창에 없다', extra: '계획에 없는데 이 창에 걸려 있다',
+  plan: '계획만 — 이 창의 .claude 를 못 봤다' };
+// 판이 옛 모양(문자열)을 받아도 깨지지 않게 둘 다 받는다.
+const kit = (cls, t) => typeof t === 'string'
+  ? `<span class="${cls}">${esc(t)}</span>`
+  : `<span class="${cls} ${esc(t.st)}" title="${esc(KIT_TIP[t.st] ?? '')}">${esc(t.name)}</span>`;
 const cut = (t, n) => (t.length > n ? t.slice(0, n - 1) + '…' : t);
 
 // ── 마크다운 ─────────────────────────────────────────────────
@@ -465,11 +478,14 @@ function winCard(x, now) {
     + (steps.length
         ? `<div class="flow">${steps.map((s, i) => step(s, now, i === steps.length - 1)).join('')}</div>`
         : '')
-    // 이 창이 쓰는 도구. agents/agents.json 이 역할마다 정한 것이다.
+    // 이 창이 쓰는 도구. agents/agents.json 이 계획, 작업칸 .claude 가 실제 — 어긋나면 표시한다.
     + (x.tools
         ? `<div class="kit"><span class="kr">${esc(x.tools.role)}</span>`
-          + x.tools.skills.map(s => `<span class="ks">${esc(s)}</span>`).join('')
-          + x.tools.plugins.map(p => `<span class="kp">${esc(p)}</span>`).join('') + '</div>'
+          + x.tools.skills.map(s => kit('ks', s)).join('')
+          + x.tools.plugins.map(p => kit('kp', p)).join('')
+          + (x.tools.shared ?? []).map(s =>
+              `<span class="ks shared" title="저장소가 들고 다니는 스킬 — 모든 창에 있다">${esc(s)}</span>`).join('')
+          + '</div>'
         : '')
     + `<div class="foot"><span>${esc(x.branch ?? '')}</span>`
     + (x.cost ? `<span>${toks(x.cost)}</span><span class="usd">${money(x.cost.usd)}</span>` : '')

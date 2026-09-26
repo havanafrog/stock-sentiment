@@ -29,20 +29,52 @@ import { tally } from './cost.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = dirname(HERE);
 
+// 작업칸 폴더들이 모인 곳. 본체 옆이다. 통 안에서는 각 작업칸의 .claude 만
+// /wt/<폴더>/.claude 로 걸어 준다 — 대화나 코드는 안 보인다.
+const WT_ROOT = process.env.OPS_WT_ROOT ?? dirname(REPO);
+
+/** 작업칸 .claude 에 실제로 걸린 것. 폴더를 못 보면 null — 판은 계획만 보여 준다. */
+function installed(claudeDir) {
+  let skills = null, plugins = null;
+  try {
+    skills = readdirSync(join(claudeDir, 'skills'), { withFileTypes: true })
+      .filter(d => d.isDirectory()).map(d => d.name);
+  } catch { /* 안 걸렸거나 못 본다 */ }
+  try { plugins = JSON.parse(readFileSync(join(claudeDir, 'settings.local.json'), 'utf8')).enabledPlugins ?? {}; }
+  catch { /* 없으면 전역 설정 그대로 */ }
+  return { skills, plugins };
+}
+
 /**
- * 작업칸 → 그 agent 의 역할과 도구. agents/agents.json 이 정한 대로 보여 준다
- * (실제로 걸렸는지는 tools/agent-setup.mjs 가 건다). 작업칸 끝말(auto)로 짝짓는다.
+ * 작업칸 → 그 agent 의 역할과 도구. agents/agents.json 이 계획이고, 작업칸 .claude 가
+ * 실제다. 둘을 맞대 st 를 붙인다:
+ *   ok 계획대로 걸림 · miss 계획에 있는데 없다 · extra 계획에 없는데 있다 · plan 실제를 못 봤다
+ * 어느 역할도 적지 않았는데 본체에 있는 스킬(ops)은 저장소가 들고 다니는 것 — shared 로 뺀다.
  */
-export function toolsOf(where, file = join(REPO, 'agents', 'agents.json')) {
+export function toolsOf(where, file = join(REPO, 'agents', 'agents.json'), root = WT_ROOT) {
   let all;
   try { all = JSON.parse(readFileSync(file, 'utf8')); } catch { return null; }
-  for (const [role, a] of Object.entries(all)) {
-    if (role.startsWith('$') || !a?.dir) continue;
+  const roles = Object.entries(all).filter(([k, a]) => !k.startsWith('$') && a?.dir);
+  const declared = new Set(roles.flatMap(([, a]) => a.skills ?? []));
+  for (const [role, a] of roles) {
     const tail = a.dir.includes('-') ? a.dir.slice(a.dir.lastIndexOf('-') + 1) : '';
-    if (role === 'main' ? !where : tail === where) {
-      return { role, skills: a.skills ?? [],
-        plugins: Object.entries(a.plugins ?? {}).filter(([, v]) => v).map(([k]) => k.split('@')[0]) };
-    }
+    if (role === 'main' ? where : tail !== where) continue;
+    const got = installed(join(root, a.dir, '.claude'));
+    const want = a.skills ?? [];
+    const shared = (got.skills ?? []).filter(s => !declared.has(s));
+    const skills = [
+      ...want.map(name => ({ name, st: !got.skills ? 'plan' : got.skills.includes(name) ? 'ok' : 'miss' })),
+      ...(got.skills ?? []).filter(s => !want.includes(s) && declared.has(s)).map(name => ({ name, st: 'extra' })),
+    ];
+    // 플러그인은 계획표에 적힌 것만 잰다. 안 적힌 건 전역 설정을 따르니 창마다 다르지 않다.
+    const plugins = Object.entries(a.plugins ?? {}).flatMap(([k, on]) => {
+      const name = k.split('@')[0];
+      const now = got.plugins ? got.plugins[k] ?? null : undefined;
+      if (now === undefined) return on ? [{ name, st: 'plan' }] : [];
+      if (on) return [{ name, st: now === true ? 'ok' : 'miss' }];
+      return now === true ? [{ name, st: 'extra' }] : [];
+    });
+    return { role, skills, plugins, shared };
   }
   return null;
 }
@@ -739,9 +771,37 @@ function selftest() {
      teamOf([S('x', '/ops'), S('y', 'a', { sends: [{ to: 'b', message: 'm' }] })]).main === 'y0000000');
   ok('main 이 없으면 서브도 없다', teamOf([S('x', 'a')]).subs.length === 0);
   ok('본채는 main 도구', toolsOf('')?.role === 'main');
-  ok('작업칸 끝말로 역할을 찾는다', toolsOf('auto')?.role === 'ui' && toolsOf('train')?.skills.includes('backtest-expert'));
-  ok('꺼 둔 플러그인은 안 보인다', !toolsOf('train').plugins.includes('superpowers'));
+  ok('작업칸 끝말로 역할을 찾는다', toolsOf('auto')?.role === 'ui'
+     && toolsOf('train')?.skills.some(s => s.name === 'backtest-expert'));
   ok('모르는 작업칸은 null', toolsOf('nope') === null);
+  {
+    // 가짜 작업칸 두 개: 본체(a)와 서브(a-x). 서브는 계획과 어긋나게 걸어 둔다.
+    const t = join(tmpdir(), `ops-kit-${process.pid}`);
+    const aj = join(t, 'agents.json');
+    mkdirSync(join(t, 'a', '.claude', 'skills', 'repo-skill'), { recursive: true });
+    mkdirSync(join(t, 'a', '.claude', 'skills', 'm1'), { recursive: true });
+    mkdirSync(join(t, 'a-x', '.claude', 'skills', 's2'), { recursive: true });
+    mkdirSync(join(t, 'a-x', '.claude', 'skills', 'm1'), { recursive: true });
+    mkdirSync(join(t, 'a-x', '.claude', 'skills', 'repo-skill'), { recursive: true });
+    writeFileSync(aj, JSON.stringify({
+      main: { dir: 'a', skills: ['m1'], plugins: { 'p@m': true } },
+      sub: { dir: 'a-x', skills: ['s1', 's2'], plugins: { 'p@m': true, 'q@m': false } },
+    }));
+    writeFileSync(join(t, 'a-x', '.claude', 'settings.local.json'),
+      JSON.stringify({ enabledPlugins: { 'p@m': false, 'q@m': true } }));
+    try {
+      const k = toolsOf('x', aj, t), st = xs => Object.fromEntries(xs.map(i => [i.name, i.st]));
+      ok('계획대로 걸린 스킬은 ok', st(k.skills).s2 === 'ok', JSON.stringify(k.skills));
+      ok('계획에 있는데 없으면 miss', st(k.skills).s1 === 'miss');
+      ok('남의 역할 스킬이 걸려 있으면 extra', st(k.skills).m1 === 'extra');
+      ok('어느 역할도 안 적은 스킬은 shared', k.shared.join() === 'repo-skill' && !('repo-skill' in st(k.skills)));
+      ok('켜야 할 플러그인이 꺼져 있으면 miss', st(k.plugins).p === 'miss', JSON.stringify(k.plugins));
+      ok('꺼야 할 플러그인이 켜져 있으면 extra', st(k.plugins).q === 'extra');
+      const m = toolsOf('', aj, t);
+      ok('설정 파일이 없으면 플러그인은 plan', st(m.plugins).p === 'plan' && st(m.skills).m1 === 'ok');
+      ok('폴더를 못 보면 스킬도 plan', toolsOf('x', aj, join(t, 'none')).skills.every(s => s.st === 'plan'));
+    } finally { rmSync(t, { recursive: true, force: true }); }
+  }
 
   // 대화 — 서랍에 뜨는 것
   const C = chatItems([

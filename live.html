@@ -3164,11 +3164,10 @@ addEventListener('online', () => { if (!es || es.readyState === EventSource.CLOS
 (() => {
   const box = $('chat'), list = $('chatList'), btn = $('chatBtn'), badge = $('chatN');
   const input = $('chatIn'), err = $('chatErr');
-  // 내가 보낸 말. 서버는 누가 보냈는지 안 돌려주니 브라우저가 아이디로 기억한다.
-  // 새로고침해도 내 말이 '나' 로 남게 저장해 둔다. 서버도 100개만 들고 있어 그만큼만.
-  let MINE;
-  try { MINE = new Set(JSON.parse(store.get('chatMine', '[]'))); } catch { MINE = new Set(); }
-  const keepMine = () => store.set('chatMine', JSON.stringify([...MINE].slice(-100)));
+  // 내 말인지는 서버가 붙인 글쓴이 표(m.by)로 가린다. 내 표(me)는 앞 대화를 받을 때와
+  // 보낼 때 서버가 알려 준다. 브라우저 id(whoId)가 그대로면 새로고침해도, 탭이 여럿이어도 같다.
+  // 탭끼리 같이 쓰도록 저장해 둔다 — 한 탭에서 처음 보낸 말도 다른 탭이 '나' 로 그린다.
+  const mine = m => !!m.by && m.by === store.get('chatMe', '');
   let unread = 0, loaded = false;
   // 이름은 브라우저 id 에서 뽑은 번호로 짓는다. 바꾸면 그걸 기억한다.
   const auto = '익명 개구리 ' + (parseInt(whoId().slice(0, 6), 36) % 9000 + 1000);
@@ -3181,22 +3180,23 @@ addEventListener('online', () => { if (!es || es.readyState === EventSource.CLOS
     list.querySelector('.empty')?.remove();
     const near = list.scrollHeight - list.scrollTop - list.clientHeight < 60;
     const el = document.createElement('div');
-    el.className = 'cm' + (MINE.has(m.id) ? ' me' : '');
+    el.className = 'cm' + (mine(m) ? ' me' : '');
     el.dataset.id = m.id;
     const nk = document.createElement('span'); nk.className = 'nk';
-    nk.textContent = `${MINE.has(m.id) ? '나' : m.nick} · ${hhmm(m.at)}`;
+    nk.textContent = `${mine(m) ? '나' : m.nick} · ${hhmm(m.at)}`;
     const tx = document.createElement('span'); tx.className = 'tx'; tx.textContent = m.text;
     el.append(nk, tx);
     list.append(el);
     while (list.children.length > 100) list.firstChild.remove();
-    if (near || MINE.has(m.id)) list.scrollTop = list.scrollHeight;
-    if (box.hidden && !MINE.has(m.id)) badge.textContent = String(++unread);
+    if (near || mine(m)) list.scrollTop = list.scrollHeight;
+    if (box.hidden && !mine(m)) badge.textContent = String(++unread);
   }
 
   async function load() {
     if (loaded) return;
     try {
-      const { msgs } = await (await fetch('/api/chat', { cache: 'no-store' })).json();
+      const { msgs, me } = await (await fetch(`/api/chat?who=${encodeURIComponent(whoId())}`, { cache: 'no-store' })).json();
+      store.set('chatMe', me);
       loaded = true;
       if (!msgs.length) list.innerHTML = '<div class="empty">아직 아무도 말하지 않았습니다.<br>첫 말을 남겨 보세요.</div>';
       const keep = unread; msgs.forEach(add); unread = keep; badge.textContent = unread || '';
@@ -3233,7 +3233,7 @@ addEventListener('online', () => { if (!es || es.readyState === EventSource.CLOS
         body: JSON.stringify({ nick: nick(), text, who: whoId() }) });
       const j = await r.json();
       if (!r.ok) { err.textContent = j.error ?? '못 보냈습니다.'; return; }
-      MINE.add(j.id); keepMine(); input.value = '';
+      store.set('chatMe', j.by); input.value = '';
       list.querySelector(`[data-id="${CSS.escape(String(j.id))}"]`)?.remove();    // 스트림이 먼저 왔으면 내 말로 다시 그린다
       add(j);
     } catch { err.textContent = '못 보냈습니다 — 연결을 확인하세요.'; }
