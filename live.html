@@ -774,11 +774,72 @@
     border-bottom-color: var(--text-primary); }
   code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px;
          background: var(--neutral); padding: 1px 5px; border-radius: 4px; }
+
+  /* 익명 채팅 — 오른쪽 아래 단추로 열고 닫는다. 폰에서는 아래에서 올라오는 판.
+     .app 안에 둔다. 색 토큰이 :root 가 아니라 .app 에 걸려 있다. */
+  .chatbtn { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
+    z-index: 40; min-width: 48px; height: 48px; padding: 0 16px; border: 0; border-radius: 24px;
+    background: var(--text-primary); color: var(--page); font: inherit; font-size: 13px;
+    font-weight: 600; cursor: pointer; box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+  .chatbtn .n { display: inline-block; min-width: 18px; margin-left: 6px; padding: 0 5px;
+    border-radius: 9px; background: var(--alert-bg); color: #fff; font-size: 11px; line-height: 18px; }
+  .chatbtn .n:empty { display: none; }
+  .chat { position: fixed; right: 16px; bottom: calc(76px + env(safe-area-inset-bottom));
+    z-index: 40; width: 360px; height: min(480px, calc(100vh - 110px));
+    display: flex; flex-direction: column; background: var(--surface-1); color: var(--text-primary);
+    border-radius: var(--radius-lg); box-shadow: var(--ring), 0 12px 40px rgba(0,0,0,.2); }
+  .chat[hidden] { display: none; }
+  .chat .ch { display: flex; align-items: center; gap: 8px; padding: 10px 8px 10px 14px;
+    border-bottom: 1px solid var(--hairline); font-size: 13px; font-weight: 600; }
+  .chat .ch .who { font-weight: 400; font-size: 12px; color: var(--text-secondary);
+    background: none; border: 0; font-family: inherit; cursor: pointer; padding: 6px 8px;
+    border-radius: var(--radius); margin-left: auto; min-height: 32px; }
+  .chat .ch .who:hover { background: var(--neutral); }
+  .chat .ch .x { background: none; border: 0; color: var(--text-secondary); font-size: 16px;
+    width: 36px; height: 36px; border-radius: var(--radius); cursor: pointer; }
+  .chat .ch .x:hover { background: var(--neutral); }
+  .chat .cl { flex: 1; overflow-y: auto; padding: 10px 12px; display: flex;
+    flex-direction: column; gap: 6px; overscroll-behavior: contain; }
+  .chat .cm { max-width: 85%; align-self: flex-start; font-size: 13px; line-height: 1.5;
+    white-space: pre-wrap; word-break: break-word; }
+  .chat .cm .nk { display: block; font-size: 11px; color: var(--text-secondary); margin: 0 0 1px 2px; }
+  .chat .cm .tx { display: inline-block; padding: 6px 11px; border-radius: 12px;
+    background: var(--neutral); color: var(--text-primary); }
+  .chat .cm.me { align-self: flex-end; text-align: right; }
+  /* 파란 바탕 흰 글자 — #0a66ea 에서 5.12. 두 테마 같은 값. */
+  .chat .cm.me .tx { background: #0a66ea; color: #fff; text-align: left; }
+  .chat .empty { margin: auto; color: var(--faint); font-size: 12.5px; text-align: center; }
+  .chat form { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--hairline); }
+  .chat input { flex: 1; min-width: 0; height: 40px; padding: 0 12px; font: inherit; font-size: 14px;
+    color: var(--text-primary); background: var(--page); border: 0; border-radius: var(--radius);
+    box-shadow: var(--ring); }
+  .chat form button { height: 40px; padding: 0 14px; border: 0; border-radius: var(--radius);
+    background: #0a66ea; color: #fff; font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+  .chat .cerr { font-size: 11.5px; color: var(--neg-ink); padding: 0 12px 6px; }
+  .chat .cerr:empty { display: none; }
+  @media (max-width: 640px) {
+    .chat.chat { left: 0; right: 0; bottom: 0; width: auto; height: 70vh; height: 70dvh;
+      border-radius: 14px 14px 0 0; padding-bottom: env(safe-area-inset-bottom); }
+    /* 판이 열리면 단추가 입력칸을 가린다. 판 위 닫기 단추가 대신한다. */
+    .chat:not([hidden]) ~ .chatbtn { display: none; }
+    /* 폰 입력칸이 16px 보다 작으면 사파리가 화면을 확대한다. */
+    .chat input { font-size: 16px; }
+  }
 </style>
 </head>
 <body>
 <div class="ctip" id="ctip"></div>
 <div class="app">
+<section class="chat" id="chat" role="dialog" aria-label="익명 채팅" hidden>
+  <div class="ch">익명 채팅
+    <button class="who" id="chatWho" type="button" title="이름 바꾸기"></button>
+    <button class="x" id="chatX" type="button" aria-label="채팅 닫기">✕</button></div>
+  <div class="cl" id="chatList" aria-live="polite"></div>
+  <div class="cerr" id="chatErr" role="alert"></div>
+  <form id="chatForm"><input id="chatIn" maxlength="200" autocomplete="off" placeholder="200자까지, 2초에 한 번" aria-label="보낼 말">
+    <button type="submit">보내기</button></form>
+</section>
+<button class="chatbtn" id="chatBtn" type="button" aria-controls="chat" aria-expanded="false">채팅<span class="n" id="chatN"></span></button>
   <div class="top">
     <div class="brand">
       <img src="logo-128.png" alt="" width="30" height="30">
@@ -2945,6 +3006,97 @@ let showTab = () => {};
   btn.help.onclick     = () => { location.hash = 'help';     show('help');     };
   addEventListener('hashchange', () => show(fromHash()));
   show(fromHash());
+})();
+
+// ── 익명 채팅 ────────────────────────────────────────────────
+// 들어온 사람끼리 떠드는 방 하나. 서버는 메모리에만 최근 100개를 들고 있다.
+// 새 말은 시세와 같은 스트림에 'chat' 이름을 달고 온다 — 연결을 따로 안 연다.
+(() => {
+  const box = $('chat'), list = $('chatList'), btn = $('chatBtn'), badge = $('chatN');
+  const input = $('chatIn'), err = $('chatErr');
+  const MINE = new Set();          // 내가 보낸 말. 서버는 누가 보냈는지 안 돌려준다
+  let unread = 0, loaded = false;
+  // 이름은 브라우저 id 에서 뽑은 번호로 짓는다. 바꾸면 그걸 기억한다.
+  const auto = '익명 개구리 ' + (parseInt(whoId().slice(0, 6), 36) % 9000 + 1000);
+  const nick = () => store.get('chatNick', null) || auto;
+  $('chatWho').textContent = nick();
+
+  const hhmm = t => new Date(t).toTimeString().slice(0, 5);
+  function add(m) {
+    if (list.querySelector(`[data-id="${m.id}"]`)) return;   // 보낸 답과 스트림이 둘 다 온다
+    list.querySelector('.empty')?.remove();
+    const near = list.scrollHeight - list.scrollTop - list.clientHeight < 60;
+    const el = document.createElement('div');
+    el.className = 'cm' + (MINE.has(m.id) ? ' me' : '');
+    el.dataset.id = m.id;
+    const nk = document.createElement('span'); nk.className = 'nk';
+    nk.textContent = `${MINE.has(m.id) ? '나' : m.nick} · ${hhmm(m.at)}`;
+    const tx = document.createElement('span'); tx.className = 'tx'; tx.textContent = m.text;
+    el.append(nk, tx);
+    list.append(el);
+    while (list.children.length > 100) list.firstChild.remove();
+    if (near || MINE.has(m.id)) list.scrollTop = list.scrollHeight;
+    if (box.hidden && !MINE.has(m.id)) badge.textContent = String(++unread);
+  }
+
+  async function load() {
+    if (loaded) return;
+    try {
+      const { msgs } = await (await fetch('/api/chat', { cache: 'no-store' })).json();
+      loaded = true;
+      if (!msgs.length) list.innerHTML = '<div class="empty">아직 아무도 말하지 않았습니다.<br>첫 말을 남겨 보세요.</div>';
+      const keep = unread; msgs.forEach(add); unread = keep; badge.textContent = unread || '';
+    } catch { err.textContent = '앞 대화를 못 불러왔습니다.'; }
+  }
+
+  function toggle(open) {
+    box.hidden = !open;
+    btn.setAttribute('aria-expanded', String(open));
+    store.set('chatOpen', open ? '1' : '');
+    if (open) {
+      unread = 0; badge.textContent = '';
+      load().then(() => { list.scrollTop = list.scrollHeight; });
+      input.focus({ preventScroll: true });
+    } else btn.focus({ preventScroll: true });
+  }
+  btn.onclick = () => toggle(box.hidden);
+  $('chatX').onclick = () => toggle(false);
+  box.addEventListener('keydown', e => { if (e.key === 'Escape') toggle(false); });
+
+  $('chatWho').onclick = () => {
+    const v = (prompt('채팅 이름 (16자까지, 비우면 자동 이름)', nick()) ?? nick()).trim().slice(0, 16);
+    store.set('chatNick', v === auto ? '' : v);
+    $('chatWho').textContent = nick();
+  };
+
+  $('chatForm').onsubmit = async e => {
+    e.preventDefault();
+    const text = input.value.trim();
+    if (!text) return;
+    err.textContent = '';
+    try {
+      const r = await fetch('/api/chat', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nick: nick(), text, who: whoId() }) });
+      const j = await r.json();
+      if (!r.ok) { err.textContent = j.error ?? '못 보냈습니다.'; return; }
+      MINE.add(j.id); input.value = '';
+      list.querySelector(`[data-id="${j.id}"]`)?.remove();    // 스트림이 먼저 왔으면 내 말로 다시 그린다
+      add(j);
+    } catch { err.textContent = '못 보냈습니다 — 연결을 확인하세요.'; }
+  };
+
+  // 스트림은 끊기면 새로 열린다(openStream). 열릴 때마다 귀를 다시 단다.
+  const listen = s => s?.addEventListener('chat', e => {
+    try {
+      const m = JSON.parse(e.data);
+      if (loaded) add(m); else if (box.hidden) badge.textContent = String(++unread);
+    } catch { /* 깨진 줄 */ }
+  });
+  let hooked = es;
+  listen(es);
+  setInterval(() => { if (es !== hooked) { listen(es); hooked = es; } }, 1000);
+
+  if (store.get('chatOpen', '') === '1') toggle(true);
 })();
 </script>
 </body>
