@@ -78,13 +78,13 @@ flipping. Browser and Node read the same `lexicon.js`, so the two can never drif
 **Two rulers, on purpose.** Measuring against the SLM's own labels only tells you
 how well you imitate the SLM. So 240 posts (80 each of P/N/X) were re-labelled by
 hand with the original labels hidden, and no model ever trains on them.
-Against that human ruler the SLM itself scored 68.8%.
+Against that human ruler the SLM itself scored 68.3%.
 
 ## Limits
 
 - **Undocumented internal API.** It can change without notice; collection dies when it does.
 - **The answer key is not human.** The classifier inherits the SLM's eyes, including its mistakes.
-- **It over-calls negative.** 53.0% precision on the human ruler — nearly half of what a
+- **It over-calls negative.** 53.8% precision on the human ruler — nearly half of what a
   person reads as neutral gets called negative. That is the price of cutting missed
   negatives from 65% to 14%.
 - **Fear words are still a dictionary.** Irony and new slang slip through. Because the
