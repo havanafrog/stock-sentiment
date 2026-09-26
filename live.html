@@ -3023,6 +3023,11 @@ async function tkDel(base) {
 function tkRender(d) {
   // 위의 판이 이미 같은 종목을 다 보여준다. 여기서 또 표로 늘어놓으면 한 화면에
   // 같은 목록이 둘이다 — 지우는 자리만 있으면 되니 칩 한 줄로 접는다.
+  // 통째로 다시 그리면 × 의 초점이 BODY 로 떨어졌다 — 지운 뒤에도, 수집 중 5초마다
+  // 다시 그릴 때도. 같은 종목 × → 같은 자리 × → 앞 × → (키보드면) 입력칸 순으로 돌린다.
+  const was = document.activeElement?.closest?.('#tkList .tkdel');
+  const kb = was?.matches(':focus-visible');
+  const at = was ? [...$('tkList').querySelectorAll('.tkdel')].indexOf(was) : -1;
   $('tkList').innerHTML = d.rows.map(r => {
     const busy = r.job
       ? `${r.job.phase}${r.job.pages ? ` ${r.job.pages}쪽` : ''}`
@@ -3031,6 +3036,11 @@ function tkRender(d) {
       + `${busy ? `<i>${busy}</i>` : ''}`
       + `<button class="tkdel" data-del="${r.t}" title="${r.t} 삭제">\u00d7</button></span>`;
   }).join('');
+  if (was) {
+    const all = [...$('tkList').querySelectorAll('.tkdel')];
+    const to = all.find(b => b.dataset.del === was.dataset.del) || all[at] || all[at - 1];
+    if (to) to.focus(); else if (kb) $('tkBase').focus();
+  }
 
   // 종목이 늘면 한 바퀴가 길어진다. 주기를 넘기면 회차를 건너뛴다.
   const note = $('tkNote');
