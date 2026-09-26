@@ -1,4 +1,4 @@
-# Community Temperature — a fear index from retail chatter
+# 곡소리계산기 (Wail Calculator) — a fear index from retail chatter
 
 **[한국어](README.md) (full) · English · [中文](README.zh.md)**
 

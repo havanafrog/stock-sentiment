@@ -5,7 +5,7 @@
 <!-- viewport-fit=cover: 노치 있는 폰에서 지면색이 화면 끝까지 간다. 안 주면
      위아래에 흰 띠가 남는다. 대신 내용은 아래 safe-area 로 밀어 넣는다. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>실시간 커뮤니티 온도</title>
+<title>곡소리계산기</title>
 <link rel="icon" type="image/png" href="logo-128.png">
 <!-- 홈 화면에 추가하면 주소창 없이 앱처럼 열린다. 폰으로 자주 보는 화면이라
      이게 있고 없고가 크다.
@@ -18,7 +18,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="apple-mobile-web-app-title" content="커뮤니티 온도">
+<meta name="apple-mobile-web-app-title" content="곡소리계산기">
 <meta name="theme-color" content="#f7f7f8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0a0a0b" media="(prefers-color-scheme: dark)">
 <style>
@@ -854,7 +854,7 @@
   <div class="top">
     <div class="brand">
       <img src="logo-128.png" alt="" width="30" height="30">
-      <h1>실시간 커뮤니티 온도</h1>
+      <h1>곡소리계산기</h1>
     </div>
     <div class="bar">
       <span class="dot" id="dot"></span>
@@ -968,7 +968,7 @@
         </div>
 
         <div class="pgrp">
-          <span class="plab">기분 <b id="moodFace">&#128528;</b> <span id="moodHappy">0</span></span>
+          <span class="plab">기분 <b id="moodFace">&#128566;</b> <span id="moodHappy">0</span></span>
           <div class="mood" id="pulseMood">
             <button id="moodPet" data-v="pet">쓰담 <em id="moodPetN">0</em></button>
             <button id="moodHit" data-v="hit">한 대 <em id="moodHitN">0</em></button>
@@ -2714,7 +2714,8 @@ function pulseRender(d) {
   const { hit, pet, happy } = d.mood;
   $('moodHappy').textContent = (happy > 0 ? '+' : '') + happy.toLocaleString();
   // 얼굴은 세 단계면 된다. 눈금을 더 쪼개도 읽는 사람이 못 가른다.
-  $('moodFace').textContent = happy > 0 ? '\uD83D\uDE0A' : happy < 0 ? '\uD83D\uDE21' : '\uD83D\uDE10';
+  // \uACE1\uC18C\uB9AC\uD310 \u2014 \uD83E\uDD11 \uC88B\uB2E4 \u00B7 \uD83D\uDE36 \uADF8\uC800 \uADF8\uB807\uB2E4 \u00B7 \uD83D\uDE2D \uACE1\uC18C\uB9AC
+  $('moodFace').textContent = happy > 0 ? '\uD83E\uDD11' : happy < 0 ? '\uD83D\uDE2D' : '\uD83D\uDE36';
   $('moodPetN').textContent = pet.toLocaleString();
   $('moodHitN').textContent = hit.toLocaleString();
   pulseWait(d.wait);
@@ -3058,7 +3059,11 @@ addEventListener('online', () => { if (!es || es.readyState === EventSource.CLOS
 (() => {
   const box = $('chat'), list = $('chatList'), btn = $('chatBtn'), badge = $('chatN');
   const input = $('chatIn'), err = $('chatErr');
-  const MINE = new Set();          // 내가 보낸 말. 서버는 누가 보냈는지 안 돌려준다
+  // 내가 보낸 말. 서버는 누가 보냈는지 안 돌려주니 브라우저가 아이디로 기억한다.
+  // 새로고침해도 내 말이 '나' 로 남게 저장해 둔다. 서버도 100개만 들고 있어 그만큼만.
+  let MINE;
+  try { MINE = new Set(JSON.parse(store.get('chatMine', '[]'))); } catch { MINE = new Set(); }
+  const keepMine = () => store.set('chatMine', JSON.stringify([...MINE].slice(-100)));
   let unread = 0, loaded = false;
   // 이름은 브라우저 id 에서 뽑은 번호로 짓는다. 바꾸면 그걸 기억한다.
   const auto = '익명 개구리 ' + (parseInt(whoId().slice(0, 6), 36) % 9000 + 1000);
@@ -3067,7 +3072,7 @@ addEventListener('online', () => { if (!es || es.readyState === EventSource.CLOS
 
   const hhmm = t => new Date(t).toTimeString().slice(0, 5);
   function add(m) {
-    if (list.querySelector(`[data-id="${m.id}"]`)) return;   // 보낸 답과 스트림이 둘 다 온다
+    if (list.querySelector(`[data-id="${CSS.escape(String(m.id))}"]`)) return;   // 보낸 답과 스트림이 둘 다 온다
     list.querySelector('.empty')?.remove();
     const near = list.scrollHeight - list.scrollTop - list.clientHeight < 60;
     const el = document.createElement('div');
@@ -3123,8 +3128,8 @@ addEventListener('online', () => { if (!es || es.readyState === EventSource.CLOS
         body: JSON.stringify({ nick: nick(), text, who: whoId() }) });
       const j = await r.json();
       if (!r.ok) { err.textContent = j.error ?? '못 보냈습니다.'; return; }
-      MINE.add(j.id); input.value = '';
-      list.querySelector(`[data-id="${j.id}"]`)?.remove();    // 스트림이 먼저 왔으면 내 말로 다시 그린다
+      MINE.add(j.id); keepMine(); input.value = '';
+      list.querySelector(`[data-id="${CSS.escape(String(j.id))}"]`)?.remove();    // 스트림이 먼저 왔으면 내 말로 다시 그린다
       add(j);
     } catch { err.textContent = '못 보냈습니다 — 연결을 확인하세요.'; }
   };

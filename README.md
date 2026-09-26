@@ -1,4 +1,4 @@
-# 실시간 커뮤니티 온도
+# 곡소리계산기
 
 **한국어 · [English](README.en.md) · [中文](README.zh.md)**
 

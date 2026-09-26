@@ -1,5 +1,5 @@
 /**
- * 실시간 커뮤니티 온도 서버.
+ * 곡소리계산기 서버.
  *
  *   node server.mjs              # http://localhost:8731
  *   node server.mjs --port 9000
@@ -618,7 +618,9 @@ function chatPost({ nick, text }, key, now = Date.now()) {
   if (now - last < CHAT_GAP_MS) return { error: '조금 천천히 보내 주세요.', wait: CHAT_GAP_MS - (now - last) };
   chatLast.set(key, now);
   if (chatLast.size > 5000) for (const [k, v] of chatLast) if (now - v > CHAT_GAP_MS) chatLast.delete(k);
-  const m = { id: ++chatSeq, at: now, nick: clean(nick, 16).replace(/\n/g, ' ') || '익명', text: t };
+  // 아이디는 서버를 다시 켜도 안 겹치게 시각을 섞는다. 브라우저가 '내가 쓴 말' 을
+  // 아이디로 기억하는데, 1 부터 다시 세면 남의 말이 내 말로 보인다.
+  const m = { id: now.toString(36) + '-' + (++chatSeq).toString(36), at: now, nick: clean(nick, 16).replace(/\n/g, ' ') || '익명', text: t };
   CHAT.push(m);
   if (CHAT.length > CHAT_MAX) CHAT.splice(0, CHAT.length - CHAT_MAX);
   return { ok: true, msg: m };

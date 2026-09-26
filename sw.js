@@ -5,7 +5,7 @@
 //   화면(html)   망 먼저. 안 되면 들고 있던 것 — 앱이 흰 화면으로 안 뜨게
 //   아이콘 등    들고 있던 것 먼저, 뒤에서 새로 받아 둔다
 // 틀을 바꾸면 V 를 올린다. 옛 칸은 activate 에서 지운다.
-const V = 'shell-v1';
+const V = 'shell-v2';
 const SHELL = ['/', 'app.webmanifest', 'logo-128.png', 'logo-256.png', 'logo-512.png'];
 
 self.addEventListener('install', e => {
