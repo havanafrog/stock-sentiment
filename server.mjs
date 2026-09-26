@@ -27,7 +27,7 @@ import { DATA_DIR, dataPath, BASELINE_FILE, BASELINE_FALLBACK, LABELS_FILE, PULS
 import { readFileSync, writeFileSync, appendFileSync, existsSync, statSync, unlinkSync } from 'node:fs';
 import { join, dirname, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomBytes, timingSafeEqual } from 'node:crypto';
+import { randomBytes, timingSafeEqual, createHmac } from 'node:crypto';
 import { gzipSync } from 'node:zlib';
 import { resolveStock, fetchLatest, fetchPrice, fetchRate, fetchBars, UNITS, MAX_COUNT, et, sleep } from './toss.mjs';
 import { loadTickers, saveTickers, okSymbol, TICKERS_FILE } from './tickers.mjs';
@@ -599,6 +599,11 @@ const CHAT_LEN = 200;          // 한 말의 길이
 const CHAT_GAP_MS = 2000;      // 한 사람이 이만큼 안에 또 보내면 막는다
 const chatLast = new Map();    // 보낸 사람 → 마지막으로 보낸 시각
 let chatSeq = 0;
+// 말마다 붙는 글쓴이 표(by). 브라우저 id 를 서버만 아는 소금으로 섞은 것이라
+// 표를 봐도 id 를 못 되찾고, 남의 표로 말을 올릴 수도 없다. 대화가 메모리에만
+// 있어 서버를 다시 켜면 소금도 대화도 같이 새로 시작한다.
+const CHAT_SALT = randomBytes(16);
+const chatBy = who => (who ? createHmac('sha256', CHAT_SALT).update(who).digest('base64url').slice(0, 12) : '');
 
 // 줄바꿈 말고 제어 글자와 방향 뒤집기 글자는 빈칸으로. 화면은 글자로만 그리니 태그는 걱정 없다.
 const clean = (v, n) => String(v ?? '')
@@ -611,7 +616,7 @@ const clean = (v, n) => String(v ?? '')
  * ponytail: 브라우저 id 와 주소를 둘 다 바꿔 가며 보내는 쪽은 못 막는다. 그런 일이
  * 생기면 주소만으로 막거나 입장 키를 바꾼다.
  */
-function chatPost({ nick, text }, key, now = Date.now()) {
+function chatPost({ nick, text, who }, key, now = Date.now()) {
   const t = clean(text, CHAT_LEN);
   if (!t) return { error: '빈 말입니다.' };
   const last = chatLast.get(key) ?? 0;
@@ -620,7 +625,7 @@ function chatPost({ nick, text }, key, now = Date.now()) {
   if (chatLast.size > 5000) for (const [k, v] of chatLast) if (now - v > CHAT_GAP_MS) chatLast.delete(k);
   // 아이디는 서버를 다시 켜도 안 겹치게 시각을 섞는다. 브라우저가 '내가 쓴 말' 을
   // 아이디로 기억하는데, 1 부터 다시 세면 남의 말이 내 말로 보인다.
-  const m = { id: now.toString(36) + '-' + (++chatSeq).toString(36), at: now, nick: clean(nick, 16).replace(/\n/g, ' ') || '익명', text: t };
+  const m = { id: now.toString(36) + '-' + (++chatSeq).toString(36), at: now, by: chatBy(who), nick: clean(nick, 16).replace(/\n/g, ' ') || '익명', text: t };
   CHAT.push(m);
   if (CHAT.length > CHAT_MAX) CHAT.splice(0, CHAT.length - CHAT_MAX);
   return { ok: true, msg: m };
@@ -760,6 +765,8 @@ function selftest() {
     ok('채팅: 받는다', chatPost({ nick: '개구리', text: ' 안녕 ' }, 'a', T).msg.text === '안녕');
     ok('채팅: 2초 안에 또 보내면 막는다', chatPost({ text: '또' }, 'a', T + 500).wait === 1500);
     ok('채팅: 다른 사람은 된다', chatPost({ text: '나도' }, 'b', T + 500).ok);
+    ok('채팅: 같은 who 는 같은 표, 다른 who 는 다른 표, 없으면 빈 표',
+       chatPost({ text: '1', who: 'w1' }, 'f', T).msg.by === chatBy('w1') && chatBy('w1') !== chatBy('w2') && chatBy('') === '');
     ok('채팅: 길이를 자른다', chatPost({ text: 'ㄱ'.repeat(500) }, 'c', T).msg.text.length === CHAT_LEN);
     ok('채팅: 이름 없으면 익명, 제어 글자는 뺀다',
        chatPost({ nick: '‮', text: 'a\u0000b' }, 'd', T).msg.nick === '익명' && CHAT.at(-1).text === 'a b');
@@ -1464,13 +1471,16 @@ createServer((req, res) => {
   }
 
   if (path === '/api/chat' && req.method === 'GET') {    // 앞 대화
-    return sendJSON(res, 200, { msgs: CHAT });
+    // me: 이 브라우저의 표. 브라우저는 m.by === me 로 내 말을 가린다.
+    const who = (new URL(req.url, 'http://x').searchParams.get('who') ?? '').slice(0, 40);
+    return sendJSON(res, 200, { msgs: CHAT, me: chatBy(who) });
   }
 
   if (path === '/api/chat' && req.method === 'POST') {   // 한 말 보내기
     return readBody(req).then(({ nick, text, who }) => {
       const ip = String(req.headers['x-forwarded-for'] ?? '').split(',')[0].trim() || req.socket.remoteAddress;
-      const out = chatPost({ nick, text }, ip + '|' + String(who ?? '').slice(0, 40));
+      who = String(who ?? '').slice(0, 40);
+      const out = chatPost({ nick, text, who }, ip + '|' + who);
       if (out.error) return sendJSON(res, out.wait ? 429 : 400, out);
       // 보고 있는 사람 모두에게. 시세 밀어주기와 같은 줄에 이름만 달리 실어 보낸다.
       const line = `event: chat\ndata: ${JSON.stringify(out.msg)}\n\n`;
