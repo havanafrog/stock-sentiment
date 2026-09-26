@@ -2,13 +2,19 @@
   "name": "실시간 커뮤니티 온도",
   "short_name": "커뮤니티 온도",
   "description": "토스증권 종목 커뮤니티의 말을 채점해 공포지수로 바꾼 화면",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#f7f7f8",
   "theme_color": "#f7f7f8",
   "lang": "ko",
+  "categories": ["finance"],
   "icons": [
     { "src": "logo-128.png", "sizes": "128x128", "type": "image/png" },
-    { "src": "logo-256.png", "sizes": "256x256", "type": "image/png", "purpose": "any" }
+    { "src": "logo-256.png", "sizes": "256x256", "type": "image/png", "purpose": "any" },
+    { "src": "logo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "logo-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }

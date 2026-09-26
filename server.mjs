@@ -1242,7 +1242,7 @@ const MIME = {
 // 원본 logo.png(1.1MB)는 안 내보낸다. 30px 로 쓰는데 1.1MB 를 받을 이유가 없다.
 // logo-256.png 은 홈 화면 아이콘용이다. 폰이 128px 을 늘려 쓰면 뭉개진다.
 const PUBLIC = new Set(['live.html', 'index.html', 'data.js', 'lexicon.js',
-  'logo-128.png', 'logo-256.png', 'app.webmanifest']);
+  'logo-128.png', 'logo-256.png', 'logo-512.png', 'logo-maskable.png', 'app.webmanifest', 'sw.js']);
 
 function serveStatic(req, res) {
   const raw = decodeURIComponent(req.url.split('?')[0]);

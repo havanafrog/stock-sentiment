@@ -775,6 +775,17 @@
   code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12px;
          background: var(--neutral); padding: 1px 5px; border-radius: 4px; }
 
+  /* 앱 설치 — 설치할 수 있을 때만 뜬다. 이미 설치해서 앱으로 열었으면 안 뜬다. */
+  .install { margin-left: 8px; height: 28px; padding: 0 10px; border: 0; border-radius: var(--radius);
+    background: var(--text-primary); color: var(--page); font: inherit; font-size: 12px;
+    font-weight: 600; cursor: pointer; }
+  .install[hidden] { display: none; }
+  .ioshint { flex-basis: 100%; margin: 0; padding: 8px 10px; border-radius: var(--radius);
+    background: var(--accent-wash); color: var(--text-primary); font-size: 12.5px; }
+  .ioshint[hidden] { display: none; }
+  .ioshint button { float: right; border: 0; background: none; color: var(--text-secondary);
+    font: inherit; cursor: pointer; min-width: 24px; min-height: 24px; }
+
   /* 익명 채팅 — 오른쪽 아래 단추로 열고 닫는다. 폰에서는 아래에서 올라오는 판.
      .app 안에 둔다. 색 토큰이 :root 가 아니라 .app 에 걸려 있다. */
   .chatbtn { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
@@ -848,7 +859,10 @@
     <div class="bar">
       <span class="dot" id="dot"></span>
       <span id="status">연결 중…</span>
+      <button class="install" id="installBtn" type="button" hidden>앱으로 설치</button>
     </div>
+    <p class="ioshint" id="iosHint" hidden>아이폰은 사파리 아래 <b>공유</b> 단추 → <b>홈 화면에 추가</b>로 앱처럼 설치됩니다.
+      <button type="button" id="iosHintX" aria-label="안내 닫기">✕</button></p>
   </div>
 
   <div class="tabs" role="tablist">
@@ -2825,6 +2839,8 @@ function openStream() {
   es.onmessage = e => { try { paint(JSON.parse(e.data)); } catch (err) { console.error(err); } };
   es.onerror = () => {
     $('dot').className = 'dot err';
+    // 앱으로 설치해 망 없이 열었으면 서버 탓이 아니다. 그 말을 먼저 한다.
+    if (!navigator.onLine) { $('status').textContent = '오프라인 — 망이 돌아오면 다시 붙습니다'; return; }
     // 폰으로 보는 사람에게 "node server.mjs 가 떠 있는지 확인하세요" 는 할 수 있는
     // 말이 아니다. 기계에 따라 할 수 있는 말을 한다.
     $('status').textContent = isTouch()
@@ -3007,6 +3023,34 @@ let showTab = () => {};
   addEventListener('hashchange', () => show(fromHash()));
   show(fromHash());
 })();
+
+// ── 앱 설치 ──────────────────────────────────────────────────
+// 일꾼(sw.js)은 화면 틀만 들고 있다. 시세는 늘 망에서 받는다.
+// 설치 단추는 브라우저가 "설치할 수 있다"(beforeinstallprompt)고 알릴 때만 뜬다 —
+// 안드로이드·크롬·엣지. 아이폰 사파리는 그 알림이 없어 안내 글만 한 번 띄운다.
+(() => {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* 없어도 사이트는 돈다 */ });
+  const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  if (standalone) return;
+  let ask = null;
+  addEventListener('beforeinstallprompt', e => { e.preventDefault(); ask = e; $('installBtn').hidden = false; });
+  $('installBtn').onclick = async () => {
+    if (!ask) return;
+    ask.prompt();
+    await ask.userChoice.catch(() => null);
+    ask = null; $('installBtn').hidden = true;
+  };
+  addEventListener('appinstalled', () => { $('installBtn').hidden = true; });
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !/crios|fxios/i.test(navigator.userAgent);
+  if (ios && !store.get('iosHintSeen', '')) {
+    $('iosHint').hidden = false;
+    $('iosHintX').onclick = () => { $('iosHint').hidden = true; store.set('iosHintSeen', '1'); };
+  }
+})();
+
+// 망이 끊기면 숫자가 멈춘 이유를 말한다. 일꾼 덕에 화면은 떠 있지만 숫자는 옛것이다.
+addEventListener('offline', () => { $('dot').className = 'dot err'; $('status').textContent = '오프라인 — 마지막으로 받은 숫자입니다'; });
+addEventListener('online', () => { if (!es || es.readyState === EventSource.CLOSED) openStream(); });
 
 // ── 익명 채팅 ────────────────────────────────────────────────
 // 들어온 사람끼리 떠드는 방 하나. 서버는 메모리에만 최근 100개를 들고 있다.
