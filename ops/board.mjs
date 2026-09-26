@@ -31,7 +31,8 @@ const REPO = dirname(HERE);
 
 /** 작업 경로 → 기록 폴더 이름. Claude 가 쓰는 규칙과 같아야 한다. */
 export function projectSlug(cwd) {
-  return cwd.replace(/[:\\/]/g, '-');
+  // 영숫자 말고는 전부 - 다. '8. 주식감성' 도 '8-------' 가 된다 — 실제 폴더로 확인했다.
+  return cwd.replace(/[^a-zA-Z0-9]/g, '-');
 }
 
 // 통 안에서는 작업 경로가 /repo 라 폴더 이름이 안 맞는다. 밖에서 정해 준다.
@@ -574,6 +575,7 @@ function selftest() {
 
   ok('경로를 폴더 이름으로', projectSlug('C:\\Users\\a\\b') === 'C--Users-a-b', projectSlug('C:\\Users\\a\\b'));
   ok('리눅스 경로도', projectSlug('/home/a/b') === '-home-a-b');
+  ok('점·빈칸·한글도 - 로', projectSlug('C:\\M\\8. 주식감성\\s-s') === 'C--M-8-------s-s', projectSlug('C:\\M\\8. 주식감성\\s-s'));
 
   const D = row => describe(row);
   ok('글은 글로', D({ message: { role: 'user', content: '안녕' } }).text === '안녕');
