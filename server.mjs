@@ -24,7 +24,7 @@
 
 import { createServer } from 'node:http';
 import { DATA_DIR, dataPath, BASELINE_FILE, BASELINE_FALLBACK, LABELS_FILE, PULSE_FILE, ensureDataDir } from './paths.mjs';
-import { readFileSync, writeFileSync, appendFileSync, existsSync, statSync, unlinkSync } from 'node:fs';
+import { readFileSync, writeFileSync, appendFileSync, existsSync, statSync, unlinkSync, watchFile } from 'node:fs';
 import { join, dirname, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, timingSafeEqual, createHmac } from 'node:crypto';
@@ -197,6 +197,13 @@ function loadBaselines() {
   }
 }
 let SNAPSHOT = loadBaselines();
+// 매일 도는 collect(tools/collect.bat)가 서버 밖에서 data.js 를 다시 만든다. 재시작하면 채팅이
+// 날아가니, 파일이 바뀌면 기준선만 새로 물린다.
+if (!argv.includes('--selftest')) watchFile(BASELINE_FILE, { interval: 60_000 }, (cur, prev) => {
+  if (cur.mtimeMs === prev.mtimeMs || !cur.size) return;
+  const next = loadBaselines();
+  if (next) { SNAPSHOT = next; console.log(`  기준선을 다시 읽었습니다 (${new Date().toISOString()})`); }
+});
 if (!SNAPSHOT) {
   console.warn('\n  data.js 가 없습니다. 공포 z-score 없이 원시 비율만 나옵니다.');
   console.warn('  → node build.mjs 를 먼저 돌리세요.\n');
@@ -833,11 +840,10 @@ function collectInBackground(list) {
   fetcher.on("close", code => {
     if (code !== 0) return mark({ phase: "실패", error: `수집이 코드 ${code} 로 끝났습니다` });
     mark({ phase: "기준선 계산 중" });
-    const builder = spawn(node, ["build.mjs", "--days", "30"], opts);
+    const builder = spawn(node, ["build.mjs", "--days", "90"], opts);
     builder.on("close", c2 => {
       if (c2 !== 0) return mark({ phase: "실패", error: `빌드가 코드 ${c2} 로 끝났습니다` });
       SNAPSHOT = loadBaselines();          // 새 기준선을 즉시 물린다
-      CACHE = { ticker: null, rows: null, stamp: 0 };
       for (const t of list) JOBS.delete(t);
     });
   });
@@ -1256,9 +1262,11 @@ const PUBLIC = new Set(['live.html', 'index.html', 'data.js', 'lexicon.js',
 function serveStatic(req, res) {
   const raw = decodeURIComponent(req.url.split('?')[0]);
   const rel = raw === '/' ? 'live.html' : raw.replace(/^\/+/, '');
-  const file = normalize(join(HERE, rel));
+  // data.js 는 build.mjs 가 데이터 폴더에 새로 만든다. 저장소 것은 처음 띄울 때 쓰는 예비다 —
+  // 그걸 내주면 분석 탭이 몇 주 전 날짜에 멈춰 있는다(실제로 8월 20일에 멈춰 있었다).
+  const file = rel === 'data.js' && existsSync(BASELINE_FILE) ? BASELINE_FILE : normalize(join(HERE, rel));
 
-  if (!PUBLIC.has(rel) || !file.startsWith(HERE) || !existsSync(file) || !statSync(file).isFile()) {
+  if (!PUBLIC.has(rel) || !(file === BASELINE_FILE || file.startsWith(HERE)) || !existsSync(file) || !statSync(file).isFile()) {
     res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
     return res.end('없는 경로입니다');
   }

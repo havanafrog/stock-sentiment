@@ -154,6 +154,38 @@ const leaf = p => String(p ?? '').split(/[\\/]/).filter(Boolean).pop() ?? null;
  * ponytail: 창이 죽으면서 파일을 못 지우면 유령이 남는다. 통 안에서 호스트 pid 는
  * 못 보니 지우지 않고, 마지막 기척(updatedAt)을 같이 내보내 화면에서 흐리게 깐다.
  */
+/**
+ * 장부를 일 단위로 묶는다. 판은 이걸 받아 끝난 일을 접는다.
+ *   claims  주장 하나 + 거기 붙은 판정 + 그 번호로 시작하는 메모. 마지막 판정이 확인이면 done
+ *   notes   번호 없는 메모. 앞머리(— 앞 · "브리프 N번")가 같은 것끼리
+ * 순서는 최근 것이 위.
+ */
+export function ledgerGroups(rows) {
+  const claims = new Map(), notes = new Map();
+  for (const r of rows) {
+    const ref = r.id ?? /^(C\d+)\b/.exec(r.text ?? r.note ?? '')?.[1] ?? null;
+    if (ref && (r.kind === 'claim' || claims.has(ref))) {
+      if (!claims.has(ref)) claims.set(ref, { id: ref, rows: [] });
+      claims.get(ref).rows.push(r);
+      continue;
+    }
+    const t = String(r.text ?? r.note ?? r.what ?? '');
+    const label = /^(브리프)\s*\d+번/.exec(t)?.[1]
+      ?? (t.includes(' — ') && t.indexOf(' — ') <= 20 ? t.slice(0, t.indexOf(' — ')) : '기타');
+    if (!notes.has(label)) notes.set(label, { label, rows: [] });
+    notes.get(label).rows.push(r);
+  }
+  const lastAt = g => Math.max(...g.rows.map(r => Date.parse(r.at) || 0));
+  const newest = (a, b) => lastAt(b) - lastAt(a);
+  return {
+    claims: [...claims.values()].map(g => {
+      const v = g.rows.filter(r => r.kind === 'verdict').at(-1);
+      return { ...g, last: v?.v ?? null, done: v?.v === '확인' };
+    }).sort(newest),
+    notes: [...notes.values()].sort(newest),
+  };
+}
+
 export function liveSessions(dir = SESSION_DIR, mine = new Set()) {
   const best = new Map();
   for (const j of sessionFiles(dir)) {
@@ -568,6 +600,7 @@ export function board(now = Date.now()) {
     talk,
     team,
     recent: all.slice(-12).reverse(),
+    groups: ledgerGroups(all),
     counts: {
       claims: all.filter(r => r.kind === 'claim').length,
       verdicts: all.filter(r => r.kind === 'verdict').length,
@@ -774,6 +807,24 @@ function selftest() {
   ok('작업칸 끝말로 역할을 찾는다', toolsOf('auto')?.role === 'ui'
      && toolsOf('train')?.skills.some(s => s.name === 'backtest-expert'));
   ok('모르는 작업칸은 null', toolsOf('nope') === null);
+  {
+    const g = ledgerGroups([
+      { kind: 'claim', id: 'C1', at: at(0) },
+      { kind: 'verdict', id: 'C1', v: '반박', at: at(1) },
+      { kind: 'claim', id: 'C2', at: at(2) },
+      { kind: 'verdict', id: 'C1', v: '확인', at: at(3) },
+      { kind: 'note', id: null, text: 'C1 고침은 맞는데 가정이 하나 있다', at: at(4) },
+      { kind: 'note', id: null, text: '브리프 1번 — 두 번째 평가자', at: at(5) },
+      { kind: 'note', id: null, text: '브리프 6번 재현', at: at(6) },
+      { kind: 'note', id: null, text: '곡소리 UI — 툴팁 z', at: at(7) },
+      { kind: 'note', id: null, text: '아무 말', at: at(8) },
+    ]);
+    const c = Object.fromEntries(g.claims.map(x => [x.id, x]));
+    ok('마지막 판정이 확인이면 끝난 일', c.C1.done && c.C1.last === '확인' && !c.C2.done);
+    ok('번호로 시작하는 메모는 그 주장에 붙는다', c.C1.rows.length === 4);
+    ok('메모는 앞머리끼리', g.notes.map(n => `${n.label}${n.rows.length}`).join() === '기타1,곡소리 UI1,브리프2',
+       g.notes.map(n => `${n.label}${n.rows.length}`).join());
+  }
   {
     // 가짜 작업칸 두 개: 본체(a)와 서브(a-x). 서브는 계획과 어긋나게 걸어 둔다.
     const t = join(tmpdir(), `ops-kit-${process.pid}`);
