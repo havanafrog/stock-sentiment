@@ -1974,6 +1974,7 @@ function setTitle(d) {
 }
 
 let PAINT_FAILED = '';     // 마지막으로 읽어 준 수집 실패 종목 묶음
+let PAINT_FEAR = '';       // 마지막으로 읽어 준 공포 신호 종목 묶음
 function paint(d) {
     LAST = d;
     RATE = d.rate?.rate ?? null;
@@ -2040,6 +2041,11 @@ function paint(d) {
         + (feary.includes(UI.ticker) ? '' : ' (지금 보고 있는 종목은 아닙니다)')
         + `. 상관은 인과가 아닙니다 — 이게 주가를 예고한다는 근거는 없습니다.</div>`
       : '';
+    // 이 띠가 이 앱의 경보인데 읽기 도구는 찾아가 읽기 전엔 몰랐다. 수집 실패와 같이
+    // 경보 종목 묶음이 바뀔 때만 한 번 읽힌다.
+    const fearKey = feary.join(', ');
+    if (fearKey !== PAINT_FEAR && fearKey) say(`공포 신호: ${fearKey} — 공포지수 ${ALERT} 이상`);
+    PAINT_FEAR = fearKey;
 }
 
 // ── 글 탭 ──
@@ -2131,10 +2137,15 @@ function labRow(r) {
     + `</div>`;
 }
 
-/** 실패를 읽기 도구에 읽힌다. 같은 실패가 되풀이돼도 다시 읽히도록 한 번 비운 뒤 쓴다. */
+/** 실패·경보를 읽기 도구에 읽힌다. 같은 말이 되풀이돼도 다시 읽히도록 한 번 비운 뒤
+ *  쓴다. 한 번 그릴 때 둘이 오면(수집 실패 + 경보) 뒤가 앞을 덮지 않게 모아 쓴다. */
+const SAY_Q = [];
 function say(msg) {
-  const s = $('say'); s.textContent = '';
-  setTimeout(() => { s.textContent = msg; }, 50);
+  if (!SAY_Q.length) {
+    $('say').textContent = '';
+    setTimeout(() => { $('say').textContent = SAY_Q.splice(0).join(' · '); }, 50);
+  }
+  SAY_Q.push(msg);
 }
 /** 글 탭 실패를 머리(#pCount)에 쓰고 읽기 도구에도 읽힌다. 라벨 모드에선 실패해도
  *  화면을 안 보고 다음 글로 넘어가 모르고 지나갔다. */
