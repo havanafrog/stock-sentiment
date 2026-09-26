@@ -59,6 +59,25 @@
         border-radius: 6px; min-height: 24px; }
   .usd + .go { margin-left: 4px; }
   .go:hover { background: var(--page); color: var(--text); }
+  /* 상하 — main 이 위, 서브가 아래. 줄기 하나가 내려와 가지로 갈라진다. */
+  .brain { box-shadow: inset 0 0 0 2px var(--text); }
+  .brain.live { box-shadow: inset 0 0 0 2px var(--live); }
+  .role { font-size: 10.5px; font-weight: 700; letter-spacing: .04em; flex: none;
+          color: var(--surface); background: var(--text); border-radius: 5px; padding: 1px 6px; }
+  .trunk { width: 2px; height: 18px; background: var(--faint); margin-left: 36px; }
+  /* 가지 줄(윗선)이 서브 카드들 너비만큼만 뻗게 fit-content. 카드가 하나면 줄도 짧다. */
+  .subs { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-start; position: relative;
+          width: fit-content; max-width: calc(100% - 36px);
+          border-top: 2px solid var(--faint); padding-top: 18px; margin: 0 0 22px 36px; }
+  .sub { position: relative; width: 380px; max-width: 100%; }
+  .sub::before { content: ''; position: absolute; top: -18px; left: 0; width: 2px;
+                 height: 18px; background: var(--faint); }
+  .sub .win { border-top-left-radius: 4px; }
+  .order { font-size: 11.5px; color: var(--sub); margin: 0 0 6px 10px; overflow: hidden;
+           text-overflow: ellipsis; white-space: nowrap; }
+  .order b { color: var(--text); font-weight: 650; }
+  .loopcard { cursor: pointer; }
+  .apart { font-size: 12px; font-weight: 650; color: var(--sub); margin: 4px 2px 10px; }
   .oldbox { margin-top: 14px; }
   .oldbox > summary { font-size: 12px; color: var(--sub); cursor: pointer; padding: 6px 2px; }
   .oldbox .cards { margin-top: 8px; opacity: .8; }
@@ -257,7 +276,7 @@
     <button class="tab" role="tab" data-pane="pane-talk">지시 <span class="n" id="n-talk"></span></button>
   </div>
 
-  <div class="pane" id="pane-wins"><div class="cards" id="wins"></div>
+  <div class="pane" id="pane-wins"><div id="team"></div><div class="cards" id="wins"></div>
     <details class="oldbox" id="oldbox" hidden><summary>지난 창 <span id="n-old"></span></summary>
       <div class="cards" id="olds"></div></details></div>
   <div class="pane" id="pane-live" hidden><div class="card" id="live"></div></div>
@@ -546,9 +565,35 @@ function draw(d) {
   // 하루 넘게 멈춘 창은 아래 "지난 창" 으로 접는다. 지금 도는 창이 묻히지 않게.
   const fresh = sessions.filter(x => x.idleMs < OLD_MS);
   const olds = sessions.filter(x => x.idleMs >= OLD_MS);
-  $('wins').innerHTML = fresh.length
-    ? fresh.map(x => winCard(x, now)).join('')
-    : '<div class="none">하루 안에 움직인 창이 없습니다</div>';
+  // main 이 있으면 나무로 그린다: main 한 장, 줄기, 서브들. 나머지는 "따로 도는 창".
+  const T = d.team ?? { main: null, subs: [] };
+  const main = sessions.find(x => x.id === T.main);
+  const subIds = new Set(T.subs.map(s => s.id));
+  const laps0 = loop ?? [];
+  const lastLap = laps0[0];
+  const loopOn = lastLap && now - Date.parse(lastLap.at) < LOOP_ON_MS;
+  if (main) {
+    const subCards = T.subs.map(s => {
+      const x = sessions.find(y => y.id === s.id);
+      if (!x) return '';
+      const o = s.order;
+      return `<div class="sub">${o ? `<div class="order">← <b>지시</b> ${esc(cut(o.text, 60))} · ${ago(now - Date.parse(o.at))}</div>` : ''}`
+        + winCard(x, now) + '</div>';
+    }).join('')
+      + (lastLap ? `<div class="sub"><div class="order">← <b>자동</b> 답이 다음 물음이 된다</div>`
+        + `<div class="win loopcard ${loopOn ? 'live' : ''}" data-pane="pane-loop" title="누르면 자동 탭">`
+        + `<div class="wt"><span class="wn">자동 작업</span>`
+        + `<span class="ws ${loopOn ? 'on' : 'stopped'}">${loopOn ? '<span class="dot"></span> ' + esc(lastLap.round) + '판째' : '멈춤 ' + ago(now - Date.parse(lastLap.at))}</span></div>`
+        + `<div class="say"><i>다음</i>${esc(cut(lastLap.plan || lastLap.say || '', 80))}</div></div></div>` : '');
+    $('team').innerHTML = `<div class="win brain ${main.moving ? 'live' : ''} ${main.id === OPEN_ID ? 'sel' : ''}" `
+      + winCard(main, now).replace(/^<div class="win[^"]*"/, '').replace('<span class="wn">', '<span class="role">뇌</span><span class="wn">')
+      + '<div class="trunk"></div>'
+      + `<div class="subs">${subCards || '<div class="none">아직 서브가 없습니다 — 창을 띄우고 /rename 으로 이름을 붙이세요</div>'}</div>`;
+  } else $('team').innerHTML = '';
+  const apart = fresh.filter(x => x.id !== T.main && !subIds.has(x.id));
+  $('wins').innerHTML = (main && apart.length ? '<div class="apart" style="grid-column:1/-1">따로 도는 창</div>' : '')
+    + (apart.length ? apart.map(x => winCard(x, now)).join('')
+      : main ? '' : '<div class="none">하루 안에 움직인 창이 없습니다</div>');
   $('oldbox').hidden = !olds.length;
   $('n-old').textContent = olds.length || '';
   $('olds').innerHTML = olds.map(x => winCard(x, now)).join('');
@@ -620,6 +665,8 @@ async function go(e) {
 // 카드를 누르면 그 세션에서 사람과 주고받은 말이 뜬다. 기록 끝 토막부터 읽고,
 // 위 "더 보기" 로 앞 토막을 더 부른다. 도는 세션이면 2초마다 새 말이 아래에 붙는다.
 const OLD_MS = 24 * 60 * 60 * 1000;
+// 자동 작업은 판 사이 15분을 쉬고 한 판이 15~20분 돈다. 이 안에 판이 끝났으면 도는 중.
+const LOOP_ON_MS = 45 * 60 * 1000;
 let OPEN_ID = null, CHAT = [], HEAD = 0, TAIL = 0, pulling = false;
 const TOOLS_OPEN = new Set();
 addEventListener('toggle', e => {
@@ -718,6 +765,11 @@ function onCard(e) {
   if (w) openChat(w.dataset.id, w.dataset.title);
 }
 $('wins').addEventListener('click', onCard);
+$('team').addEventListener('click', e => {
+  const l = e.target.closest('.loopcard');
+  if (l) return pick(l.dataset.pane);
+  onCard(e);
+});
 $('olds').addEventListener('click', onCard);
 $('dclose').addEventListener('click', closeChat);
 $('dbody').addEventListener('click', e => { if (e.target.id === 'dmore') moreChat(); });

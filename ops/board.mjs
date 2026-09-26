@@ -297,6 +297,15 @@ export function sessions(dir = LOG_DIR, now = Date.now(), where = '') {
           message: String(i.message ?? '').slice(0, 4000), idle: !!i.notify_when_idle });
       }
     }
+    // 이 창에 지시를 보낸 창들. 받은 말은 <cross-session-message from="…"> 로 감싸여 온다.
+    const heard = new Set();
+    for (const r of rows) {
+      if (r.message?.role !== 'user') continue;
+      const c = r.message.content;
+      const t = typeof c === 'string' ? c : Array.isArray(c) ? c.filter(x => x.type === 'text').map(x => x.text).join('') : '';
+      const m = /^<cross-session-message from="([^"]*)"/.exec(t.trim());
+      if (m) heard.add(m[1]);
+    }
 
     // 사람이 마지막으로 시킨 것.
     let asked = null;
@@ -320,6 +329,7 @@ export function sessions(dir = LOG_DIR, now = Date.now(), where = '') {
       id,
       where,
       sends,
+      heard: [...heard],
       // 사람이 붙인 이름이 있으면 그게 이름이다 — 판에서 어느 창인지 그걸로 가른다.
       // 없으면 첫 요청, 그것도 없으면 아이디 앞 여덟 자.
       name: named.get(id)
@@ -455,6 +465,29 @@ export function chatLog(file, { before = null, from = null } = {}) {
   return { items: chatItems(rows), start: start + lo, end: start + hi, size };
 }
 
+/**
+ * 누가 위고 누가 아래인가. 창이 스스로 신고하지 않으니 기록에서 가른다.
+ *   main  이름에 main 이 들었거나 다른 창에 지시를 보낸 창. 여럿이면 가장 최근에 움직인 것
+ *   서브  main 에게 지시를 받았거나, main 이 이름으로 불렀거나, 하위 작업칸에서 도는 창
+ * 나머지는 따로 도는 창이다. 각 서브에는 main 이 마지막으로 준 지시를 붙인다.
+ * sessions 는 최근 움직인 순이어야 한다.
+ */
+export function teamOf(sess) {
+  const nm = s => s.name || s.id.slice(0, 8);
+  const main = sess.find(s => /main/i.test(s.name ?? '') || s.sends.length > 0);
+  if (!main) return { main: null, subs: [] };
+  const me = nm(main);
+  const subs = sess.filter(s => s !== main
+    && (s.heard.includes(me) || main.sends.some(m => m.to && m.to === s.name) || s.where));
+  return {
+    main: main.id,
+    subs: subs.map(s => {
+      const o = main.sends.filter(m => m.to === s.name).at(-1);
+      return { id: s.id, order: o ? { text: o.summary || o.message.split('\n')[0], at: o.at } : null };
+    }),
+  };
+}
+
 export function board(now = Date.now()) {
   const claims = openClaims();
   const all = readLedger();
@@ -464,7 +497,8 @@ export function board(now = Date.now()) {
   // 창끼리 주고받은 지시. 보낸 창 이름을 붙여 시간순으로 한 줄에 모은다.
   const talk = sess.flatMap(s => s.sends.map(m => ({ ...m, from: s.name || s.id.slice(0, 8), where: s.where })))
     .sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 60);
-  for (const s of sess) delete s.sends;
+  const team = teamOf(sess);
+  for (const s of sess) { delete s.sends; delete s.heard; }
   // 이 저장소 창인지는 등록부 경로로 못 가른다 — 통 안은 /repo 고 등록부는 윈도우
   // 경로다. 이 저장소 기록에 아이디가 있으면 여기 창이다.
   const live = liveSessions(SESSION_DIR, new Set(sess.map(s => s.id)));
@@ -480,6 +514,7 @@ export function board(now = Date.now()) {
     open: claims,
     loop: loopRounds(),
     talk,
+    team,
     recent: all.slice(-12).reverse(),
     counts: {
       claims: all.filter(r => r.kind === 'claim').length,
@@ -666,6 +701,22 @@ function selftest() {
      && T[0].sends[0].message === '대비 고쳐라');
   ok('작업칸을 붙인다', T[0].where === 'auto');
   rmSync(team, { recursive: true, force: true });
+
+  // 상하 — main 과 서브 가르기
+  const S = (id, name, extra = {}) => ({ id: id.padEnd(8, '0'), name, where: '', sends: [], heard: [], ...extra });
+  const tm = teamOf([
+    S('m', '[main]', { sends: [{ to: 'ui', message: '대비 고쳐\n자세히', at: 'a' }, { to: 'ui', summary: '다시', message: 'x', at: 'b' }] }),
+    S('u', 'ui'),
+    S('t', '학습', { heard: ['[main]'] }),
+    S('w', null, { where: 'auto' }),
+    S('o', '/ops verify'),
+  ]);
+  ok('main 은 이름에 main', tm.main === 'm0000000');
+  ok('서브는 불린 창·받은 창·작업칸 창', tm.subs.map(x => x.id[0]).join('') === 'utw', tm.subs.map(x => x.id).join());
+  ok('서브에 마지막 지시를 붙인다', tm.subs[0].order.text === '다시' && tm.subs[1].order === null);
+  ok('지시를 보낸 창이면 이름 없어도 main',
+     teamOf([S('x', '/ops'), S('y', 'a', { sends: [{ to: 'b', message: 'm' }] })]).main === 'y0000000');
+  ok('main 이 없으면 서브도 없다', teamOf([S('x', 'a')]).subs.length === 0);
 
   // 대화 — 서랍에 뜨는 것
   const C = chatItems([
