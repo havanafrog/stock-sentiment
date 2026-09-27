@@ -47,19 +47,23 @@ global.document = {
   getElementById: id => node(id),
   createElement: () => makeNode(),
   createElementNS: () => makeNode(),
+  addEventListener: () => {},
 };
 global.addEventListener = () => {};
+global.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
 // 데스크톱 폭으로 둔다. 좁은 폭 동작은 fitCharts 를 직접 불러 확인한다.
 global.innerWidth = 1280;
 global.confirm = () => true;
 global.location = { hash: '' };
 global.clearTimeout = () => {};
 global.setTimeout = () => 0;
+// 채팅이 스트림을 1초마다 다시 본다. 진짜 타이머면 점검이 다 통과해도 프로세스가 안 끝난다.
+global.setInterval = () => 0;
 global.fetch = async () => ({ ok: true, status: 200, json: async () => ({
   ticker: 'SNDK', total: 0, matched: 0, fear: 0, page: 0, pages: 0, size: 50, rows: [],
 }) });
 // SSE 는 붙지 않게 둔다 — 테스트는 paint() 를 직접 부른다
-global.EventSource = class { constructor() { this.onmessage = null; this.onerror = null; } };
+global.EventSource = class { constructor() { this.onmessage = null; this.onerror = null; } addEventListener() {} };
 
 const store = new Map();
 global.localStorage = {
