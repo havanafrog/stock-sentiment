@@ -298,10 +298,17 @@
   /* 봉 차트 */
   .cbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 2px 12px; }
   .cbar .seg button { padding: 4px 9px; font-size: 11.5px; }
-  .mas { display: flex; flex-wrap: wrap; gap: 6px 9px; font-size: 11px; color: var(--text-secondary); }
-  .mas label { display: inline-flex; align-items: center; gap: 4px; cursor: pointer; }
-  .mas input { margin: 0; }
-  .mas .k { width: 9px; height: 2.5px; border-radius: 2px; display: inline-block; }
+  /* 지표 고르기. 11px 회색 글자에 13px 체크박스뿐이라 켠 것과 끈 것이 작은 체크
+     표시로만 갈렸다. 봉 단위 칩(.seg)과 같은 알약으로 세우고, 켠 것은 바탕·굵기로
+     한눈에 보이게 한다. 체크박스는 그대로 둬 읽기 도구가 켬·끔을 읽는다. */
+  .mas { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12.5px; color: var(--text-secondary); }
+  .mas label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
+    padding: 4px 10px; border-radius: var(--radius); box-shadow: var(--ring);
+    background: var(--surface-1); }
+  .mas label:hover { background: var(--neutral); }
+  .mas label:has(input:checked) { background: var(--accent-wash); color: var(--text-primary); font-weight: 600; }
+  .mas input { margin: 0; width: 15px; height: 15px; accent-color: var(--pos); }
+  .mas .k { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
   .cnote { font-size: 11px; color: var(--muted); margin: 4px 0 0; }
 
   /* 크로스헤어 · 툴팁 */
@@ -622,8 +629,16 @@
     /* 기간 칸 두 개도 한 줄로 버텼다. 글자 200%(195px)에서 기간 접기를 펴면 문서가
        287px 까지 밀렸다 — 모자라면 둘째 날짜를 다음 줄로 내린다. 390px 에선 그대로다. */
     .dates { flex-wrap: wrap; }
-    .mas { gap: 2px 8px; }
-    .mas label { min-height: 44px; padding: 0 2px; }
+    .mas { gap: 8px; }
+    .mas label { min-height: 44px; padding: 0 12px; }
+    /* '지표 ▾' 가 11.5px 흐린 글자에 폭 34px 라 ₩ 옆에 묻혔다. 칩으로 세우고 켠 수를
+       붙인다 — 접혀 있어도 무엇이 켜졌는지 보인다. 펴면 한 줄을 통째로 쓴다. */
+    #foldInd > summary { padding: 0 12px; border-radius: var(--radius); box-shadow: var(--ring);
+      background: var(--surface-1); font-size: 12.5px; color: var(--text-secondary); }
+    #indN:not(:empty) { font-weight: 600; color: var(--pos-ink); }
+    #foldInd[open] { flex-basis: 100%; }
+    #foldInd[open] > summary { margin-bottom: 8px; width: max-content; }
+    #foldInd .ctrl { flex-direction: column; align-items: flex-start; gap: 8px; }
     /* 평단 줄의 '선' 체크박스. 라벨까지 쳐도 누르는 높이가 20px 로 AA 24px 에
        못 미쳤다. 옆 평단 입력칸 높이(28px)만큼 세운다. */
     .pgrp label.pnote { display: flex; align-items: center; min-height: 28px; }
@@ -980,7 +995,7 @@
     <!-- 폰에서는 접어 둔다. 체크박스 일곱이 두 줄을 먹어 차트가 첫 화면 밖으로 밀렸다.
          넓은 화면에서는 summary 를 숨기고 늘 펴 둔다 — 접을 이유가 없다. -->
     <details class="fold" id="foldInd" open>
-      <summary>지표</summary>
+      <summary>지표 <span id="indN"></span></summary>
       <div class="ctrl">
       <div class="mas" id="masBox">
         <label><input type="checkbox" data-ma="20"><i class="k" style="background:var(--ma20)"></i>20선</label>
@@ -2051,6 +2066,14 @@ function paintUnitSeg() {
   for (const inp of $('indBox')?.querySelectorAll?.('input[data-ind]') ?? []) {
     inp.checked = !!BAR.ind[inp.dataset.ind];
   }
+  indCount();
+}
+
+/** 폰의 접힌 '지표' 손잡이에 켠 수를 단다. */
+function indCount() {
+  const n = Object.values(BAR.ma).filter(Boolean).length + Object.values(BAR.ind).filter(Boolean).length;
+  const e = $('indN');
+  if (e) e.innerHTML = n ? `${n}<span class="sr">개 켬</span>` : '';
 }
 
 // 탭 제목에 현재가와 등락률. 창을 여러 개 띄워 두고 곁눈질할 때 이게 전부다.
@@ -2747,13 +2770,15 @@ $('indBox').onchange = ev => {
   const i = ev.target; if (!i.dataset.ind) return;
   BAR.ind[i.dataset.ind] = i.checked;
   store.set('ind' + i.dataset.ind, i.checked ? '1' : '');
-  drawBars();                          // 종가만 있으면 낸다 — 다시 받을 필요 없다
+  indCount();
+  drawBars();                        // 종가만 있으면 낸다 — 다시 받을 필요 없다
 };
 $('masBox').onchange = ev => {
   const i = ev.target; if (!i.dataset.ma) return;
   BAR.ma[i.dataset.ma] = i.checked;
   store.set('ma' + i.dataset.ma, i.checked ? '1' : '');
-  drawBars();                          // 다시 받을 필요 없다 — 종가만 있으면 낸다
+  indCount();
+  drawBars();                        // 다시 받을 필요 없다 — 종가만 있으면 낸다
 };
 paintUnitSeg();                        // 첫 스냅샷이 오기 전에도 버튼은 보여야 한다
 
