@@ -539,6 +539,8 @@
      판은 좁은 칸이라 폰처럼 종목·현재가·등락·곡소리만 남기고, 내려도 따라온다. */
   @media (min-width: 1440px) {
     .app { max-width: 1760px; }
+    /* 메인·실시간이 한 화면이라 탭이 둘일 이유가 없다. 눌러도 안 바뀌는 탭이었다. */
+    #tabMain { display: none; }
     main.duo { display: grid; grid-template-columns: clamp(340px, 22vw, 400px) minmax(0, 1fr);
       gap: 18px; align-items: start; }
     main.duo #viewBoard { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto;
@@ -3419,7 +3421,8 @@ let showTab = () => {};
   // 숨김만 먼저 바꾸고 화면을 한 번 칠하게 둔 뒤, 무거운 일은 그 다음 프레임에
   // 넘긴다. rAF 를 두 번 겹치는 이유는 한 번은 칠하기 '전' 에 불리기 때문이다.
   // 1440px 이상에선 메인·실시간을 나란히 편다 — 양옆이 수백 px 씩 놀고 있었다.
-  // 둘 중 어느 탭을 골라도 두 판이 같이 서고, 고른 표시는 누른 탭에만 둔다.
+  // 두 탭이 같은 화면이라 실시간 탭은 CSS 가 숨기고, 남은 '메인' 탭이 두 판을 다 맡는다.
+  // cur 는 마지막으로 연 쪽(#live 면 main)을 들고 있다 — 창을 좁히면 그쪽으로 돌아간다.
   const wide = matchMedia('(min-width: 1440px)');
   let cur = 'board';
   let turn = 0;
@@ -3429,8 +3432,10 @@ let showTab = () => {};
     document.querySelector('main').classList.toggle('duo', duo);
     for (const k in view) {
       view[k].hidden = !(k === name || (duo && (k === 'board' || k === 'main')));
-      btn[k]?.setAttribute('aria-selected', String(k === name));
+      btn[k]?.setAttribute('aria-selected', String(duo ? k === 'board' : k === name));
     }
+    btn.board.setAttribute('aria-controls', wide.matches ? 'viewBoard viewMain' : 'viewBoard');
+    view.main.setAttribute('aria-labelledby', duo ? 'tabBoard' : 'tabMain');
     // 빠르게 여러 번 누르면 지나간 탭의 일은 버린다.
     const mine = ++turn;
     const heavy = () => {
