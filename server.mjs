@@ -816,6 +816,17 @@ function selftest() {
     ok('채팅: 이름 없으면 익명, 제어 글자는 뺀다',
        chatPost({ nick: '‮', text: 'a\u0000b' }, 'd', T).msg.nick === '익명' && CHAT.at(-1).text === 'a b');
     for (let i = 0; i < CHAT_MAX + 20; i++) chatPost({ text: 'x' + i }, 'e' + i, T);
+    {
+      // 실제로 온 봉(SNDK 10분봉 09-22T21:10Z 장외): 몸통 1760 근처인데 저가 661.62
+      const [bad, fine, up] = tameWicks([
+        { open: 1760, close: 1765, high: 1768, low: 661.62 },
+        { open: 1760, close: 1750, high: 1790, low: 1700 },
+        { open: 100, close: 101, high: 150, low: 99 },
+      ]);
+      ok('봉: 몸통에서 10% 넘게 먼 저가는 몸통 끝으로', bad.low === 1760 && bad.high === 1768, JSON.stringify(bad));
+      ok('봉: 몸통 근처 꼬리는 그대로', fine.low === 1700 && fine.high === 1790);
+      ok('봉: 고가도 같은 규칙', up.high === 101 && up.low === 99, JSON.stringify(up));
+    }
     ok('채팅: 최근 것만 남긴다', CHAT.length === CHAT_MAX && CHAT.at(-1).text === 'x' + (CHAT_MAX + 19));
     CHAT.splice(0, CHAT.length, ...keep); chatLast.clear();
   }
@@ -893,13 +904,30 @@ function collectInBackground(list) {
 // 캐시 수명은 봉 길이에 맞춘다 — 60분봉을 20초마다 다시 받을 이유가 없다.
 const BARS = new Map();            // "티커|단위" → { at, rows }
 
+/**
+ * 몸통에서 너무 먼 꼬리를 몸통 끝으로 자른다. 순수 함수 — --selftest 가 때린다.
+ * 토스가 주는 봉에 엉터리 저가가 섞여 온다: SNDK 10분봉이 1700~1880 사이를 도는데
+ * 장외 봉 셋의 저가가 661·1390·1546 이라, 가격 축이 거기까지 벌어져 차트가 납작해졌다.
+ * 몸통(시가·종가)에서 lim(10%) 넘게 벗어난 고가·저가는 몸통 끝으로 둔다.
+ * 정규장 봉도 같은 규칙 — 한 봉이 몸통 밖으로 10% 넘게 찍고 돌아오는 일은 드물다.
+ */
+function tameWicks(rows, lim = 0.10) {
+  return rows.map(r => {
+    const top = Math.max(r.open, r.close), bot = Math.min(r.open, r.close);
+    if (!Number.isFinite(top) || !Number.isFinite(bot)) return r;
+    const high = r.high > top * (1 + lim) ? top : r.high;
+    const low = r.low < bot * (1 - lim) ? bot : r.low;
+    return high === r.high && low === r.low ? r : { ...r, high, low };
+  });
+}
+
 async function getBars(ticker, unit) {
   const key = `${ticker}|${unit}`;
   const hit = BARS.get(key);
   if (hit && Date.now() - hit.at < UNITS[unit].cache) return hit.rows;
   const st = LIVE.get(ticker);
   if (!st) throw new Error(`모르는 종목입니다: ${ticker}`);
-  const rows = await fetchBars(st.code, unit, MAX_COUNT);
+  const rows = tameWicks(await fetchBars(st.code, unit, MAX_COUNT));
   BARS.set(key, { at: Date.now(), rows });
   return rows;
 }
