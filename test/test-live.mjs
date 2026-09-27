@@ -53,6 +53,9 @@ global.addEventListener = () => {};
 global.matchMedia = () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
 // 데스크톱 폭으로 둔다. 좁은 폭 동작은 fitCharts 를 직접 불러 확인한다.
 global.innerWidth = 1280;
+global.innerHeight = 900;
+global.scrollY = 0;              // 맨 위로 단추(topSync)가 본다
+global.scrollTo = () => {};
 global.confirm = () => true;
 global.location = { hash: '' };
 global.clearTimeout = () => {};
