@@ -534,6 +534,18 @@
   }
   /* 넓은 화면에선 글 쪽에 폭을 더 준다 — 차트는 이미 충분히 크다 */
   @media (min-width: 1400px) { .single { grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 18px; } }
+  /* 1440px 이상: 메인(종목 판)과 실시간을 나란히 편다. 앱 폭이 1280 에 묶여 1920 에선
+     양옆이 320px 씩 놀았다. main.duo 는 탭 스크립트가 메인·실시간일 때만 붙인다.
+     판은 좁은 칸이라 폰처럼 종목·현재가·등락·곡소리만 남기고, 내려도 따라온다. */
+  @media (min-width: 1440px) {
+    .app { max-width: 1760px; }
+    main.duo { display: grid; grid-template-columns: clamp(340px, 22vw, 400px) minmax(0, 1fr);
+      gap: 18px; align-items: start; }
+    main.duo #viewBoard { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto;
+      display: flex; flex-direction: column; gap: 14px; }
+    main.duo .board .c-value, main.duo .board .c-str, main.duo .board .c-vol,
+    main.duo .board .rk { display: none; }
+  }
   /* 접는 칸. 넓은 화면에선 summary 를 숨기고 늘 펴 둔 것처럼 보인다. */
   .fold { min-width: 0; }
   .fold > summary { display: none; }
@@ -3171,10 +3183,17 @@ let showTab = () => {};
   //
   // 숨김만 먼저 바꾸고 화면을 한 번 칠하게 둔 뒤, 무거운 일은 그 다음 프레임에
   // 넘긴다. rAF 를 두 번 겹치는 이유는 한 번은 칠하기 '전' 에 불리기 때문이다.
+  // 1440px 이상에선 메인·실시간을 나란히 편다 — 양옆이 수백 px 씩 놀고 있었다.
+  // 둘 중 어느 탭을 골라도 두 판이 같이 서고, 고른 표시는 누른 탭에만 둔다.
+  const wide = matchMedia('(min-width: 1440px)');
+  let cur = 'board';
   let turn = 0;
   const show = name => {
+    cur = name;
+    const duo = wide.matches && (name === 'board' || name === 'main');
+    document.querySelector?.('main')?.classList.toggle('duo', duo);
     for (const k in view) {
-      view[k].hidden = k !== name;
+      view[k].hidden = !(k === name || (duo && (k === 'board' || k === 'main')));
       btn[k].setAttribute('aria-selected', String(k === name));
     }
     // 빠르게 여러 번 누르면 지나간 탭의 일은 버린다.
@@ -3183,9 +3202,9 @@ let showTab = () => {};
       if (mine !== turn) return;
       if (name === 'posts') openPosts();
       if (name === 'analysis') openAnalysis();
-      if (name === 'board') tkLoad();     // 종목 관리가 메인으로 옮겨졌다
+      if (!view.board.hidden) tkLoad();   // 종목 관리가 메인으로 옮겨졌다
       // 숨어 있는 동안 그린 차트는 폭이 0 이라 선이 뭉개진다. 나올 때 다시 그린다.
-      if (name === 'main') { drawBars(); drawFear(); pulseLoad(); avgPaint(); }
+      if (!view.main.hidden) { drawBars(); drawFear(); pulseLoad(); avgPaint(); }
     };
     // 뒤에 있는 탭에서는 rAF 가 영영 안 돈다. 링크를 새 탭으로 열거나 창을
     // 복원하면 껍데기만 뜨고 내용은 안 불러온 채로 굳는다. 안 보이는 동안엔
@@ -3207,6 +3226,7 @@ let showTab = () => {};
   btn.posts.onclick    = () => { location.hash = 'posts';    show('posts');    };
   btn.help.onclick     = () => { location.hash = 'help';     show('help');     };
   addEventListener('hashchange', () => show(fromHash()));
+  wide.addEventListener?.('change', () => show(cur));
   show(fromHash());
 })();
 
