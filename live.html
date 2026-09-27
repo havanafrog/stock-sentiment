@@ -629,6 +629,10 @@
     /* 판에 340~400px 를 내주고 나면 차트가 1280 한 칸일 때(725)보다 좁은 575 였다.
        2단 안에선 820~1399 폭과 같은 1.7:1 로 차트 쪽에 폭을 돌려준다. */
     main.duo .single { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+    /* 투표 카드 밑이 차트 카드 끝까지 비어 있었다. 최근 글 카드가 남은 높이를 다 먹고
+       글은 그 안에서 굴린다(420px 상한을 푼다). */
+    main.duo #feed > .card { flex: 1 1 0; min-height: 240px; display: flex; flex-direction: column; }
+    main.duo #feed .feed { flex: 1 1 0; min-height: 0; max-height: none; }
   }
   /* 접는 칸. 넓은 화면에선 summary 를 숨기고 늘 펴 둔 것처럼 보인다. */
   .fold { min-width: 0; }
