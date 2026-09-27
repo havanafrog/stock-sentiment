@@ -75,9 +75,6 @@ for (const [scheme, manual] of [['light', null], ['dark', null], ['light', 'dark
       await new Promise(r => setTimeout(r, 400));
       const b = JSON.parse(await js(`JSON.stringify(document.querySelector('#cPrice').getBoundingClientRect())`));
       await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: Math.round(b.x + b.width / 2), y: Math.round(b.y + b.height / 2) });
-      // 툴팁(#ctip)은 .app 밖이라 테마 변수를 못 받아 늘 1.06 으로 잡힌다(사람 답 대기).
-      // 고치기 전까지 이 판에선 가린다 — 고치면 이 줄을 뺀다.
-      await js(`document.querySelector('#ctip').style.opacity = 0;'ok'`);
     }
     await new Promise(r => setTimeout(r, tab === '#tabPosts' ? 4000 : 800));   // 글은 다시 불러온다
     if (name === '라벨 모드')   // 글 셋에 긍정·중립·부정을 하나씩 눌린 모습으로

@@ -103,6 +103,41 @@ async function openApp(w, h, touch) {
   await touch('touchEnd', []);
   await new Promise(r => setTimeout(r, 400));
   ok('한 손가락 끌기는 폭을 안 바꾼다', (await c.bars()) === span, `${span}봉 유지`);
+
+  // 짚은 값 툴팁(#ctip)이 화면 밖으로 나가면 값을 못 읽는다. 차트를 화면 위·가운데·
+  // 아래에 두고 가로로 쓸며 짚어, 툴팁 상자가 화면 안에 드는지 본다.
+  // 스크롤은 부드럽게 흐르지 않게 곧바로 한다 — 흐르는 중에 상자를 읽으면 차트가 아닌
+  // 단추를 짚고, 앞 판에서 남은 툴팁을 '떴다' 로 센다. 왼쪽 여백(BP.l 46px)은 봉이
+  // 없어 원래 안 뜬다 — 봉 자리만 짚는다. 위에 붙은 탭 줄에 가린 점도 뺀다.
+  const out_ = []; let shown = 0, taps = 0; const edge = { l: 1e9, r: -1e9, t: 1e9, b: -1e9 };
+  for (const block of ['start', 'center', 'end']) {
+    await c.js(`document.querySelector('#cPrice').scrollIntoView({ block: '${block}', behavior: 'instant' })`);
+    await new Promise(r => setTimeout(r, 300));
+    const p = JSON.parse(await c.js(
+      "JSON.stringify(document.querySelector('#cPrice').getBoundingClientRect())"));
+    for (const fy of [0.1, 0.5, 0.9]) for (let x = p.x + 46; x < p.x + p.width - 4; x += 8) {
+      const y = Math.round(p.y + p.height * fy);
+      if (y < 0 || y > 844) continue;
+      if (!(await c.js(`!!document.elementFromPoint(${Math.round(x)},${y})?.closest('#cPrice')`))) continue;
+      await c.js("hideHairs()");
+      await new Promise(r => setTimeout(r, 150));   // 사라지는 전환(.1s)이 끝나야 새로 뜬 것만 센다
+      await touch('touchStart', [{ x: Math.round(x), y, id: 1 }]);
+      await touch('touchEnd', []);
+      await new Promise(r => setTimeout(r, 150));
+      const t = JSON.parse(await c.js("(()=>{const e=document.querySelector('#ctip');"
+        + "const r=e.getBoundingClientRect();return JSON.stringify({o:+getComputedStyle(e).opacity,"
+        + "l:Math.round(r.left),r:Math.round(r.right),t:Math.round(r.top),b:Math.round(r.bottom)})})()"));
+      taps++;
+      if (t.o > 0) { shown++; edge.l = Math.min(edge.l, t.l); edge.r = Math.max(edge.r, t.r);
+        edge.t = Math.min(edge.t, t.t); edge.b = Math.max(edge.b, t.b); }
+      if (t.o > 0 && (t.l < 0 || t.r > 390 || t.t < 0 || t.b > 844))
+        out_.push(`${block} 짚은 ${Math.round(x)},${y} → ${t.l}~${t.r} × ${t.t}~${t.b}`);
+    }
+  }
+  // 안 뜨면 '안에 든다' 는 잰 게 아니다 — 뜬 횟수가 짚은 횟수와 같아야 한다.
+  ok('짚은 값 툴팁이 화면 안에 든다', shown === taps && !out_.length,
+    `${shown}/${taps}번 뜸 · 가장자리 ${edge.l}~${edge.r} × ${edge.t}~${edge.b}`
+    + (out_.length ? ` · 넘침 ${out_.length}곳, 예: ${out_[0]}` : ''));
   await c.close();
 }
 
