@@ -854,6 +854,30 @@
   .ioshint button { float: right; border: 0; background: none; color: var(--text-secondary);
     font: inherit; cursor: pointer; min-width: 24px; min-height: 24px; }
 
+  /* 라벨 200 (#label200). 폰 한 손으로 찍는다 — 판정 단추는 56px, 글은 16px. */
+  .lb { max-width: 560px; margin: 0 auto; }
+  .lbhead { display: flex; align-items: baseline; gap: 8px; }
+  .lbhead h2 { margin: 0; font-size: 16px; }
+  .lbcount { margin-left: auto; font-size: 13px; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+  .lbtk { margin-top: 14px; font-size: 12px; font-weight: 600; color: var(--text-secondary); }
+  .lbtext { margin: 6px 0 16px; min-height: 5.4em; font-size: 16px; line-height: 1.6;
+    color: var(--text-primary); white-space: pre-wrap; word-break: break-word; }
+  .lbbtns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .lbbtns button { min-height: 56px; border: 0; border-radius: var(--radius); font: inherit;
+    font-size: 16px; font-weight: 600; cursor: pointer; background: var(--surface-1);
+    box-shadow: var(--ring); color: var(--text-primary); }
+  .lbbtns .lbP { color: var(--pos-ink); }
+  .lbbtns .lbN { color: var(--neg-ink); }
+  /* 찍은 것은 칠해서 뒤집는다. 글자는 지면색 — 두 테마 모두 4.5 를 넘는다. */
+  .lbbtns button[aria-pressed="true"] { color: var(--page); box-shadow: none; }
+  .lbbtns .lbP[aria-pressed="true"] { background: var(--pos-ink); }
+  .lbbtns .lbX[aria-pressed="true"] { background: var(--text-primary); }
+  .lbbtns .lbN[aria-pressed="true"] { background: var(--neg-ink); }
+  .lbrule { margin: 10px 0 0; font-size: 12.5px; line-height: 1.5; color: var(--text-secondary); }
+  .lbnav { display: flex; justify-content: space-between; gap: 8px; margin-top: 16px; }
+  .lbnav .btn { min-height: 44px; min-width: 96px; }
+  .lbmsg { margin: 8px 0 0; font-size: 12.5px; color: var(--text-secondary); min-height: 1.5em; }
+
   /* 맨 위로. 폰에서만, 한 화면 넘게 내려갔을 때만 뜬다 — 글 목록이 수천 줄이다.
      채팅 단추(56x48, 오른쪽·아래 16px) 12px 위에 가운데 줄을 맞춰 앉힌다.
      채팅 판이 열리면 판이 덮으니 숨긴다. */
@@ -1176,7 +1200,7 @@ z     = (k − μ) / σ
     배울 자료가 없습니다.</p>
 
     <p>감정 점수는 따로입니다. 글자 n-gram 분류기가 긍정·부정·중립을 가릅니다.
-    라벨 15,573건으로 배웠고, 그중 대부분은 로컬 SLM 이 찍은 것입니다.</p>
+    라벨 15,373건으로 배웠고, 그중 대부분은 로컬 SLM 이 찍은 것입니다.</p>
 
     <h2>믿을 수 없는 경우</h2>
     <p><b>글이 몰리기만 해도 오릅니다.</b> 개수 기반이라 공포 비중이 평소여도 글이 10배 오면 지수가 오릅니다.
@@ -1184,9 +1208,9 @@ z     = (k − μ) / σ
     <p><b>표본 부족</b> — 60분 창에 <span id="minLive">20</span>건,
     15분 창에 <span id="minFast">10</span>건 미만이면 비율 대신 건수만 보여줍니다.</p>
     <p><b>채점이 열에 넷은 틀립니다.</b> 사람이 읽고 찍은 240건으로 재니 분류기 정확도가
-    <b>55.4%</b> 였습니다(사전은 42.1%, 정답지를 만든 SLM 자신은 68.3%). 다만 이 240건은
+    <b>55.8%</b> 였습니다(사전은 42.1%, 정답지를 만든 SLM 자신은 68.3%). 다만 이 240건은
     긍정·부정·중립을 80건씩 고르게 뽑은 것이라 실제 글 분포가 아닙니다 — 실제 비율로
-    다시 맞추면 <b>60.9%</b> 로 봅니다(사전 38.0%, SLM 71.9%).
+    다시 맞추면 <b>61.1%</b> 로 봅니다(사전 38.0%, SLM 71.9%).
     특히 부정을 과하게 부릅니다 — 사람이 중립으로 본 글의 절반 가까이를 부정이라 합니다.</p>
 
     <p>다만 기준선을 같은 채점기로 계산하므로 오탐은 평균에 섞여 z 에서 차감됩니다.
@@ -1197,6 +1221,30 @@ z     = (k − μ) / σ
     <a href="https://github.com/havanafrog/stock-sentiment" target="_blank"
        rel="noreferrer">저장소 README</a> 에 있습니다.</p>
   </div>
+
+  <!-- 숨은 판: 무작위 200건을 폰으로 찍는다. 탭 줄에는 없고 #label200 으로만 연다.
+       SLM·사전이 뭐라 했는지는 안 보인다 — 보면 그쪽으로 끌려간다. -->
+  <section id="viewLabel" aria-labelledby="lbTitle" hidden>
+    <div class="card lb">
+      <div class="lbhead">
+        <h2 id="lbTitle">라벨 200</h2>
+        <span class="lbcount"><span id="lbPos">—</span> · <span id="lbDone">찍음 0</span></span>
+      </div>
+      <div class="lbtk" id="lbTk"></div>
+      <p class="lbtext" id="lbText" aria-live="polite"></p>
+      <div class="lbbtns" id="lbBtns" role="group" aria-label="판정">
+        <button type="button" data-y="P" class="lbP" aria-pressed="false">긍정</button>
+        <button type="button" data-y="X" class="lbX" aria-pressed="false">중립</button>
+        <button type="button" data-y="N" class="lbN" aria-pressed="false">부정</button>
+      </div>
+      <p class="lbrule">비는 글은 빌게 만든 지금 처지로 찍는다. 처지를 알 단서가 없으면 부정.</p>
+      <div class="lbnav">
+        <button type="button" class="btn" id="lbPrev">← 뒤로</button>
+        <button type="button" class="btn" id="lbNext">앞으로 →</button>
+      </div>
+      <p class="lbmsg" id="lbMsg" role="status"></p>
+    </div>
+  </section>
   </main>
 
 </div>
@@ -3171,10 +3219,64 @@ if (matchMedia('(max-width: 640px)').matches) {
   for (const id of ['foldInd', 'foldDate', 'foldOpts']) $(id)?.removeAttribute('open');
 }
 
+// ── 라벨 200 (#label200) ──
+// 무작위로 뽑은 200건을 사람이 찍는다. 찍은 것은 서버가 들고 있어 다시 열면
+// 안 찍은 첫 글에서 이어진다 — 폰을 바꿔도 같다.
+const LB = { rows: null, done: {}, i: 0, busy: false };
+const LB_NAME = { P: '긍정', X: '중립', N: '부정' };
+async function openLabel() {
+  if (!LB.rows) {
+    try {
+      const r = await fetch('/api/label?set=random200');
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.error ?? 'HTTP ' + r.status);
+      LB.rows = j.rows; LB.done = j.done ?? {};
+    } catch (e) { $('lbMsg').textContent = '글을 받지 못했습니다: ' + e.message; return; }
+    const first = LB.rows.findIndex(r => !LB.done[r.id]);
+    LB.i = first < 0 ? LB.rows.length - 1 : first;
+  }
+  lbPaint();
+}
+function lbPaint() {
+  const r = LB.rows[LB.i];
+  $('lbPos').textContent = `${LB.i + 1} / ${LB.rows.length}번째`;
+  $('lbDone').textContent = `찍음 ${Object.keys(LB.done).length}`;
+  $('lbTk').textContent = r.t;
+  $('lbText').textContent = r.text;
+  for (const b of $('lbBtns').querySelectorAll('[data-y]')) {
+    b.setAttribute('aria-pressed', String(LB.done[r.id] === b.dataset.y));
+  }
+  $('lbPrev').disabled = LB.i === 0;
+  $('lbNext').disabled = LB.i === LB.rows.length - 1;
+}
+$('lbBtns').onclick = async ev => {
+  const b = ev.target.closest('[data-y]');
+  if (!b || !LB.rows || LB.busy) return;
+  const r = LB.rows[LB.i], y = b.dataset.y;
+  LB.busy = true;
+  try {
+    const res = await fetch('/api/label', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ t: r.t, id: r.id, y, set: 'random200' }) });
+    const j = await res.json();
+    if (!res.ok) throw new Error(j.error ?? 'HTTP ' + res.status);
+    LB.done[r.id] = y;
+    // 다음 안 찍은 글로. 뒤로 가서 고친 거면 그 뒤에서부터 찾는다.
+    const after = LB.rows.findIndex((x, k) => k > LB.i && !LB.done[x.id]);
+    const any = LB.rows.findIndex(x => !LB.done[x.id]);
+    if (any < 0) $('lbMsg').textContent = `${LB.rows.length}건을 다 찍었습니다.`;
+    else { LB.i = after >= 0 ? after : any; $('lbMsg').textContent = `${LB_NAME[y]}으로 찍음 · 다음 글`; }
+    lbPaint();
+  } catch (e) {
+    $('lbMsg').textContent = '저장하지 못했습니다: ' + e.message;
+  } finally { LB.busy = false; }
+};
+$('lbPrev').onclick = () => { if (LB.rows && LB.i > 0) { LB.i--; $('lbMsg').textContent = ''; lbPaint(); } };
+$('lbNext').onclick = () => { if (LB.rows && LB.i < LB.rows.length - 1) { LB.i++; $('lbMsg').textContent = ''; lbPaint(); } };
+
 let showTab = () => {};
 (function tabs() {
   const view = { board: $('viewBoard'), main: $('viewMain'), analysis: $('viewAnalysis'),
-                 posts: $('viewPosts'), help: $('viewHelp') };
+                 posts: $('viewPosts'), help: $('viewHelp'), label: $('viewLabel') };
   const btn  = { board: $('tabBoard'), main: $('tabMain'),  analysis: $('tabAnalysis'),
                  posts: $('tabPosts'),  help: $('tabHelp')  };
   // 전환이 뚝뚝 끊기던 이유: 탭을 누르면 숨김을 바꾸는 일과 목록·차트를 다시
@@ -3194,7 +3296,7 @@ let showTab = () => {};
     document.querySelector('main').classList.toggle('duo', duo);
     for (const k in view) {
       view[k].hidden = !(k === name || (duo && (k === 'board' || k === 'main')));
-      btn[k].setAttribute('aria-selected', String(k === name));
+      btn[k]?.setAttribute('aria-selected', String(k === name));
     }
     // 빠르게 여러 번 누르면 지나간 탭의 일은 버린다.
     const mine = ++turn;
@@ -3202,6 +3304,7 @@ let showTab = () => {};
       if (mine !== turn) return;
       if (name === 'posts') openPosts();
       if (name === 'analysis') openAnalysis();
+      if (name === 'label') openLabel();     // 탭 줄에 없는 숨은 판 — #label200
       if (!view.board.hidden) tkLoad();   // 종목 관리가 메인으로 옮겨졌다
       // 숨어 있는 동안 그린 차트는 폭이 0 이라 선이 뭉개진다. 나올 때 다시 그린다.
       if (!view.main.hidden) { drawBars(); drawFear(); pulseLoad(); avgPaint(); }
@@ -3218,6 +3321,7 @@ let showTab = () => {};
   const fromHash = () => {
     const h = location.hash.slice(1);
     if (h === 'live' || h === 'main') return 'main';
+    if (h === 'label200') return 'label';
     return view[h] ? h : 'board';
   };
   btn.board.onclick    = () => { location.hash = '';         show('board');    };

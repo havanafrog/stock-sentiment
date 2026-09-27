@@ -322,6 +322,31 @@ function readArchive(ticker) {
 let LABELS = null, LABELS_STAMP = -1;
 
 /** {id: "P"|"X"|"N"} 한 덩어리. 종목을 안 가른다 — id 가 이미 전역이다. */
+// 사람이 폰으로 찍는 무작위 200건(#label200). 글은 docs 파일에서 온다 — 종목을
+// 목록에서 빼도 이미 뽑아 둔 글은 찍을 수 있어야 한다. 판정 칸(y)은 내보내지 않는다.
+const SETS = { random200: join(HERE, 'docs', 'labels-random-200.json') };
+const SET_ROWS = {};
+function setRows(name) {
+  if (!SETS[name]) return null;
+  SET_ROWS[name] ??= new Map(JSON.parse(readFileSync(SETS[name], 'utf8'))
+    .map(r => [r.id, { id: r.id, t: r.t, text: r.text }]));
+  return SET_ROWS[name];
+}
+/** 이 묶음 이름으로 찍힌 것만. 다른 경로로 같은 글을 찍었어도 이어 찍기를 흐리지 않는다. */
+function readSetLabels(name) {
+  const out = {};
+  if (!existsSync(LABELS_FILE)) return out;
+  for (const line of readFileSync(LABELS_FILE, 'utf8').split('\n')) {
+    if (!line) continue;
+    try {
+      const r = JSON.parse(line);
+      if (r.set !== name) continue;
+      if (LABEL_SET.has(r.y)) out[r.id] = r.y; else delete out[r.id];
+    } catch { /* 잘린 마지막 줄 */ }
+  }
+  return out;
+}
+
 function readLabels() {
   const stamp = existsSync(LABELS_FILE) ? statSync(LABELS_FILE).mtimeMs : 0;
   if (LABELS && LABELS_STAMP === stamp) return LABELS;
@@ -441,10 +466,10 @@ export function takePulse({ t, k, v, who }) {
 }
 
 /** y 가 null 이면 지운 것으로 남긴다 — 잘못 찍은 것을 무를 자리가 있어야 한다. */
-function appendLabel(ticker, id, y) {
+function appendLabel(ticker, id, y, set = null, text = undefined) {
   // 글월을 같이 박아 둔다. 이것만 있으면 채점기가 원본 더미를 안 열어도 된다.
-  const text = loadPosts(ticker).find(r => r.id === id)?.text ?? null;
-  const row = JSON.stringify({ id, t: ticker, y, text, at: new Date().toISOString() });
+  text ??= loadPosts(ticker).find(r => r.id === id)?.text ?? null;
+  const row = JSON.stringify({ id, t: ticker, y, text, at: new Date().toISOString(), ...(set ? { set } : {}) });
   appendFileSync(LABELS_FILE, row + "\n");
   LABELS_STAMP = -1;                       // 다음에 읽을 때 다시 훑는다
 }
@@ -1443,12 +1468,24 @@ createServer((req, res) => {
   }
 
   if (path === '/api/label' && req.method === 'GET') {   // 찍어 둔 정답 전부
+    const set = new URL(req.url, 'http://x').searchParams.get('set');
+    if (set) {                                            // 묶음 하나: 글 목록 + 찍은 것
+      const rows = setRows(set);
+      if (!rows) return sendJSON(res, 404, { error: `${set} 묶음이 없습니다.` });
+      return sendJSON(res, 200, { rows: [...rows.values()], done: readSetLabels(set) });
+    }
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
     return res.end(JSON.stringify(readLabels()));
   }
 
   if (path === '/api/label' && req.method === 'POST') {  // 한 건 찍기
-    return readBody(req).then(({ t, id, y }) => {
+    return readBody(req).then(({ t, id, y, set }) => {
+      if (set !== undefined) {                            // 묶음 글은 묶음 파일로 확인한다
+        const row = setRows(set)?.get(+id);
+        if (!row || !LABEL_SET.has(y)) return sendJSON(res, 400, { error: 'set·id·y 를 확인하세요' });
+        appendLabel(row.t, row.id, y, set, row.text);
+        return sendJSON(res, 200, { ok: true, id: row.id, y, set });
+      }
       if (!TICKERS.includes(t) || !Number.isFinite(+id) || (y !== null && !LABEL_SET.has(y))) {
         res.writeHead(400, { 'Content-Type': 'application/json; charset=utf-8' });
         return res.end(JSON.stringify({ error: "t·id·y 를 확인하세요" }));
