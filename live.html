@@ -635,7 +635,8 @@
     /* 투표 카드 밑이 차트 카드 끝까지 비어 있었다. 최근 글 카드가 남은 높이를 다 먹고
        글은 그 안에서 굴린다(420px 상한을 푼다). */
     main.duo #feed > .card { flex: 1 1 0; min-height: 240px; display: flex; flex-direction: column; }
-    main.duo #feed .feed { flex: 1 1 0; min-height: 0; max-height: none; }
+    /* 글이 적을 때 격자가 줄 간격을 늘려 글이 카드 전체에 흩어졌다(1536). 위로 붙인다. */
+    main.duo #feed .feed { flex: 1 1 0; min-height: 0; max-height: none; align-content: start; }
   }
   /* 접는 칸. 넓은 화면에선 summary 를 숨기고 늘 펴 둔 것처럼 보인다. */
   .fold { min-width: 0; }
