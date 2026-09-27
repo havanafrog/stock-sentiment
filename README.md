@@ -289,3 +289,7 @@ node test/run-css-tests.mjs          CSS 토큰
 ## 투자 판단에 쓰지 마세요
 
 이건 커뮤니티에서 오가는 말을 세어 보는 도구입니다. 시세 예측 도구가 아니고, 투자 자문이 아닙니다.
+
+---
+
+© 2026 havanafrog. All rights reserved. 열람만 허용합니다 — [LICENSE](LICENSE).
