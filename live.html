@@ -191,7 +191,10 @@
   .bar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
          font-size: 11.5px; color: var(--muted); margin: 0 0 0 auto;
          letter-spacing: .02em; text-align: right; }
-  .curbox { display: flex; align-items: center; gap: 8px; }
+  .curbox { display: flex; align-items: center; gap: 8px; order: 1; margin-left: auto; }
+  /* 갱신 상태·앱 설치는 제목 아래 줄. 머리 줄 오른쪽에 상태·설치·통화·환율·날짜가
+     한데 몰려 통화 단추가 묻혔다(1440). */
+  .top .bar { order: 2; flex-basis: 100%; margin-left: 0; text-align: left; }
   .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--pos);
          box-shadow: 0 0 0 0 currentColor; animation: pulse 2s infinite; }
   .dot.stale { background: var(--muted); animation: none; }
@@ -605,8 +608,11 @@
     main.duo .lh { display: flex; align-items: baseline; gap: 6px; padding: 2px 4px 6px; font-size: 15px; font-weight: 700; }
     main.duo #boardN { color: var(--faint); font-weight: 600; }
     main.duo .board, main.duo .board thead, main.duo .board tbody { display: block; }
-    main.duo .board thead tr { display: flex; justify-content: flex-end; gap: 12px; padding: 0 8px 6px; }
+    main.duo .board thead tr { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto auto 40px;
+      column-gap: 10px; align-items: end; padding: 0 8px 6px; }
     main.duo .board th { padding: 0; }
+    main.duo .board th[data-k="sym"] { grid-column: 2; text-align: left; }
+    main.duo .board th[data-k="idx"] { text-align: center; }
     main.duo .board tbody tr { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto 40px;
       grid-template-rows: auto auto; column-gap: 10px; align-items: center; padding: 8px; border-radius: var(--radius); }
     main.duo .board td { height: auto; padding: 0; background: none; }
@@ -626,6 +632,10 @@
     /* 판에 340~400px 를 내주고 나면 차트가 1280 한 칸일 때(725)보다 좁은 575 였다.
        2단 안에선 820~1399 폭과 같은 1.7:1 로 차트 쪽에 폭을 돌려준다. */
     main.duo .single { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
+    /* 투표 카드 밑이 차트 카드 끝까지 비어 있었다. 최근 글 카드가 남은 높이를 다 먹고
+       글은 그 안에서 굴린다(420px 상한을 푼다). */
+    main.duo #feed > .card { flex: 1 1 0; min-height: 240px; display: flex; flex-direction: column; }
+    main.duo #feed .feed { flex: 1 1 0; min-height: 0; max-height: none; }
   }
   /* 접는 칸. 넓은 화면에선 summary 를 숨기고 늘 펴 둔 것처럼 보인다. */
   .fold { min-width: 0; }
@@ -660,8 +670,7 @@
     .card.card { padding: 12px; border-radius: var(--radius); }
     .single { gap: 10px; }
     /* 머리 줄: 제목 · (오른쪽 끝) 통화 / 다음 줄에 갱신 상태. */
-    .top .bar { margin-left: 0; order: 2; flex-basis: 100%; }
-    .curbox { order: 1; margin-left: auto; gap: 6px; }
+    .curbox { gap: 6px; }
     /* 통화 단추는 보이는 높이 32, 누르는 자리는 위아래로 넓혀 44. 넓힌 판이 잘리지 않게
        묶음의 overflow 를 풀고 모서리는 양끝 단추가 맡는다. */
     .curbox .seg { overflow: visible; }
