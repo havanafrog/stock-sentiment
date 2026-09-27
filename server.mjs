@@ -24,7 +24,8 @@
 
 import { createServer } from 'node:http';
 import { DATA_DIR, dataPath, BASELINE_FILE, BASELINE_FALLBACK, LABELS_FILE, PULSE_FILE, ensureDataDir } from './paths.mjs';
-import { readFileSync, writeFileSync, appendFileSync, existsSync, statSync, unlinkSync, watchFile } from 'node:fs';
+import { readFileSync, writeFileSync, appendFileSync, existsSync, statSync, unlinkSync, renameSync, watchFile } from 'node:fs';
+import { makeVapid, send, gate, pushHostOk } from './push.mjs';
 import { join, dirname, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, timingSafeEqual, createHmac } from 'node:crypto';
@@ -97,8 +98,12 @@ const SERIES_SAVE = 20;      // 이만큼 새 점이 쌓이면 디스크에 쓴�
 // "링크 있는 사람만" 을 실제로 강제한다. 터널 주소가 길고 랜덤인 건 보안이 아니라 운이다.
 // 키는 .access-key 에 남겨 재시작해도 링크가 안 죽는다. 지우면 새로 발급된다.
 // 첫 요청에 ?k=... 가 맞으면 쿠키를 심어, 이후 data.js·SSE 요청은 파라미터 없이 통과한다.
-function loadKey() {
-  const p = dataPath('.access-key');
+//
+// 라벨 키(.label-key)는 한 겹 더다. 접근키는 README 에 공개된 데모 링크라 누구나
+// 갖고 있다 — 사람 라벨(#label200)은 만든 사람만 찍게 따로 막는다. 흐름은 같다:
+// ?lk=... 로 한 번 열면 쿠키를 심고 키를 뗀 주소로 튕긴다.
+function loadKey(file) {
+  const p = dataPath(file);
   if (existsSync(p)) {
     const k = readFileSync(p, 'utf8').trim();
     if (k.length >= 16) return k;
@@ -108,13 +113,17 @@ function loadKey() {
   return k;
 }
 ensureDataDir();          // 볼륨이 비어 있어도 첫 실행이 되어야 한다
-const KEY = loadKey();
+const KEY = loadKey('.access-key');
+const LABEL_KEY = loadKey('.label-key');
 
 // 길이가 다르면 timingSafeEqual 이 던지므로 먼저 거른다
-function keyOk(given) {
-  if (typeof given !== 'string' || given.length !== KEY.length) return false;
-  return timingSafeEqual(Buffer.from(given), Buffer.from(KEY));
+function same(given, want) {
+  if (typeof given !== 'string' || given.length !== want.length) return false;
+  return timingSafeEqual(Buffer.from(given), Buffer.from(want));
 }
+const keyOk = given => same(given, KEY);
+const labelKeyOk = given => same(given, LABEL_KEY);
+const keepCookie = (name, v) => `${name}=${encodeURIComponent(v)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`;
 
 function cookieOf(req, name) {
   for (const part of (req.headers.cookie ?? '').split(';')) {
@@ -127,33 +136,38 @@ function cookieOf(req, name) {
 /** 통과하면 true. 막으면 응답까지 마치고 false(응답 끝냄). */
 function authed(req, res) {
   const u = new URL(req.url, 'http://x');
-  const given = u.searchParams.get('k');
-  if (keyOk(given)) {
-    // 키를 쿠키로 옮겨 심는다 — 주소창에 계속 달고 다니지 않아도 된다
-    res.setHeader('Set-Cookie',
-      `k=${encodeURIComponent(KEY)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`);
-
-    // 쿠키를 심었으면 키를 뗀 주소로 한 번 튕긴다. 안 그러면 22자가 주소창에
-    // 영영 남고, 화면을 캡처하거나 주소를 복사할 때마다 같이 딸려 나간다.
-    // 조각(#live)은 서버로 안 오지만 브라우저가 튕긴 주소에 도로 붙여 준다.
-    //
-    // api 는 뺀다 — SSE 를 302 로 튕기면 스트림이 끊긴다.
-    // 쿠키를 막아 둔 브라우저라면 튕긴 다음이 404 다. 그때는 원래 링크로
-    // 다시 들어와야 한다 — 키가 있다는 사실조차 안 알리려고 404 는 그대로 둔다.
-    if (req.method === 'GET' && !u.pathname.startsWith('/api/')) {
-      u.searchParams.delete('k');
-      const qs = u.searchParams.toString();
-      res.writeHead(302, { Location: u.pathname + (qs ? '?' + qs : ''), 'Cache-Control': 'no-store' });
-      res.end();
-      return false;
-    }
-    return true;
+  const byQuery = keyOk(u.searchParams.get('k'));
+  if (!byQuery && !keyOk(cookieOf(req, 'k'))) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('없는 경로입니다');
+    return false;
   }
-  if (keyOk(cookieOf(req, 'k'))) return true;
 
-  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-  res.end('없는 경로입니다');
-  return false;
+  // 키를 쿠키로 옮겨 심는다 — 주소창에 계속 달고 다니지 않아도 된다.
+  // 쿠키로 들어왔으면 화면을 열 때마다 1년을 다시 센다. 알림을 눌러 여는 날 쿠키가
+  // 만료돼 404 가 뜨는 일을 줄인다. api·파일 요청까지 헤더를 달 이유는 없다 — 화면만.
+  const cookies = [];
+  if (byQuery || (req.method === 'GET' && u.pathname === '/')) cookies.push(keepCookie('k', KEY));
+  const lk = u.searchParams.get('lk');
+  if (labelKeyOk(lk)) cookies.push(keepCookie('lk', LABEL_KEY));   // 틀린 lk 는 말없이 버린다
+  if (cookies.length) res.setHeader('Set-Cookie', cookies);
+
+  // 키를 뗀 주소로 한 번 튕긴다. 안 그러면 22자가 주소창에 영영 남고, 화면을
+  // 캡처하거나 주소를 복사할 때마다 같이 딸려 나간다. 조각(#live)은 서버로 안 오지만
+  // 브라우저가 튕긴 주소에 도로 붙여 준다.
+  //
+  // api 는 뺀다 — SSE 를 302 로 튕기면 스트림이 끊긴다.
+  // 쿠키를 막아 둔 브라우저라면 튕긴 다음이 404 다. 그때는 원래 링크로
+  // 다시 들어와야 한다 — 키가 있다는 사실조차 안 알리려고 404 는 그대로 둔다.
+  if ((byQuery || lk !== null) && req.method === 'GET' && !u.pathname.startsWith('/api/')) {
+    u.searchParams.delete('k');
+    u.searchParams.delete('lk');
+    const qs = u.searchParams.toString();
+    res.writeHead(302, { Location: u.pathname + (qs ? '?' + qs : ''), 'Cache-Control': 'no-store' });
+    res.end();
+    return false;
+  }
+  return true;
 }
 
 // ── 사전 (build.mjs 와 같은 파일) ─────────────────────────────
@@ -1211,9 +1225,56 @@ function snapshot() {
 const clients = new Set();
 // 점 찍기는 보는 사람이 없어도 돌아야 한다 — 나중에 붙은 브라우저가 과거를 봐야 하기 때문이다.
 // 그래서 clients 검사보다 sample() 이 먼저다.
+// ── 경보 푸시 ────────────────────────────────────────────────
+// 판·탭의 붉은 점과 같은 값(w60.idx)이 경보선을 넘으면 그 종목을 켠 폰에 보낸다.
+// 판정(넘는 순간·다시 무장·쿨다운)은 push.mjs 의 gate. 그 상태도 파일에 둬야
+// 서버를 다시 켤 때 이미 울린 경보가 또 울리지 않는다.
+const VAPID_FILE = dataPath('.vapid.json'), PUSH_FILE = dataPath('push.json');
+const PUSH_SUBJECT = 'https://github.com/havanafrog/stock-sentiment';
+const PUSH_MAX = 500;
+const VAPID = existsSync(VAPID_FILE) ? JSON.parse(readFileSync(VAPID_FILE, 'utf8'))
+  : (() => { const v = makeVapid(); writeFileSync(VAPID_FILE, JSON.stringify(v) + '\n'); return v; })();
+const PUSH = existsSync(PUSH_FILE) ? JSON.parse(readFileSync(PUSH_FILE, 'utf8')) : { subs: {}, gate: {} };
+/** 반쯤 쓰다 죽으면 구독이 통째로 날아간다. 옆에 쓰고 이름을 바꾼다. */
+function savePush() {
+  writeFileSync(PUSH_FILE + '.tmp', JSON.stringify(PUSH));
+  renameSync(PUSH_FILE + '.tmp', PUSH_FILE);
+}
+/** 그 종목을 켠 구독 전부에. 죽은 구독(404·410)은 지운다. */
+async function pushTo(t, payload) {
+  const subs = Object.entries(PUSH.subs).filter(([, s]) => s.tickers.includes(t));
+  const codes = await Promise.all(subs.map(([endpoint, s]) =>
+    send({ endpoint, keys: s.keys }, payload, VAPID, { subject: PUSH_SUBJECT, topic: `wail-${t}` })));
+  let gone = 0;
+  subs.forEach(([e], i) => {
+    if (codes[i] === 404 || codes[i] === 410) { delete PUSH.subs[e]; gone++; }
+    else if (!(codes[i] >= 200 && codes[i] < 300)) console.warn(`\n  푸시 실패 ${codes[i]} · ${e.slice(0, 30)}…`);
+  });
+  if (gone) savePush();
+  return codes;
+}
+function pushCheck(snap) {
+  const now = Date.now();
+  let dirty = false;
+  for (const t of TICKERS) {
+    const d = snap.tickers[t];
+    if (!d) continue;
+    const st = (PUSH.gate[t] ??= {});
+    const was = JSON.stringify(st);
+    const idx = d.warming ? null : d.w60.idx;           // 창을 채우는 중엔 값이 없는 것과 같다
+    const fire = gate(st, idx, now, { on: LEX.FEAR_ALERT, rearm: LEX.FEAR_ALERT - 10 });
+    if (JSON.stringify(st) !== was) dirty = true;
+    if (fire) pushTo(t, { t, idx: Math.round(idx), at: snap.at,
+      title: `${t} 곡소리 ${Math.round(idx)}`,
+      body: `최근 60분 곡소리 글 ${d.w60.fearN}건 · 경보선 ${LEX.FEAR_ALERT}` });
+  }
+  if (dirty) savePush();
+}
+
 function broadcast() {
   const snap = snapshot();
   sample(snap);
+  pushCheck(snap);
   if (!clients.size) return;
   const line = `data: ${JSON.stringify(snapshot())}\n\n`;   // 방금 찍은 점까지 담아 다시 만든다
   for (const res of clients) { try { res.write(line); } catch { clients.delete(res); } }
@@ -1471,12 +1532,45 @@ createServer((req, res) => {
     return sendJSON(res, 200, out);
   }
 
+  if (path === '/api/push/key' && req.method === 'GET') {  // 구독에 쓸 공개키
+    return sendJSON(res, 200, { key: VAPID.pub, alert: LEX.FEAR_ALERT });
+  }
+
+  // 구독 하나의 종목 목록. tickers 를 빼고 보내면 지금 목록만 돌려준다(토글 그리기용).
+  // 빈 목록을 보내면 구독을 지운다. endpoint 는 비밀처럼 다룬다 — 주소창·로그에 안 싣는다.
+  if (path === '/api/push/sub' && req.method === 'POST') {
+    return readBody(req).then(({ sub, tickers }) => {
+      const e = sub?.endpoint, k = sub?.keys ?? {};
+      let good = false;
+      try {
+        good = pushHostOk(e) && e.length <= 1024
+          && Buffer.from(k.p256dh ?? '', 'base64url').length === 65
+          && Buffer.from(k.auth ?? '', 'base64url').length === 16;
+      } catch { /* URL 이 아니다 */ }
+      if (!good) return sendJSON(res, 400, { error: '구독 값을 확인하세요' });
+      if (tickers === undefined) return sendJSON(res, 200, { tickers: PUSH.subs[e]?.tickers ?? [] });
+      if (!Array.isArray(tickers)) return sendJSON(res, 400, { error: 'tickers 는 목록입니다' });
+      const want = [...new Set(tickers)].filter(t => TICKERS.includes(t));
+      if (!want.length) {
+        if (PUSH.subs[e]) { delete PUSH.subs[e]; savePush(); }
+        return sendJSON(res, 200, { tickers: [] });
+      }
+      if (!PUSH.subs[e] && Object.keys(PUSH.subs).length >= PUSH_MAX) {
+        return sendJSON(res, 429, { error: '구독이 너무 많습니다.' });
+      }
+      PUSH.subs[e] = { keys: { p256dh: k.p256dh, auth: k.auth }, tickers: want, at: new Date().toISOString() };
+      savePush();
+      sendJSON(res, 200, { tickers: want });
+    }).catch(err => sendJSON(res, 400, { error: err.message }));
+  }
+
   if (path === '/api/label' && req.method === 'GET') {   // 찍어 둔 정답 전부
     const set = new URL(req.url, 'http://x').searchParams.get('set');
     if (set) {                                            // 묶음 하나: 글 목록 + 찍은 것
       const rows = setRows(set);
       if (!rows) return sendJSON(res, 404, { error: `${set} 묶음이 없습니다.` });
-      return sendJSON(res, 200, { rows: [...rows.values()], done: readSetLabels(set) });
+      return sendJSON(res, 200, { rows: [...rows.values()], done: readSetLabels(set),
+        canLabel: labelKeyOk(cookieOf(req, 'lk')) });
     }
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
     return res.end(JSON.stringify(readLabels()));
@@ -1485,6 +1579,8 @@ createServer((req, res) => {
   if (path === '/api/label' && req.method === 'POST') {  // 한 건 찍기
     return readBody(req).then(({ t, id, y, set }) => {
       if (set !== undefined) {                            // 묶음 글은 묶음 파일로 확인한다
+        // 사람 자는 만든 사람만 찍는다. 접근키는 공개 데모라 누구나 있다.
+        if (!labelKeyOk(cookieOf(req, 'lk'))) return sendJSON(res, 403, { error: '라벨 키가 없습니다.' });
         const row = setRows(set)?.get(+id);
         if (!row || !LABEL_SET.has(y)) return sendJSON(res, 400, { error: 'set·id·y 를 확인하세요' });
         appendLabel(row.t, row.id, y, set, row.text);

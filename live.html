@@ -746,6 +746,18 @@
      판의 경보 알약이 이미 쓰는 진한 경보색(--alert-bg)으로 맞춘다 — 두 경보가 같은 색이 되고 흰 글자가 선다. */
   .tag.fear { background: var(--alert-bg); color: var(--on-solid); }
   .grow { flex: 1 1 auto; }
+  /* 카드 제목. 알림 단추가 같은 줄에 서지만 제목(heading) 안에 들면 안 된다. */
+  .hd { display: inline-flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+  /* 경보 알림 켜고 끄기. 보이는 높이는 30px, 누르는 자리는 위아래로 넓혀 44px. */
+  .bell { position: relative; align-self: center; min-height: 30px; padding: 0 11px; border: 0;
+    border-radius: 15px; background: var(--surface-1); box-shadow: var(--ring); font: inherit;
+    font-size: 12px; font-weight: 600; color: var(--text-secondary); cursor: pointer; white-space: nowrap; }
+  .bell::after { content: ''; position: absolute; left: 0; right: 0; top: -7px; bottom: -7px; }
+  .bell[aria-pressed="true"] { background: var(--accent-wash); color: var(--pos-ink); box-shadow: none; }
+  .bell[aria-disabled="true"] { color: var(--faint); cursor: default; }
+  .bellnote { margin: 6px 0 0; font-size: 12px; color: var(--text-secondary); }
+  .bellnote:empty { display: none; }
+  .bellmk { margin-left: 4px; font-size: 11px; }
 
   .px { font-size: 26px; font-weight: 650; letter-spacing: -.02em; margin: 10px 0 2px;
         font-variant-numeric: tabular-nums; }
@@ -863,6 +875,9 @@
   .lbtext { margin: 6px 0 16px; min-height: 5.4em; font-size: 16px; line-height: 1.6;
     color: var(--text-primary); white-space: pre-wrap; word-break: break-word; }
   .lbbtns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .lbbtns[hidden], .lblocked[hidden] { display: none; }
+  .lblocked { margin: 0; padding: 16px; border-radius: var(--radius); background: var(--neutral);
+    font-size: 14px; color: var(--text-primary); text-align: center; }
   .lbbtns button { min-height: 56px; border: 0; border-radius: var(--radius); font: inherit;
     font-size: 16px; font-weight: 600; cursor: pointer; background: var(--surface-1);
     box-shadow: var(--ring); color: var(--text-primary); }
@@ -1178,6 +1193,14 @@
   </div>
 
   <div class="foot" id="viewHelp" role="tabpanel" aria-labelledby="tabHelp" hidden>
+    <h2>경보 알림</h2>
+    <p>실시간 탭 종목 카드의 <b>🔔 경보 알림</b>을 누르면, 그 종목 곡소리가 경보선(90)을 넘을 때
+    폰으로 알려 드립니다. 같은 종목은 30분에 한 번까지이고, 80 밑으로 내려갔다 다시 넘어야 또 울립니다.
+    종목마다 따로 켜고 끕니다. 아이폰은 홈 화면에 추가한 앱에서만 됩니다(iOS 16.4 이상).
+    알림을 눌렀는데 화면이 안 열리면 처음 받은 링크로 한 번 다시 여세요.</p>
+    <p><button type="button" class="btn" id="pushOff" hidden>알림 모두 끄기</button>
+      <span class="pnote" id="pushOffNote" role="status"></span></p>
+
     <h2>곡소리 지수</h2>
     <div class="eq">k     = 그 봉이 덮는 구간에 온 공포 글 수
 μ, σ  = 그 <b>종목</b> · 그 <b>미 동부 시각</b> · <b>같은 봉 길이</b>의 평소 공포 글 수
@@ -1232,6 +1255,7 @@ z     = (k − μ) / σ
       </div>
       <div class="lbtk" id="lbTk"></div>
       <p class="lbtext" id="lbText" aria-live="polite"></p>
+      <p class="lblocked" id="lbLocked" hidden>이 화면은 만든 사람만 찍을 수 있습니다.</p>
       <div class="lbbtns" id="lbBtns" role="group" aria-label="판정">
         <button type="button" data-y="P" class="lbP" aria-pressed="false">긍정</button>
         <button type="button" data-y="X" class="lbX" aria-pressed="false">중립</button>
@@ -1287,6 +1311,9 @@ const store = {
   get(k, dflt) { try { return localStorage.getItem('live.' + k) ?? dflt; } catch { return dflt; } },
   set(k, v) { try { localStorage.setItem('live.' + k, v); } catch { /* 사파리 프라이빗 등 */ } },
 };
+// 경보 알림을 눌러 새 창으로 열면 ?t=SNDK 가 붙어 온다. 종목만 받아 두고 주소에선 뗀다.
+const OPEN_T = new URLSearchParams(location.search).get('t');
+if (OPEN_T) { store.set('ticker', OPEN_T); history.replaceState(null, '', location.pathname + location.hash); }
 const UI = { ticker: store.get('ticker', null), cur: store.get('cur', 'USD') };
 
 let LAST = null;
@@ -1400,12 +1427,14 @@ function card(ticker, d, meta) {
   // 건너뛸 수 없었다.
   return [`
   <div class="card${isFear ? ' fear' : ''}"${BAR.wait && BAR.hold ? ` style="min-height:${BAR.hold}px"` : ''}>
-    <div class="head" role="heading" aria-level="2">
-      <span class="tk">${ticker}</span>
-      <span class="nm">${d.name !== ticker ? d.name : ''}</span>
+    <div class="head">
+      <span class="hd" role="heading" aria-level="2"><span class="tk">${ticker}</span>
+        <span class="nm">${d.name !== ticker ? d.name : ''}</span></span>
       <span class="grow"></span>
       ${isWail ? `<span class="tag fear">곡소리 ${wail.toFixed(0)}</span>` : ''}
+      ${bellHTML(ticker)}
     </div>
+    <p class="bellnote" id="bellNote">${bellNote(ticker)}</p>
 
     ${p ? `<div class="px">${money(p.close)}</div>
       <div class="pxd ${chg === null ? '' : chg >= 0 ? 'up' : 'down'}">${chg === null
@@ -2439,7 +2468,8 @@ function paintBoard(order, tickers, feary) {
     return `<tr data-t="${t}" aria-selected="${t === UI.ticker}">`
       + `<td class="rk">${i + 1}</td>`
       + `<td><button type="button" class="sym">${t}`
-        + `${feary.includes(t) ? '<span class="fdot"></span>' : ''}</button>`
+        + `${feary.includes(t) ? '<span class="fdot"></span>' : ''}`
+        + `${PUSHS.on.has(t) ? '<span class="bellmk" title="경보 알림 켜짐">🔔<span class="sr"> 알림 켜짐</span></span>' : ''}</button>`
         + `<span class="nm">${esc(v.name ?? '')}</span></td>`
       + `<td>${p ? money(p.close) : '—'}</td>`
       + `<td class="chg ${dir}">`
@@ -3219,6 +3249,106 @@ if (matchMedia('(max-width: 640px)').matches) {
   for (const id of ['foldInd', 'foldDate', 'foldOpts']) $(id)?.removeAttribute('open');
 }
 
+// ── 경보 알림 구독 ──
+// 첫 방문에 권한을 묻지 않는다. 카드의 🔔 를 누를 때만 묻는다(브라우저도 그걸 요구한다).
+// 종목 목록은 서버가 들고 있고, 여기는 그걸 비춰 그린다.
+//   mode  none: 이 브라우저는 못 받음 → 단추 없음
+//         ios : 아이폰 사파리 탭 → 홈 화면 앱에서만 된다는 안내
+//         push: 된다
+const PUSHS = { mode: 'none', on: new Set(), sub: null, busy: false, note: '' };
+{
+  const nav = globalThis.navigator ?? {};
+  const standalone = globalThis.matchMedia?.('(display-mode: standalone)').matches || nav.standalone === true;
+  if ('serviceWorker' in nav && 'PushManager' in globalThis && 'Notification' in globalThis) PUSHS.mode = 'push';
+  else if (/iPhone|iPad|iPod/.test(nav.userAgent ?? '') && !standalone) PUSHS.mode = 'ios';
+}
+function bellHTML(t) {
+  if (PUSHS.mode !== 'push') return '';
+  const on = PUSHS.on.has(t), denied = Notification.permission === 'denied';
+  return `<button type="button" class="bell" id="bellBtn" aria-pressed="${on}"`
+    + `${denied && !on ? ' aria-disabled="true"' : ''} aria-describedby="bellNote">`
+    + `${on ? '🔔 알림 켜짐' : denied ? '🔕 알림 막힘' : '🔔 경보 알림'}</button>`;
+}
+function bellNote(t) {
+  if (PUSHS.mode === 'ios') return '경보 알림은 홈 화면에 추가한 앱에서만 받을 수 있습니다.';
+  if (PUSHS.mode !== 'push') return '';
+  if (PUSHS.note) return PUSHS.note;
+  if (Notification.permission === 'denied' && !PUSHS.on.has(t)) return '브라우저 설정에서 이 사이트 알림을 허용해야 받을 수 있습니다.';
+  return '';
+}
+/** 카드는 15초마다 새로 그려진다. 그 사이엔 단추·안내·판 표시만 제자리에서 고친다. */
+function bellPaint() {
+  const b = $('bellBtn'), n = $('bellNote');
+  if (b) b.outerHTML = bellHTML(UI.ticker);
+  if (n) n.textContent = bellNote(UI.ticker);
+  $('pushOff').hidden = !PUSHS.on.size;
+  if (LAST) paintBoard((LAST.list ?? []).filter(t => LAST.tickers[t]), LAST.tickers,
+    (LAST.list ?? []).filter(t => (LAST.tickers[t]?.w60.idx ?? 0) >= ALERT));
+}
+const b64bytes = s => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+/** 이 구독의 종목 목록을 서버에 맞춘다. 빈 목록이면 서버가 지우고, 여기서도 구독을 푼다. */
+async function pushSave(sub, tickers) {
+  const r = await fetch('/api/push/sub', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ sub: sub.toJSON(), tickers }) });
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error ?? 'HTTP ' + r.status);
+  PUSHS.on = new Set(j.tickers ?? []);
+  if (tickers && !PUSHS.on.size) { await sub.unsubscribe().catch(() => {}); PUSHS.sub = null; }
+  else PUSHS.sub = sub;
+}
+async function bellToggle() {
+  const t = UI.ticker;
+  if (!t || PUSHS.busy || PUSHS.mode !== 'push') return;
+  const turnOn = !PUSHS.on.has(t);
+  if (turnOn && Notification.permission === 'denied') return;
+  PUSHS.busy = true;
+  try {
+    // 권한은 누른 그 순간에 묻는다 — 기다렸다 물으면 사파리가 "사람이 누른 게 아니다" 로 막는다.
+    if (turnOn && Notification.permission !== 'granted'
+        && await Notification.requestPermission() !== 'granted') {
+      PUSHS.note = '알림을 허용해야 받을 수 있습니다.';
+      return;
+    }
+    let sub = PUSHS.sub;
+    if (!sub) {
+      const reg = await navigator.serviceWorker.ready;
+      sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        const { key } = await (await fetch('/api/push/key')).json();
+        sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64bytes(key) });
+      }
+    }
+    const want = new Set(PUSHS.on);
+    if (turnOn) want.add(t); else want.delete(t);
+    await pushSave(sub, [...want]);
+    PUSHS.note = turnOn ? `${t} 곡소리가 ${ALERT}을 넘으면 알려 드립니다 · 30분에 한 번까지` : `${t} 알림을 껐습니다.`;
+  } catch (e) {
+    PUSHS.note = '알림 설정 실패: ' + e.message;
+  } finally {
+    PUSHS.busy = false;
+    bellPaint();
+    say(PUSHS.note);
+    $('bellBtn')?.focus();               // 단추를 새로 그렸으니 초점을 돌려준다
+  }
+}
+$('cards').addEventListener('click', ev => { if (ev.target.closest?.('#bellBtn')) bellToggle(); });
+$('pushOff').onclick = async () => {
+  try {
+    const sub = PUSHS.sub ?? await (await navigator.serviceWorker.ready).pushManager.getSubscription();
+    if (sub) await pushSave(sub, []);
+    PUSHS.on = new Set(); PUSHS.note = '';
+    $('pushOffNote').textContent = '경보 알림을 모두 껐습니다.';
+  } catch (e) { $('pushOffNote').textContent = '끄지 못했습니다: ' + e.message; }
+  bellPaint();
+};
+// 이미 구독해 둔 브라우저면 켜 둔 종목을 서버에서 받아 온다. 일꾼이 없으면 조용히 넘어간다.
+if (PUSHS.mode === 'push') {
+  navigator.serviceWorker.getRegistration().then(reg => reg?.pushManager.getSubscription())
+    .then(sub => sub && pushSave(sub))
+    .then(() => bellPaint())
+    .catch(() => {});
+}
+
 // ── 라벨 200 (#label200) ──
 // 무작위로 뽑은 200건을 사람이 찍는다. 찍은 것은 서버가 들고 있어 다시 열면
 // 안 찍은 첫 글에서 이어진다 — 폰을 바꿔도 같다.
@@ -3231,6 +3361,9 @@ async function openLabel() {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? 'HTTP ' + r.status);
       LB.rows = j.rows; LB.done = j.done ?? {};
+      // 라벨 키 쿠키가 없으면 읽기만 된다. 단추를 눌러 403 을 받게 두지 않고 처음부터 막는다.
+      $('lbBtns').hidden = !j.canLabel;
+      $('lbLocked').hidden = !!j.canLabel;
     } catch (e) { $('lbMsg').textContent = '글을 받지 못했습니다: ' + e.message; return; }
     const first = LB.rows.findIndex(r => !LB.done[r.id]);
     LB.i = first < 0 ? LB.rows.length - 1 : first;
@@ -3340,6 +3473,13 @@ let showTab = () => {};
 // 안드로이드·크롬·엣지. 아이폰 사파리는 그 알림이 없어 안내 글만 한 번 띄운다.
 (() => {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* 없어도 사이트는 돈다 */ });
+  // 열린 창에서 경보 알림을 누르면 일꾼이 이 창으로 종목을 넘긴다.
+  navigator.serviceWorker?.addEventListener('message', e => {
+    if (e.data?.type !== 'open') return;
+    if (e.data.t) pickTicker(e.data.t);
+    location.hash = 'live';
+    showTab('main');
+  });
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   if (standalone) return;
   let ask = null;
