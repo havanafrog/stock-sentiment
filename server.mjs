@@ -840,7 +840,7 @@ function collectInBackground(list) {
   fetcher.on("close", code => {
     if (code !== 0) return mark({ phase: "실패", error: `수집이 코드 ${code} 로 끝났습니다` });
     mark({ phase: "기준선 계산 중" });
-    const builder = spawn(node, ["build.mjs", "--days", "90"], opts);
+    const builder = spawn(node, ["build.mjs", "--days", "60"], opts);
     builder.on("close", c2 => {
       if (c2 !== 0) return mark({ phase: "실패", error: `빌드가 코드 ${c2} 로 끝났습니다` });
       SNAPSHOT = loadBaselines();          // 새 기준선을 즉시 물린다
@@ -1506,7 +1506,8 @@ createServer((req, res) => {
 }).listen(PORT, () => {
   console.log(`\n  감정 채점 · ${SCORER}`);
   console.log(`\n  이 링크로 여세요 (키가 붙어 있어야 열립니다)\n`);
-  console.log(`    http://localhost:${PORT}/?k=${KEY}\n`);
+  // 키를 통째로 찍지 않는다 — 로그(docker logs · 콘솔 기록)는 키 파일보다 멀리 흘러 다닌다.
+  console.log(`    http://localhost:${PORT}/?k=<.access-key 의 값>   (키 ${KEY.slice(0, 3)}…)\n`);
   console.log(`  키 없이 들어오면 전부 404 입니다. 터널로 공개해도 링크를 아는 사람만 봅니다.`);
   console.log(`  키는 .access-key 에 있습니다. 유출되면 그 파일을 지우고 재시작하세요.`);
   console.log(`\n  ${POLL_MS / 1000}초마다 갱신(SSE 푸시). Ctrl+C 로 종료.\n`);
