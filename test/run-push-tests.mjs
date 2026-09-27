@@ -2,7 +2,10 @@
 // 오류도 안 온다. 그래서 RFC 가 준 값으로 똑같이 나오는지 본다.
 import { createECDH, createPublicKey, verify, hkdfSync, createDecipheriv } from 'node:crypto';
 import { createServer } from 'node:http';
-import { encrypt, makeVapid, vapidAuth, send, gate } from '../push.mjs';
+import { encrypt, makeVapid, vapidAuth, send, gate, pushHostOk } from '../push.mjs';
+
+// 가짜 푸시 서버는 http 다. 운영에선 막히고 이 변수가 있을 때만 열린다.
+process.env.PUSH_ALLOW_HTTP = '1';
 
 let pass = 0, fail = 0;
 const ok = (label, cond, extra = '') => {
@@ -82,6 +85,29 @@ console.log('\n── C. 가짜 푸시 서버로 보내기 ──');
   srv.close();
   const dead = await send({ ...sub, endpoint: 'http://127.0.0.1:1/x' }, {}, makeVapid(), { subject: 'x' });
   ok('못 닿으면 0', dead === 0, dead);
+}
+
+console.log('\n── E. 받는 주소 제한 (SSRF) ──');
+{
+  const good = ['https://fcm.googleapis.com/fcm/send/abc', 'https://updates.push.services.mozilla.com/wpush/v2/x',
+    'https://web.push.apple.com/QK', 'https://api.push.apple.com/x', 'https://wns2-par02p.notify.windows.com/w/?token=1'];
+  const bad = ['https://192.168.0.1/push', 'https://localhost/x', 'https://127.0.0.1/x', 'http://fcm.googleapis.com/x',
+    'https://fcm.googleapis.com:8443/x', 'https://fcm.googleapis.com.evil.com/x', 'https://evilpush.apple.com.evil.com/x',
+    'https://fcm.googleapis.com@192.168.0.1/x', 'https://x:y@fcm.googleapis.com/x', '아무거나'];
+  ok('푸시 서비스 주소는 받는다', good.every(pushHostOk), good.filter(e => !pushHostOk(e)).join(' '));
+  ok('내부망·다른 호스트·다른 포트는 막는다', !bad.some(pushHostOk), bad.filter(pushHostOk).join(' '));
+  let hit = false;
+  const srv = createServer((q, r) => { hit = true; r.end(); });
+  await new Promise(r => srv.listen(0, '127.0.0.1', r));
+  const ua = createECDH('prime256v1'); ua.generateKeys();
+  const keys = { p256dh: ua.getPublicKey().toString('base64url'), auth: 'MDEyMzQ1Njc4OWFiY2RlZg' };
+  const code = await send({ endpoint: `https://127.0.0.1:${srv.address().port}/x`, keys }, {}, makeVapid(), { subject: 'x' });
+  ok('허용 밖 주소로는 보내지도 않는다', code === 0 && !hit, code);
+  delete process.env.PUSH_ALLOW_HTTP;
+  const code2 = await send({ endpoint: `http://127.0.0.1:${srv.address().port}/x`, keys }, {}, makeVapid(), { subject: 'x' });
+  ok('시험 변수가 없으면 http 도 막힌다', code2 === 0 && !hit, code2);
+  process.env.PUSH_ALLOW_HTTP = '1';
+  srv.close();
 }
 
 console.log('\n── D. 경보 판정 ──');

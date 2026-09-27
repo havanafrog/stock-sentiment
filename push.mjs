@@ -55,13 +55,32 @@ export function encrypt(payload, keys, { salt = randomBytes(16), asPriv = null }
 }
 
 /**
+ * 브라우저 푸시 서비스 주소인가. 접근키가 공개 데모라 누구나 구독을 등록할 수 있다 —
+ * 아무 https 나 받으면 경보 때마다 이 PC 가 내부망(192.168.…)이든 어디든 POST 한다(SSRF).
+ * 알려진 푸시 서비스 호스트만, 기본 포트로만 받는다.
+ */
+const PUSH_HOSTS = [/^fcm\.googleapis\.com$/, /^updates\.push\.services\.mozilla\.com$/,
+                    /^([a-z0-9-]+\.)*push\.apple\.com$/, /^([a-z0-9-]+\.)*notify\.windows\.com$/];
+export function pushHostOk(endpoint) {
+  let u;
+  try { u = new URL(endpoint); } catch { return false; }
+  return u.protocol === 'https:' && u.port === '' && !u.username && !u.password
+    && PUSH_HOSTS.some(re => re.test(u.hostname));
+}
+// 시험용 가짜 푸시 서버(http://127.0.0.1)는 이 환경 변수가 있을 때만 받는다. 운영엔 없다.
+const allowTestHttp = () => process.env.PUSH_ALLOW_HTTP === '1';
+
+/**
  * 한 구독에 보낸다. 돌려주는 건 HTTP 상태. 404·410 이면 구독이 죽은 것이다.
  * 망이 끊기거나 10초를 넘기면 0.
  */
 export function send(sub, payload, v, { subject, ttl = 1800, urgency = 'high', topic } = {}) {
+  // push.json 을 손으로 고쳐 넣은 주소도 여기서 한 번 더 거른다. 안 보내면 0.
+  const test = allowTestHttp() && sub.endpoint.startsWith('http://');
+  if (!test && !pushHostOk(sub.endpoint)) return Promise.resolve(0);
   const body = encrypt(JSON.stringify(payload), sub.keys);
   const u = new URL(sub.endpoint);
-  const req = u.protocol === 'http:' ? httpRequest : httpsRequest;   // http 는 시험용 가짜 서버뿐
+  const req = test ? httpRequest : httpsRequest;
   return new Promise(done => {
     const r = req(u, { method: 'POST', timeout: 10_000, headers: {
       TTL: String(ttl), Urgency: urgency, 'Content-Encoding': 'aes128gcm',

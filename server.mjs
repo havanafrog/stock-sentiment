@@ -25,7 +25,7 @@
 import { createServer } from 'node:http';
 import { DATA_DIR, dataPath, BASELINE_FILE, BASELINE_FALLBACK, LABELS_FILE, PULSE_FILE, ensureDataDir } from './paths.mjs';
 import { readFileSync, writeFileSync, appendFileSync, existsSync, statSync, unlinkSync, renameSync, watchFile } from 'node:fs';
-import { makeVapid, send, gate } from './push.mjs';
+import { makeVapid, send, gate, pushHostOk } from './push.mjs';
 import { join, dirname, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, timingSafeEqual, createHmac } from 'node:crypto';
@@ -1543,7 +1543,7 @@ createServer((req, res) => {
       const e = sub?.endpoint, k = sub?.keys ?? {};
       let good = false;
       try {
-        good = new URL(e).protocol === 'https:' && e.length <= 1024
+        good = pushHostOk(e) && e.length <= 1024
           && Buffer.from(k.p256dh ?? '', 'base64url').length === 65
           && Buffer.from(k.auth ?? '', 'base64url').length === 16;
       } catch { /* URL 이 아니다 */ }
