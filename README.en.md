@@ -71,7 +71,7 @@ alone cannot fetch live prices, candles, or posts. Node calls, then hands over t
 ## Sentiment scoring
 
 A character n-gram naive Bayes classifier splits positive / negative / neutral,
-trained on 15,813 labels — most written by EXAONE 3.5 7.8B, some by a human.
+trained on 15,373 labels — most written by EXAONE 3.5 7.8B, some by a human.
 If `model.json` is absent it falls back to a 68-word dictionary with negation
 flipping. Browser and Node read the same `lexicon.js`, so the two can never drift.
 
@@ -84,7 +84,7 @@ Against that human ruler the SLM itself scored 68.3%.
 
 - **Undocumented internal API.** It can change without notice; collection dies when it does.
 - **The answer key is not human.** The classifier inherits the SLM's eyes, including its mistakes.
-- **It over-calls negative.** 53.8% precision on the human ruler — nearly half of what a
+- **It over-calls negative.** 54.2% precision on the human ruler — nearly half of what a
   person reads as neutral gets called negative. That is the price of cutting missed
   negatives from 65% to 14%.
 - **Fear words are still a dictionary.** Irony and new slang slip through. Because the
