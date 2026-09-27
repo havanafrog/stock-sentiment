@@ -509,6 +509,8 @@
 
   /* 종목 추가. 판 바로 아래에 둔다 — 목록을 보다 "여기 하나 더" 가 자연스럽다. */
   .tkhead { font-size: 11.5px; font-weight: 600; color: var(--faint); margin: 0 0 10px; }
+  /* 종목 추가 카드의 접기 손잡이는 2단(main.duo)에서만 보인다. 그 밖에선 없는 것처럼. */
+  .tkfold > summary { display: none; }
   /* 좁으면 뒤쪽 칸부터 접는다. 종목·현재가·등락·곡소리가 먼저다. */
   @media (max-width: 640px) {
     .board .c-value, .board .c-str, .board .c-vol, .board .rk { display: none; }
@@ -541,6 +543,18 @@
     .app { max-width: 1760px; }
     /* 메인·실시간이 한 화면이라 탭이 둘일 이유가 없다. 눌러도 안 바뀌는 탭이었다. */
     #tabMain { display: none; }
+    /* 왼쪽 판이 종목을 고르는 자리다. 오른쪽 칩 줄은 같은 목록·같은 선택의 두 번째 벌이었다.
+       칩이 빠진 줄에 봉 단위·지표를 앞으로, 통화·환율을 끝으로 한 줄에 세운다. */
+    main.duo #segTicker, main.duo .ctrls .spacer { display: none; }
+    main.duo .ctrlwrap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 2px 12px; }
+    main.duo .cbar { margin: 0; }
+    main.duo .ctrls { order: 2; margin: 0 0 0 auto; }
+    /* 종목 추가·삭제는 가끔 쓴다. 따라붙는 왼쪽 칸의 1/3 을 늘 먹고 있었다. */
+    main.duo .tkfold > summary { display: flex; align-items: center; gap: 6px; min-height: 44px;
+      font-size: 12.5px; font-weight: 600; color: var(--text-secondary); cursor: pointer; list-style: none; }
+    main.duo .tkfold > summary::-webkit-details-marker { display: none; }
+    main.duo .tkfold > summary::after { content: '▸'; font-size: 11px; }
+    main.duo .tkfold[open] > summary::after { content: '▾'; }
     main.duo { display: grid; grid-template-columns: clamp(340px, 22vw, 400px) minmax(0, 1fr);
       gap: 18px; align-items: start; }
     main.duo #viewBoard { position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow-y: auto;
@@ -1028,6 +1042,9 @@
     <div class="card">
       <!-- 판 탭 제목이 페이지 제목뿐이라 읽기 도구가 여기로 건너뛸 수 없었다. 표는
            보이는 머리가 없어 이름만 준다 — 표 이동(로터 '표')으로 찾아간다. -->
+      <!-- 1440 이상 2단에서만 접는다(손잡이가 보인다). 그 밖에선 손잡이를 숨기고
+           늘 펴 둔다 — 여닫기는 탭 스크립트가 2단에 들고 날 때 한 번씩만 바꾼다. -->
+      <details class="tkfold" id="foldTk" open><summary>종목 추가·삭제</summary>
       <div class="tkhead" role="heading" aria-level="2">종목 추가</div>
       <div class="tkadd">
         <div class="ctrl">
@@ -1045,6 +1062,7 @@
       <div class="tkchk" id="tkMsg" role="status"></div>
       <div class="tklist" id="tkList"></div>
       <p class="cnote" id="tkNote"></p>
+      </details>
     </div>
   </div><!-- /viewBoard -->
 
@@ -3435,6 +3453,9 @@ let showTab = () => {};
       btn[k]?.setAttribute('aria-selected', String(duo ? k === 'board' : k === name));
     }
     btn.board.setAttribute('aria-controls', wide.matches ? 'viewBoard viewMain' : 'viewBoard');
+    // 종목 추가 카드: 2단에 들어갈 때 접고, 나올 때 편다. 그 사이 사람이 연 건 그대로 둔다.
+    const tk = $('foldTk');
+    if (tk.dataset.duo !== String(duo)) { tk.open = !duo; tk.dataset.duo = String(duo); }
     view.main.setAttribute('aria-labelledby', duo ? 'tabBoard' : 'tabMain');
     // 빠르게 여러 번 누르면 지나간 탭의 일은 버린다.
     const mine = ++turn;
