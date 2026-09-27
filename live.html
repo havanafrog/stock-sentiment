@@ -191,6 +191,7 @@
   .bar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
          font-size: 11.5px; color: var(--muted); margin: 0 0 0 auto;
          letter-spacing: .02em; text-align: right; }
+  .curbox { display: flex; align-items: center; gap: 8px; }
   .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--pos);
          box-shadow: 0 0 0 0 currentColor; animation: pulse 2s infinite; }
   .dot.stale { background: var(--muted); animation: none; }
@@ -658,7 +659,16 @@
        여태 한 번도 안 먹었다. 이름을 두 번 적어 이긴다. */
     .card.card { padding: 12px; border-radius: var(--radius); }
     .single { gap: 10px; }
-    .top .bar { margin-left: 0; }
+    /* 머리 줄: 제목 · (오른쪽 끝) 통화 / 다음 줄에 갱신 상태. */
+    .top .bar { margin-left: 0; order: 2; flex-basis: 100%; }
+    .curbox { order: 1; margin-left: auto; gap: 6px; }
+    /* 통화 단추는 보이는 높이 32, 누르는 자리는 위아래로 넓혀 44. 넓힌 판이 잘리지 않게
+       묶음의 overflow 를 풀고 모서리는 양끝 단추가 맡는다. */
+    .curbox .seg { overflow: visible; }
+    .curbox .seg button { position: relative; min-height: 32px; padding: 0 12px; }
+    .curbox .seg button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+    .curbox .seg button:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+    .curbox .seg button::after { content: ''; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; }
     /* 탭 줄을 위에 붙여 둔다. 글 목록이 수천 줄이라, 탭을 바꾸려고 맨 위까지
        올라가는 게 폰에서 제일 귀찮은 일이었다. 지면색을 깔아야 글이 비쳐 지나가지
        않는다. 옆으로 넉넉히 물려 카드 그림자까지 덮는다.
@@ -778,8 +788,6 @@
     #segTicker { order: 1; }
     .spacer { order: 2; flex-basis: 100%; height: 0; }  /* 줄바꿈 자리 */
     #segUnit { order: 3; }
-    #segCur  { order: 4; }
-    #rateInfo { order: 5; }
     .indbar { order: 6; }
     .wide { display: none; }          /* "USD $" 는 "$" 로 — 120px 가 55px 가 된다 */
     /* 종목칩은 종목 수만큼 늘어난다. 12개를 꽂아 재 보니 두 줄이 되어 줄이
@@ -1070,6 +1078,15 @@
       <span id="status">연결 중…</span>
       <button class="install" id="installBtn" type="button" hidden>앱으로 설치</button>
     </div>
+    <!-- 통화는 모든 탭의 값에 걸린다 — 조작 줄이 아니라 머리 줄 오른쪽 끝에 둔다. -->
+    <div class="curbox">
+      <div class="seg" id="segCur" role="group" aria-label="통화">
+        <!-- 폰에서는 기호만 남긴다. -->
+        <button data-c="USD" aria-pressed="true"><span class="wide">USD </span>$</button>
+        <button data-c="KRW" aria-pressed="false"><span class="wide">원화 </span>₩</button>
+      </div>
+      <span class="rate" id="rateInfo"></span>
+    </div>
     <p class="ioshint" id="iosHint" hidden>아이폰은 사파리 아래 <b>공유</b> 단추 → <b>홈 화면에 추가</b>로 앱처럼 설치됩니다.
       <button type="button" id="iosHintX" aria-label="안내 닫기">✕</button></p>
   </div>
@@ -1140,12 +1157,6 @@
   <div class="ctrls">
     <div class="seg" id="segTicker"></div>
     <div class="spacer"></div>
-    <div class="seg" id="segCur">
-      <!-- 폰에서는 기호만 남긴다. 한 줄에 봉단위·환율과 같이 서야 한다. -->
-      <button data-c="USD" aria-pressed="true"><span class="wide">USD </span>$</button>
-      <button data-c="KRW" aria-pressed="false"><span class="wide">원화 </span>₩</button>
-    </div>
-    <span class="rate" id="rateInfo"></span>
   </div>
 
   <div class="cbar">
