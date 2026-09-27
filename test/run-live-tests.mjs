@@ -787,9 +787,13 @@ console.log('\n── U. 컨트롤 정리 ──');
   // 자명한 것에는 캡션을 안 단다. 캡션이 열둘이면 캡션이 배경이 된다.
   const main = src.slice(src.indexOf('<div id="viewMain"'), src.indexOf('<!-- /viewMain -->'));
   ok('종목·통화·봉 캡션은 없다', !/>종목</.test(main) && !/>통화</.test(main) && !/>봉</.test(main));
-  // 지표 알약에 켠 수가 붙는다(3f60f14) — '지표 <span id="indN">'.
-  ok('이동평균과 보조지표는 지표 하나로', (main.match(/>지표[\s<]/g) || []).length === 1
-     && !/>이동평균</.test(main) && !/>보조지표</.test(main));
+  // 툴바의 지표 입구는 '+ 지표' 단추 하나다. '이동평균선'·'보조지표' 묶음 제목은
+  // 누르면 뜨는 고르기 판(#indPop) 안에만 있다 — 판 밖 툴바에는 캡션이 없어야 한다.
+  const pop = main.slice(main.indexOf('id="indPop"'), main.indexOf('id="indBack"'));
+  const bar = main.replace(pop, '');
+  ok('이동평균과 보조지표는 지표 하나로', (bar.match(/>\+ 지표</g) || []).length === 1
+     && !/>이동평균/.test(bar) && !/>보조지표</.test(bar)
+     && />이동평균선</.test(pop) && />보조지표</.test(pop));
 
   // 기분·평단이 한 줄에 눕는다. 세 줄이면 차트가 화면 밖으로 밀린다.
   // 투표는 툴바에서 빠져 차트 옆 기둥 카드로 갔다(32474ff).

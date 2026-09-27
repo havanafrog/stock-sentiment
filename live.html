@@ -301,14 +301,31 @@
   /* 지표 고르기. 11px 회색 글자에 13px 체크박스뿐이라 켠 것과 끈 것이 작은 체크
      표시로만 갈렸다. 봉 단위 칩(.seg)과 같은 알약으로 세우고, 켠 것은 바탕·굵기로
      한눈에 보이게 한다. 체크박스는 그대로 둬 읽기 도구가 켬·끔을 읽는다. */
-  .mas { display: flex; flex-wrap: wrap; gap: 6px; font-size: 12.5px; color: var(--text-secondary); }
-  .mas label { display: inline-flex; align-items: center; gap: 5px; cursor: pointer;
-    padding: 4px 10px; border-radius: var(--radius); box-shadow: var(--ring);
-    background: var(--surface-1); }
+  /* 지표 칩 줄: 켠 것만 '— 20선 ×', 끝에 '+ 지표'. */
+  .indbar { position: relative; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+  .indchips { display: contents; }
+  .indchip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 2px 0 10px;
+    border-radius: 14px; background: var(--accent-wash); color: var(--text-primary); font-size: 12.5px; font-weight: 600; }
+  .indchip button { position: relative; width: 24px; height: 24px; border: 0; border-radius: 12px; background: none;
+    color: var(--text-secondary); font: inherit; font-size: 14px; line-height: 1; cursor: pointer; }
+  .indchip button:hover { background: var(--neutral); }
+  .indadd { position: relative; height: 28px; padding: 0 12px; border: 0; border-radius: 14px; background: var(--surface-1);
+    box-shadow: var(--ring); font: inherit; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); cursor: pointer; }
+  .indadd[aria-expanded="true"] { box-shadow: inset 0 0 0 1.5px var(--pos-ink); color: var(--pos-ink); }
+  /* 고르기 판. 넓은 화면은 단추 밑 팝오버, 폰은 아래 640px 블록이 시트로 바꾼다. */
+  .indpop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; width: 260px; padding: 10px;
+    background: var(--surface-1); color: var(--text-primary); border-radius: var(--radius-lg);
+    box-shadow: var(--ring), 0 12px 32px rgba(0, 0, 0, .16); }
+  .indpop[hidden], .indback[hidden] { display: none; }
+  .indhd, .indok { display: none; }
+  .indgrp { margin: 6px 6px 4px; font-size: 11.5px; font-weight: 600; color: var(--faint); }
+  .mas { display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: var(--text-primary); }
+  .mas label { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 8px; cursor: pointer;
+    border-radius: var(--radius); }
   .mas label:hover { background: var(--neutral); }
   .mas label:has(input:checked) { background: var(--accent-wash); color: var(--text-primary); font-weight: 600; }
-  .mas input { margin: 0; width: 15px; height: 15px; accent-color: var(--pos); }
-  .mas .k { width: 12px; height: 3px; border-radius: 2px; display: inline-block; }
+  .mas input { margin: 0; width: 17px; height: 17px; accent-color: var(--pos); }
+  .mas .k, .indchip .k { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
   .cnote { font-size: 11px; color: var(--muted); margin: 4px 0 0; }
 
   /* 크로스헤어 · 툴팁 */
@@ -581,11 +598,11 @@
   /* 누를 자리 최소 24px (AA). 넓힌 규칙이 아래 640px 블록 안에만 있어 데스크톱은
      × 16x14, 지표 체크박스 17px, 평단 '선' 19px, '전체 보기' 50x17 그대로였다.
      보이지 않는 판만 깔아 모양·배치는 그대로 둔다. 폰은 아래 블록이 더 크게 덮는다. */
-  .tkdel, #cReset, .mas label, label.pnote { position: relative; }
+  .tkdel, #cReset, label.pnote { position: relative; }
   .tkdel::after { content: ''; position: absolute; left: 50%; top: 50%;
     width: 24px; height: 24px; transform: translate(-50%, -50%); }
   #cReset::after { content: ''; position: absolute; left: -8px; right: -8px; bottom: 0; height: 24px; }
-  .mas label::after, label.pnote::after { content: ''; position: absolute; left: 0; right: 0;
+  label.pnote::after { content: ''; position: absolute; left: 0; right: 0;
     top: 50%; height: 24px; transform: translateY(-50%); }
 
   @media (max-width: 640px) {
@@ -666,16 +683,23 @@
     /* 기간 칸 두 개도 한 줄로 버텼다. 글자 200%(195px)에서 기간 접기를 펴면 문서가
        287px 까지 밀렸다 — 모자라면 둘째 날짜를 다음 줄로 내린다. 390px 에선 그대로다. */
     .dates { flex-wrap: wrap; }
-    .mas { gap: 8px; }
-    .mas label { min-height: 44px; padding: 0 12px; }
-    /* '지표 ▾' 가 11.5px 흐린 글자에 폭 34px 라 ₩ 옆에 묻혔다. 칩으로 세우고 켠 수를
-       붙인다 — 접혀 있어도 무엇이 켜졌는지 보인다. 펴면 한 줄을 통째로 쓴다. */
-    #foldInd > summary { padding: 0 12px; border-radius: var(--radius); box-shadow: var(--ring);
-      background: var(--surface-1); font-size: 12.5px; color: var(--text-secondary); }
-    #indN:not(:empty) { font-weight: 600; color: var(--pos-ink); }
-    #foldInd[open] { flex-basis: 100%; }
-    #foldInd[open] > summary { margin-bottom: 8px; width: max-content; }
-    #foldInd .ctrl { flex-direction: column; align-items: flex-start; gap: 8px; }
+    /* 칩·단추는 보이는 높이 32, 누르는 자리는 보이지 않는 판으로 44. */
+    .indchip, .indadd { height: 32px; }
+    .indchip button::after, .indadd::after { content: ''; position: absolute; left: -4px; right: -4px; top: -6px; bottom: -6px; }
+    /* 폰은 아래에서 올라오는 시트. 뒤는 어둡게 깔고 Tab 은 시트 안에서만 돈다. */
+    .indpop { position: fixed; left: 0; right: 0; top: auto; bottom: 0; width: auto; z-index: 60;
+      max-height: 80vh; overflow-y: auto; border-radius: 16px 16px 0 0;
+      padding: 6px 16px calc(16px + env(safe-area-inset-bottom)); animation: indup .18s ease-out; }
+    @keyframes indup { from { transform: translateY(100%); } }
+    @media (prefers-reduced-motion: reduce) { .indpop { animation: none; } }
+    .indback { position: fixed; inset: 0; z-index: 59; background: rgba(0, 0, 0, .35); }
+    .indhd { display: flex; align-items: center; font-size: 16px; }
+    .indx { margin-left: auto; width: 44px; height: 44px; border: 0; background: none; font: inherit;
+      font-size: 18px; color: var(--text-secondary); cursor: pointer; }
+    .mas label { min-height: 48px; font-size: 15px; }
+    /* 누르는 즉시 반영된다. 완료는 닫기만 한다. 글자는 지면색 — 두 테마 모두 4.5 를 넘는다. */
+    .indok { display: block; width: 100%; height: 48px; margin-top: 10px; border: 0; border-radius: var(--radius);
+      background: var(--pos-ink); color: var(--page); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
     /* 평단 줄의 '선' 체크박스. 라벨까지 쳐도 누르는 높이가 20px 로 AA 24px 에
        못 미쳤다. 옆 평단 입력칸 높이(28px)만큼 세운다. */
     .pgrp label.pnote { display: flex; align-items: center; min-height: 28px; }
@@ -707,7 +731,7 @@
     #segUnit { order: 3; }
     #segCur  { order: 4; }
     #rateInfo { order: 5; }
-    #foldInd { order: 6; }
+    .indbar { order: 6; }
     .wide { display: none; }          /* "USD $" 는 "$" 로 — 120px 가 55px 가 된다 */
     /* 종목칩은 종목 수만큼 늘어난다. 12개를 꽂아 재 보니 두 줄이 되어 줄이
        40px 에서 81px 로 커지고, 봉 차트가 439px 에서 480px 로 밀렸다. 세로는
@@ -1086,24 +1110,32 @@
 
   <div class="cbar">
     <div class="seg" id="segUnit"></div>
-    <!-- 폰에서는 접어 둔다. 체크박스 일곱이 두 줄을 먹어 차트가 첫 화면 밖으로 밀렸다.
-         넓은 화면에서는 summary 를 숨기고 늘 펴 둔다 — 접을 이유가 없다. -->
-    <details class="fold" id="foldInd" open>
-      <summary>지표 <span id="indN"></span></summary>
-      <div class="ctrl">
+    <!-- 지표: 켠 것만 칩으로 두고, 더 고를 땐 '+ 지표'. 알약 일곱이 늘 한 줄(1440 에서
+         730px)을 먹었고, 폰에선 펼치면 세 줄로 차트를 밀었다. 체크박스는 고르기 판 안에
+         그대로 있어 저장·그리기(onchange)는 전과 같다. 폰은 아래 시트, 넓으면 팝오버. -->
+    <div class="indbar" id="indBar">
+      <span class="indchips" id="indChips"></span>
+      <button type="button" class="indadd" id="indAdd" aria-haspopup="dialog"
+        aria-expanded="false" aria-controls="indPop">+ 지표</button>
+      <div class="indpop" id="indPop" role="dialog" aria-label="지표 고르기" hidden>
+      <div class="indhd"><b>지표</b><button type="button" class="indx" id="indX" aria-label="닫기">✕</button></div>
+      <div class="indgrp">이동평균선</div>
       <div class="mas" id="masBox">
         <label><input type="checkbox" data-ma="20"><i class="k" style="background:var(--ma20)"></i>20선</label>
         <label><input type="checkbox" data-ma="120"><i class="k" style="background:var(--ma120)"></i>120선</label>
         <label><input type="checkbox" data-ma="200"><i class="k" style="background:var(--ma200)"></i>200선</label>
       </div>
+      <div class="indgrp">보조지표</div>
       <div class="mas" id="indBox">
         <label><input type="checkbox" data-ind="macd"><i class="k" style="background:var(--sig)"></i>MACD</label>
         <label><input type="checkbox" data-ind="rsi"><i class="k" style="background:var(--rsi)"></i>RSI</label>
         <label><input type="checkbox" data-ind="mfi"><i class="k" style="background:var(--mfi)"></i>매수/매도 압력</label>
         <label><input type="checkbox" data-ind="wm"><i class="k" style="background:var(--neg)"></i>곡소리 MACD</label>
       </div>
+      <button type="button" class="indok" id="indOk">완료</button>
       </div>
-    </details>
+    </div>
+    <div class="indback" id="indBack" hidden></div>
   </div>
   </div><!-- /ctrlwrap -->
 
@@ -2207,12 +2239,65 @@ function paintUnitSeg() {
   indCount();
 }
 
-/** 폰의 접힌 '지표' 손잡이에 켠 수를 단다. */
+/** 켠 지표를 칩으로 그린다. 이름·색은 고르기 판의 줄에서 그대로 가져온다. */
 function indCount() {
-  const n = Object.values(BAR.ma).filter(Boolean).length + Object.values(BAR.ind).filter(Boolean).length;
-  const e = $('indN');
-  if (e) e.innerHTML = n ? `${n}<span class="sr">개 켬</span>` : '';
+  const on = [...$('masBox').querySelectorAll('input:checked'), ...$('indBox').querySelectorAll('input:checked')];
+  $('indChips').innerHTML = on.map(i => {
+    const lab = i.closest('label'), name = lab.textContent.trim();
+    const kind = i.dataset.ma ? 'ma' : 'ind';
+    return `<span class="indchip"><i class="k" style="background:${lab.querySelector('.k').style.background}"></i>${name}`
+      + `<button type="button" data-off="${kind}:${i.dataset[kind]}" aria-label="${name} 끄기">×</button></span>`;
+  }).join('');
 }
+
+// ── 지표 고르기 판 ('+ 지표') ──
+// 폰(≤640)은 아래 시트, 그 밖은 단추 밑 팝오버. 열면 첫 체크박스로, 닫으면 '+ 지표' 로 초점.
+const indPhone = () => matchMedia('(max-width: 640px)').matches;
+function indOpen() {
+  const pop = $('indPop');
+  pop.hidden = false;
+  $('indBack').hidden = !indPhone();
+  $('indAdd').setAttribute('aria-expanded', 'true');
+  // 오른쪽 끝에 붙은 단추면 판이 화면 밖으로 나간다 — 오른쪽에 맞춘다.
+  pop.style.left = pop.style.right = '';
+  if (!indPhone() && pop.getBoundingClientRect().right > innerWidth - 8) { pop.style.left = 'auto'; pop.style.right = '0'; }
+  pop.querySelector('input')?.focus();
+}
+function indClose(back = true) {
+  if ($('indPop').hidden) return;
+  $('indPop').hidden = true;
+  $('indBack').hidden = true;
+  $('indAdd').setAttribute('aria-expanded', 'false');
+  if (back) $('indAdd').focus();
+}
+$('indAdd').onclick = () => ($('indPop').hidden ? indOpen() : indClose());
+$('indX').onclick = $('indOk').onclick = $('indBack').onclick = () => indClose();
+$('indPop').addEventListener('keydown', e => {
+  if (e.key === 'Escape') { e.stopPropagation(); indClose(); return; }
+  if (e.key !== 'Tab' || !indPhone()) return;          // 시트는 Tab 을 안에 가둔다
+  const f = [...$('indPop').querySelectorAll('input, button')];
+  if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+  else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+});
+// 팝오버: 바깥을 누르거나 초점이 칩 줄 밖으로 나가면 닫는다(초점은 간 곳에 둔다).
+document.addEventListener('pointerdown', e => {
+  if (!$('indPop').hidden && !indPhone() && !$('indBar').contains(e.target)) indClose(false);
+});
+$('indBar').addEventListener('focusout', e => {
+  if (!indPhone() && e.relatedTarget && !$('indBar').contains(e.relatedTarget)) indClose(false);
+});
+// 칩의 × 는 그 체크박스를 끄는 것과 같다. 끈 뒤 초점은 옆 칩, 없으면 '+ 지표'.
+$('indChips').onclick = ev => {
+  const b = ev.target.closest('[data-off]');
+  if (!b) return;
+  const at = [...$('indChips').querySelectorAll('[data-off]')].indexOf(b);
+  const [kind, key] = b.dataset.off.split(':');
+  const inp = $(kind === 'ma' ? 'masBox' : 'indBox').querySelector(`input[data-${kind}="${key}"]`);
+  inp.checked = false;
+  inp.dispatchEvent(new Event('change', { bubbles: true }));
+  const left = [...$('indChips').querySelectorAll('[data-off]')];
+  (left[at] ?? left[at - 1] ?? $('indAdd')).focus();
+};
 
 // 탭 제목에 현재가와 등락률. 창을 여러 개 띄워 두고 곁눈질할 때 이게 전부다.
 // 값을 앞에 둔다 — 탭이 좁아지면 뒤부터 잘리기 때문이다.
@@ -3269,7 +3354,7 @@ for (const id of ['tkBase']) {
 // 폰에서만 접은 채로 시작한다. 마크업은 open 으로 두므로, 자바스크립트가 안 돌거나
 // 넓은 화면이면 펴진 채다 — 접혀서 안 보이는 쪽이 아니라 보이는 쪽이 기본값이다.
 if (matchMedia('(max-width: 640px)').matches) {
-  for (const id of ['foldInd', 'foldDate', 'foldOpts']) $(id)?.removeAttribute('open');
+  for (const id of ['foldDate', 'foldOpts']) $(id)?.removeAttribute('open');
 }
 
 // ── 경보 알림 구독 ──
