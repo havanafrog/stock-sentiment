@@ -20,6 +20,11 @@ function makeNode(id = '') {
     // setProperty 를 받아야 코드가 브라우저와 같은 길로 간다.
     style: { setProperty(k, v) { this[k] = v; }, getPropertyValue(k) { return this[k] ?? ''; } },
     textContent: '', value: '',
+    classList: (() => {
+      const c = new Set();
+      return { add: k => c.add(k), remove: k => c.delete(k), contains: k => c.has(k),
+        toggle: (k, on = !c.has(k)) => (on ? c.add(k) : c.delete(k), on) };
+    })(),
     appendChild(c) { this.children.push(c); return c; },
     setAttribute(k, v) { this._attrs[k] = String(v); },
     removeAttribute(k) { delete this._attrs[k]; },
@@ -47,7 +52,7 @@ global.document = {
   getElementById: id => node(id),
   createElement: () => makeNode(),
   createElementNS: () => makeNode(),
-  querySelector: () => null,
+  querySelector: () => makeNode(),     // 실제 페이지엔 <main> 이 있다
   addEventListener: () => {},
 };
 global.addEventListener = () => {};
