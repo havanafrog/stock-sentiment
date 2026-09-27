@@ -191,7 +191,10 @@
   .bar { display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
          font-size: 11.5px; color: var(--muted); margin: 0 0 0 auto;
          letter-spacing: .02em; text-align: right; }
-  .curbox { display: flex; align-items: center; gap: 8px; }
+  .curbox { display: flex; align-items: center; gap: 8px; order: 1; margin-left: auto; }
+  /* 갱신 상태·앱 설치는 제목 아래 줄. 머리 줄 오른쪽에 상태·설치·통화·환율·날짜가
+     한데 몰려 통화 단추가 묻혔다(1440). */
+  .top .bar { order: 2; flex-basis: 100%; margin-left: 0; text-align: left; }
   .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--pos);
          box-shadow: 0 0 0 0 currentColor; animation: pulse 2s infinite; }
   .dot.stale { background: var(--muted); animation: none; }
@@ -660,8 +663,7 @@
     .card.card { padding: 12px; border-radius: var(--radius); }
     .single { gap: 10px; }
     /* 머리 줄: 제목 · (오른쪽 끝) 통화 / 다음 줄에 갱신 상태. */
-    .top .bar { margin-left: 0; order: 2; flex-basis: 100%; }
-    .curbox { order: 1; margin-left: auto; gap: 6px; }
+    .curbox { gap: 6px; }
     /* 통화 단추는 보이는 높이 32, 누르는 자리는 위아래로 넓혀 44. 넓힌 판이 잘리지 않게
        묶음의 overflow 를 풀고 모서리는 양끝 단추가 맡는다. */
     .curbox .seg { overflow: visible; }
