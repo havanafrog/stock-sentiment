@@ -98,8 +98,12 @@ const SERIES_SAVE = 20;      // 이만큼 새 점이 쌓이면 디스크에 쓴�
 // "링크 있는 사람만" 을 실제로 강제한다. 터널 주소가 길고 랜덤인 건 보안이 아니라 운이다.
 // 키는 .access-key 에 남겨 재시작해도 링크가 안 죽는다. 지우면 새로 발급된다.
 // 첫 요청에 ?k=... 가 맞으면 쿠키를 심어, 이후 data.js·SSE 요청은 파라미터 없이 통과한다.
-function loadKey() {
-  const p = dataPath('.access-key');
+//
+// 라벨 키(.label-key)는 한 겹 더다. 접근키는 README 에 공개된 데모 링크라 누구나
+// 갖고 있다 — 사람 라벨(#label200)은 만든 사람만 찍게 따로 막는다. 흐름은 같다:
+// ?lk=... 로 한 번 열면 쿠키를 심고 키를 뗀 주소로 튕긴다.
+function loadKey(file) {
+  const p = dataPath(file);
   if (existsSync(p)) {
     const k = readFileSync(p, 'utf8').trim();
     if (k.length >= 16) return k;
@@ -109,13 +113,17 @@ function loadKey() {
   return k;
 }
 ensureDataDir();          // 볼륨이 비어 있어도 첫 실행이 되어야 한다
-const KEY = loadKey();
+const KEY = loadKey('.access-key');
+const LABEL_KEY = loadKey('.label-key');
 
 // 길이가 다르면 timingSafeEqual 이 던지므로 먼저 거른다
-function keyOk(given) {
-  if (typeof given !== 'string' || given.length !== KEY.length) return false;
-  return timingSafeEqual(Buffer.from(given), Buffer.from(KEY));
+function same(given, want) {
+  if (typeof given !== 'string' || given.length !== want.length) return false;
+  return timingSafeEqual(Buffer.from(given), Buffer.from(want));
 }
+const keyOk = given => same(given, KEY);
+const labelKeyOk = given => same(given, LABEL_KEY);
+const keepCookie = (name, v) => `${name}=${encodeURIComponent(v)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`;
 
 function cookieOf(req, name) {
   for (const part of (req.headers.cookie ?? '').split(';')) {
@@ -128,40 +136,38 @@ function cookieOf(req, name) {
 /** 통과하면 true. 막으면 응답까지 마치고 false(응답 끝냄). */
 function authed(req, res) {
   const u = new URL(req.url, 'http://x');
-  const given = u.searchParams.get('k');
-  if (keyOk(given)) {
-    // 키를 쿠키로 옮겨 심는다 — 주소창에 계속 달고 다니지 않아도 된다
-    res.setHeader('Set-Cookie',
-      `k=${encodeURIComponent(KEY)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`);
-
-    // 쿠키를 심었으면 키를 뗀 주소로 한 번 튕긴다. 안 그러면 22자가 주소창에
-    // 영영 남고, 화면을 캡처하거나 주소를 복사할 때마다 같이 딸려 나간다.
-    // 조각(#live)은 서버로 안 오지만 브라우저가 튕긴 주소에 도로 붙여 준다.
-    //
-    // api 는 뺀다 — SSE 를 302 로 튕기면 스트림이 끊긴다.
-    // 쿠키를 막아 둔 브라우저라면 튕긴 다음이 404 다. 그때는 원래 링크로
-    // 다시 들어와야 한다 — 키가 있다는 사실조차 안 알리려고 404 는 그대로 둔다.
-    if (req.method === 'GET' && !u.pathname.startsWith('/api/')) {
-      u.searchParams.delete('k');
-      const qs = u.searchParams.toString();
-      res.writeHead(302, { Location: u.pathname + (qs ? '?' + qs : ''), 'Cache-Control': 'no-store' });
-      res.end();
-      return false;
-    }
-    return true;
-  }
-  if (keyOk(cookieOf(req, 'k'))) {
-    // 화면을 열 때마다 1년을 다시 센다. 알림을 눌러 여는 날 쿠키가 만료돼 404 가
-    // 뜨는 일을 줄인다. api·파일 요청까지 헤더를 달 이유는 없다 — 화면만.
-    if (req.method === 'GET' && u.pathname === '/') {
-      res.setHeader('Set-Cookie', `k=${encodeURIComponent(KEY)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`);
-    }
-    return true;
+  const byQuery = keyOk(u.searchParams.get('k'));
+  if (!byQuery && !keyOk(cookieOf(req, 'k'))) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
+    res.end('없는 경로입니다');
+    return false;
   }
 
-  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
-  res.end('없는 경로입니다');
-  return false;
+  // 키를 쿠키로 옮겨 심는다 — 주소창에 계속 달고 다니지 않아도 된다.
+  // 쿠키로 들어왔으면 화면을 열 때마다 1년을 다시 센다. 알림을 눌러 여는 날 쿠키가
+  // 만료돼 404 가 뜨는 일을 줄인다. api·파일 요청까지 헤더를 달 이유는 없다 — 화면만.
+  const cookies = [];
+  if (byQuery || (req.method === 'GET' && u.pathname === '/')) cookies.push(keepCookie('k', KEY));
+  const lk = u.searchParams.get('lk');
+  if (labelKeyOk(lk)) cookies.push(keepCookie('lk', LABEL_KEY));   // 틀린 lk 는 말없이 버린다
+  if (cookies.length) res.setHeader('Set-Cookie', cookies);
+
+  // 키를 뗀 주소로 한 번 튕긴다. 안 그러면 22자가 주소창에 영영 남고, 화면을
+  // 캡처하거나 주소를 복사할 때마다 같이 딸려 나간다. 조각(#live)은 서버로 안 오지만
+  // 브라우저가 튕긴 주소에 도로 붙여 준다.
+  //
+  // api 는 뺀다 — SSE 를 302 로 튕기면 스트림이 끊긴다.
+  // 쿠키를 막아 둔 브라우저라면 튕긴 다음이 404 다. 그때는 원래 링크로
+  // 다시 들어와야 한다 — 키가 있다는 사실조차 안 알리려고 404 는 그대로 둔다.
+  if ((byQuery || lk !== null) && req.method === 'GET' && !u.pathname.startsWith('/api/')) {
+    u.searchParams.delete('k');
+    u.searchParams.delete('lk');
+    const qs = u.searchParams.toString();
+    res.writeHead(302, { Location: u.pathname + (qs ? '?' + qs : ''), 'Cache-Control': 'no-store' });
+    res.end();
+    return false;
+  }
+  return true;
 }
 
 // ── 사전 (build.mjs 와 같은 파일) ─────────────────────────────
@@ -1563,7 +1569,8 @@ createServer((req, res) => {
     if (set) {                                            // 묶음 하나: 글 목록 + 찍은 것
       const rows = setRows(set);
       if (!rows) return sendJSON(res, 404, { error: `${set} 묶음이 없습니다.` });
-      return sendJSON(res, 200, { rows: [...rows.values()], done: readSetLabels(set) });
+      return sendJSON(res, 200, { rows: [...rows.values()], done: readSetLabels(set),
+        canLabel: labelKeyOk(cookieOf(req, 'lk')) });
     }
     res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' });
     return res.end(JSON.stringify(readLabels()));
@@ -1572,6 +1579,8 @@ createServer((req, res) => {
   if (path === '/api/label' && req.method === 'POST') {  // 한 건 찍기
     return readBody(req).then(({ t, id, y, set }) => {
       if (set !== undefined) {                            // 묶음 글은 묶음 파일로 확인한다
+        // 사람 자는 만든 사람만 찍는다. 접근키는 공개 데모라 누구나 있다.
+        if (!labelKeyOk(cookieOf(req, 'lk'))) return sendJSON(res, 403, { error: '라벨 키가 없습니다.' });
         const row = setRows(set)?.get(+id);
         if (!row || !LABEL_SET.has(y)) return sendJSON(res, 400, { error: 'set·id·y 를 확인하세요' });
         appendLabel(row.t, row.id, y, set, row.text);

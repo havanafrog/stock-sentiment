@@ -863,6 +863,9 @@
   .lbtext { margin: 6px 0 16px; min-height: 5.4em; font-size: 16px; line-height: 1.6;
     color: var(--text-primary); white-space: pre-wrap; word-break: break-word; }
   .lbbtns { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .lbbtns[hidden], .lblocked[hidden] { display: none; }
+  .lblocked { margin: 0; padding: 16px; border-radius: var(--radius); background: var(--neutral);
+    font-size: 14px; color: var(--text-primary); text-align: center; }
   .lbbtns button { min-height: 56px; border: 0; border-radius: var(--radius); font: inherit;
     font-size: 16px; font-weight: 600; cursor: pointer; background: var(--surface-1);
     box-shadow: var(--ring); color: var(--text-primary); }
@@ -1232,6 +1235,7 @@ z     = (k − μ) / σ
       </div>
       <div class="lbtk" id="lbTk"></div>
       <p class="lbtext" id="lbText" aria-live="polite"></p>
+      <p class="lblocked" id="lbLocked" hidden>이 화면은 만든 사람만 찍을 수 있습니다.</p>
       <div class="lbbtns" id="lbBtns" role="group" aria-label="판정">
         <button type="button" data-y="P" class="lbP" aria-pressed="false">긍정</button>
         <button type="button" data-y="X" class="lbX" aria-pressed="false">중립</button>
@@ -3231,6 +3235,9 @@ async function openLabel() {
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? 'HTTP ' + r.status);
       LB.rows = j.rows; LB.done = j.done ?? {};
+      // 라벨 키 쿠키가 없으면 읽기만 된다. 단추를 눌러 403 을 받게 두지 않고 처음부터 막는다.
+      $('lbBtns').hidden = !j.canLabel;
+      $('lbLocked').hidden = !!j.canLabel;
     } catch (e) { $('lbMsg').textContent = '글을 받지 못했습니다: ' + e.message; return; }
     const first = LB.rows.findIndex(r => !LB.done[r.id]);
     LB.i = first < 0 ? LB.rows.length - 1 : first;
