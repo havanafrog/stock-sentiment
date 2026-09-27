@@ -185,6 +185,50 @@ export function datasets() {
   };
 }
 
+// ── 로지스틱 회귀 (후보, 채택 전) ────────────────────────────
+// 나이브 베이즈는 n-gram 마다 따로 센다. 겹치는 n-gram("안되" "안되네")이 같은 증거를
+// 두 번 세는 걸 못 막는다. 로지스틱 회귀는 가중치를 같이 맞춰서 그걸 나눠 갖는다.
+// 채점은 똑같이 '절편 + 가중치 합' 이라 model.json 틀과 lexicon.js 를 그대로 쓴다
+// (lp = 절편, unk = 0 — 못 본 n-gram 은 아무 말도 안 한다).
+// 다항 소프트맥스 + L2, Adagrad. 순수 JS 로 15k 건 몇십 초.
+export function trainLR(rows, { nMin = 1, nMax = 2, minDf = 1, l2 = 1e-3, epochs = 15, lr = 0.02, seed = 1 } = {}) {
+  const df = new Map();
+  const docs = rows.map(r => {
+    const f = [...new Set(feats(r.text, { nMin, nMax }))];
+    for (const g of f) df.set(g, (df.get(g) || 0) + 1);
+    return { y: CLASSES.indexOf(r.y), f };
+  }).filter(d => d.y >= 0);
+  const vocab = new Map();
+  for (const [g, c] of df) if (c >= minDf) vocab.set(g, vocab.size);
+  for (const d of docs) d.j = d.f.map(g => vocab.get(g)).filter(j => j !== undefined);
+
+  const V = vocab.size, K = CLASSES.length;
+  const w = CLASSES.map(() => new Float32Array(V)), gw = CLASSES.map(() => new Float32Array(V));
+  const b = new Float64Array(K), gb = new Float64Array(K);
+  let s = seed;
+  const rnd = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
+  const order = docs.map((_, i) => i);
+  for (let ep = 0; ep < epochs; ep++) {
+    for (let i = order.length - 1; i > 0; i--) { const k = Math.floor(rnd() * (i + 1)); [order[i], order[k]] = [order[k], order[i]]; }
+    for (const i of order) {
+      const d = docs[i];
+      const z = Array.from(b);
+      for (const j of d.j) for (let c = 0; c < K; c++) z[c] += w[c][j];
+      const mx = Math.max(...z), ex = z.map(v => Math.exp(v - mx)), sum = ex.reduce((a, v) => a + v, 0);
+      for (let c = 0; c < K; c++) {
+        const g = ex[c] / sum - (c === d.y ? 1 : 0);
+        gb[c] += g * g; b[c] -= lr * g / Math.sqrt(gb[c] + 1e-8);
+        // ponytail: L2 는 이 글에 나온 가중치에만 건다(게으른 L2). 드문 n-gram 이 덜 줄어든다.
+        for (const j of d.j) {
+          const gj = g + l2 * w[c][j];
+          gw[c][j] += gj * gj; w[c][j] -= lr * gj / Math.sqrt(gw[c][j] + 1e-8);
+        }
+      }
+    }
+  }
+  return { vocab, w, lp: Array.from(b), unk: CLASSES.map(() => 0), nMin, nMax, binarize: true };
+}
+
 // ── 교차검증 (학습셋 안에서만) ───────────────────────────────
 // 설정을 홀드아웃으로 고르면 홀드아웃이 더는 홀드아웃이 아니다.
 export function cv(rows, opt, k = 5) {
@@ -217,10 +261,13 @@ export function serialize(m) {
 // ── CLI ──────────────────────────────────────────────────────
 //   node tools/train-nb.mjs          자로 잰다. 학습 4,170 · 홀드아웃 11,643
 //   node tools/train-nb.mjs --full   가진 라벨 전부로 배워 model.json 을 쓴다
+//   node tools/train-nb.mjs --lr [--full 파일]   같은 일을 로지스틱 회귀로 (후보, 채택 전)
 //   node tools/train-nb.mjs --sample-random   찍을 무작위 200건을 만든다(있으면 안 덮는다)
 // node -e 로 불러 쓸 때는 argv[1] 이 없다. 그때는 CLI 를 돌리지 않는다.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const OPT = { nMin: 1, nMax: 2, alpha: 1, binarize: true, minDf: 1 };
+  // --lr: 나이브 베이즈 대신 로지스틱 회귀로 배운다. 재는 자와 내보내는 틀은 같다.
+  const fit = process.argv.includes('--lr') ? rows => trainLR(rows) : rows => train(rows, OPT);
   const { train4k, held, extra } = datasets();
   const ruler = [...train4k, ...extra];
 
@@ -238,8 +285,9 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     // 재는 건 위의 4,170건짜리로 하고, 내보내는 건 가진 걸 다 쓴 모델이다.
     // 데이터가 3.8배라 실제 성능은 잰 숫자보다 나을 것이다 — 다만 잰 건 아니다.
     const all = [...ruler, ...held];
-    const m = train(all, OPT);
-    const out = process.argv[process.argv.indexOf('--full') + 1] || 'model.json';
+    const m = fit(all);
+    const arg = process.argv[process.argv.indexOf('--full') + 1];
+    const out = arg && !arg.startsWith('--') ? arg : 'model.json';
     const { writeFileSync } = await import('node:fs');
     writeFileSync(out, JSON.stringify(serialize(m)));
     console.log(`${out} — 라벨 ${all.length.toLocaleString()}건 · 어휘 ${m.vocab.size.toLocaleString()}개`);
@@ -248,7 +296,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     new Function('window', readFileSync('lexicon.js', 'utf8'))(W);
     const lex = t => { const s = W.scoreWith(t, W.LEX_DEFAULT); return s > 0 ? 'P' : s < 0 ? 'N' : 'X'; };
 
-    const m = train(ruler, OPT);
+    const m = fit(ruler);
     console.log(`학습 ${ruler.length.toLocaleString()} · 홀드아웃 ${held.length.toLocaleString()} · 어휘 ${m.vocab.size.toLocaleString()}\n`);
     console.log(report(held, t => predict(m, t).y, 'SLM 정답지로 잰 것 — 분류기').text, '\n');
     console.log(report(held, lex, 'SLM 정답지로 잰 것 — 사전').text);
@@ -256,7 +304,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     // 위의 숫자는 "SLM 을 얼마나 잘 흉내내나" 다. 아래가 "얼마나 맞나" 다.
     const human = audit();
     if (human.length) {
-      const full = train([...ruler, ...held], OPT);   // 사람 자는 애초에 빠져 있다
+      const full = fit([...ruler, ...held]);   // 사람 자는 애초에 빠져 있다
       const bySlm = new Map(human.map(r => [r.text, r.slm]));
       console.log(`\n\n사람이 읽고 찍은 ${human.length}건으로 다시 잰다. 셋 다 이 글을 못 봤다.\n`);
       console.log(report(human, t => bySlm.get(t), 'SLM(정답지 자신)').text, '\n');
@@ -290,7 +338,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     // 무작위 200건 중 사람이 찍은 것. 되맞춤 없이 그대로가 실제 분포의 정확도다.
     const rnd = randomSet().filter(r => r.y);
     if (rnd.length) {
-      const full = train([...ruler, ...held], OPT);
+      const full = fit([...ruler, ...held]);
       const slm = new Map(JSON.parse(readFileSync('docs/labels-holdout-12000.json', 'utf8')).map(r => [r.id, r.y]));
       const bySlm = new Map(rnd.map(r => [r.text, slm.get(r.id)]));
       console.log(`\n\n무작위 ${rnd.length}건(시드 ${RANDOM_SEED}) — 실제 분포 그대로\n`);
