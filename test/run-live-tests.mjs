@@ -277,18 +277,19 @@ console.log('\n── I. 탭 제목 ──');
   });
 
   L.UI.ticker = 'SNDK';
-  L.setTitle(snap({ close: 1608, open: 1668 }, 'SNDK'));
+  // 등락률은 전일 종가(base) 대비다. 시가(open)는 일부러 반대쪽에 둬서 잘못 쓰면 부호가 뒤집힌다.
+  L.setTitle(snap({ close: 1608, open: 1600, base: 1668 }, 'SNDK'));
   ok('내리면 ▼ 와 등락률', document.title === '$1,608.00 ▼3.60% · SNDK', document.title);
-  L.setTitle(snap({ close: 1700, open: 1668 }, 'SNDK'));
-  ok('오르면 ▲', document.title.startsWith('$1,700.00 ▲'), document.title);
+  L.setTitle(snap({ close: 1700, open: 1750, base: 1668 }, 'SNDK'));
+  ok('오르면 ▲', document.title === '$1,700.00 ▲1.92% · SNDK', document.title);
 
   // 시세가 없으면 원래 제목으로 — 빈 값이 탭에 남으면 안 된다
   L.setTitle(snap(null, 'SNDK'));
   ok('시세 없으면 원래 제목', document.title === '곡소리계산기', document.title);
 
-  // 시가가 없으면 등락률을 못 낸다 — 가격만 띄운다
-  L.setTitle(snap({ close: 1608 }, 'SNDK'));
-  ok('시가 없으면 가격만', document.title === '$1,608.00 · SNDK', document.title);
+  // 전일 종가가 없으면 등락률을 못 낸다 — 가격만 띄운다
+  L.setTitle(snap({ close: 1608, open: 1668 }, 'SNDK'));
+  ok('전일 종가 없으면 가격만', document.title === '$1,608.00 · SNDK', document.title);
 
   // 종목을 바꾸면 제목도 그 종목 것이어야 한다
   L.UI.ticker = 'MU';
@@ -420,14 +421,14 @@ console.log('\n── K. 보조지표 ──');
 
   global.innerWidth = 390;
   ok('좁아지면 다시 잡는다', L.fitCharts() === true);
-  ok('폰 viewBox 는 380 폭', node('cPrice')._attrs.viewBox === '0 0 380 250');
+  ok('폰 viewBox 는 380 폭', node('cPrice')._attrs.viewBox === '0 0 380 300');
   ok('거래량 칸도 같이 바뀐다', node('cVol')._attrs.viewBox === '0 0 380 52');
   ok('곡소리 칸도 같이 바뀐다', node('cFear')._attrs.viewBox === '0 0 380 112');
   ok('폭이 그대로면 안 바뀌었다고 답한다', L.fitCharts() === false);
   // 다시 그리면 card() 가 문서 값을 되씌운다 — drawBars 가 다시 잡아야 한다.
   node('cPrice')._attrs.viewBox = '0 0 600 200';
   L.drawBars();
-  ok('다시 그려도 폰 치수를 지킨다', node('cPrice')._attrs.viewBox === '0 0 380 250');
+  ok('다시 그려도 폰 치수를 지킨다', node('cPrice')._attrs.viewBox === '0 0 380 300');
 
   L.drawBars();
   const xs = node('cPrice').children
@@ -691,7 +692,8 @@ console.log('\n── R. 탭 ──');
 {
   const src = readFileSync('live.html', 'utf8');
   // 종목 추가는 메인 탭 안에만 있어야 한다. 밖에 두면 어느 탭을 눌러도 따라 나온다.
-  const from = src.indexOf('<div id="viewBoard">');
+  // 속성(role·aria)이 붙어도 찾게 id 로 찾는다.
+  const from = src.search(/<div\b[^>]*\bid="viewBoard"/);
   const to = src.indexOf('<!-- /viewBoard -->');
   ok('viewBoard 가 닫힌다', from > 0 && to > from, `${from} ${to}`);
   const board = src.slice(from, to);
@@ -726,19 +728,34 @@ console.log('\n── S. 누른 것 ──');
   ok('총원을 적는다', node('pulseCount').textContent === '4명');
   ok('내가 누른 쪽에 표시', vbtn[0].getAttribute('aria-pressed') === 'true' && vbtn[1].getAttribute('aria-pressed') === 'false');
 
-  // 기분 — 행복도가 음수면 화난 얼굴이다.
+  // 기분 — 곡소리판 얼굴이다. 양수 🤑 · 0 😶 · 음수 😭 (b477dab).
   ok('행복도를 적는다', node('moodHappy').textContent === '-6');
-  ok('행복도가 음수면 화난 얼굴', node('moodFace').textContent === '\uD83D\uDE21');
+  ok('행복도가 음수면 우는 얼굴', node('moodFace').textContent === '\uD83D\uDE2D');
   L.pulseRender({ ticker: 'KORU', day: '2026-08-25',
     vote: { up: 0, down: 0, mine: null }, mood: { hit: 1, pet: 9, happy: 8 }, wait: 0 });
-  ok('행복도가 양수면 웃는 얼굴', node('moodFace').textContent === '\uD83D\uDE0A');
+  ok('행복도가 양수면 돈 얼굴', node('moodFace').textContent === '\uD83E\uDD11');
   ok('양수엔 부호를 붙인다', node('moodHappy').textContent === '+8');
+  L.pulseRender({ ticker: 'KORU', day: '2026-08-25',
+    vote: { up: 0, down: 0, mine: null }, mood: { hit: 5, pet: 5, happy: 0 }, wait: 0 });
+  ok('행복도가 0 이면 무표정', node('moodFace').textContent === '\uD83D\uDE36');
+  ok('0 엔 부호가 없다', node('moodHappy').textContent === '0', node('moodHappy').textContent);
 
   // 쿨다운 — 남았으면 버튼을 잠근다. 눌러도 안 먹는데 눌리면 속은 기분이 든다.
-  ok('쿨다운이 없으면 누를 수 있다', !node('moodPet').disabled && !node('moodHit').disabled);
+  // disabled 가 아니라 aria-disabled 다(4798500) — disabled 면 초점이 BODY 로 떨어진다.
+  ok('쿨다운이 없으면 누를 수 있다', node('moodPet').getAttribute('aria-disabled') === 'false'
+     && node('moodHit').getAttribute('aria-disabled') === 'false');
   L.pulseRender({ ticker: 'KORU', day: '2026-08-25',
     vote: { up: 0, down: 0, mine: null }, mood: { hit: 0, pet: 0, happy: 0 }, wait: 12_000 });
-  ok('쿨다운이 남으면 잠근다', node('moodPet').disabled && node('moodHit').disabled);
+  ok('쿨다운이 남으면 잠근다', node('moodPet').getAttribute('aria-disabled') === 'true'
+     && node('moodHit').getAttribute('aria-disabled') === 'true');
+  // 잠근 모양만이 아니라 눌러도 안 보내는지 본다.
+  {
+    const keep = global.fetch; let sent = 0;
+    global.fetch = async (...a) => { sent++; return keep(...a); };
+    node('pulseMood').onclick({ target: { closest: () => node('moodPet') } });
+    ok('쿨다운 중엔 눌러도 안 보낸다', sent === 0, String(sent));
+    global.fetch = keep;
+  }
   ok('몇 초 남았는지 적는다', node('moodNote').textContent === '12초', node('moodNote').textContent);
 }
 
@@ -770,11 +787,13 @@ console.log('\n── U. 컨트롤 정리 ──');
   // 자명한 것에는 캡션을 안 단다. 캡션이 열둘이면 캡션이 배경이 된다.
   const main = src.slice(src.indexOf('<div id="viewMain"'), src.indexOf('<!-- /viewMain -->'));
   ok('종목·통화·봉 캡션은 없다', !/>종목</.test(main) && !/>통화</.test(main) && !/>봉</.test(main));
-  ok('이동평균과 보조지표는 지표 하나로', (main.match(/>지표</g) || []).length === 1
+  // 지표 알약에 켠 수가 붙는다(3f60f14) — '지표 <span id="indN">'.
+  ok('이동평균과 보조지표는 지표 하나로', (main.match(/>지표[\s<]/g) || []).length === 1
      && !/>이동평균</.test(main) && !/>보조지표</.test(main));
 
-  // 투표·기분·평단이 한 줄에 눕는다. 세 줄이면 차트가 화면 밖으로 밀린다.
-  ok('누른 것은 한 줄', (main.match(/class="pgrp"/g) || []).length === 3
+  // 기분·평단이 한 줄에 눕는다. 세 줄이면 차트가 화면 밖으로 밀린다.
+  // 투표는 툴바에서 빠져 차트 옆 기둥 카드로 갔다(32474ff).
+  ok('누른 것은 한 줄', (main.match(/class="pgrp"/g) || []).length === 2
      && !main.includes('class="prow"'));
 }
 console.log(`\n${pass} passed, ${fail} failed`);
