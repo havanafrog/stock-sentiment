@@ -561,6 +561,9 @@
       display: flex; flex-direction: column; gap: 14px; }
     main.duo .board .c-value, main.duo .board .c-str, main.duo .board .c-vol,
     main.duo .board .rk { display: none; }
+    /* 판에 340~400px 를 내주고 나면 차트가 1280 한 칸일 때(725)보다 좁은 575 였다.
+       2단 안에선 820~1399 폭과 같은 1.7:1 로 차트 쪽에 폭을 돌려준다. */
+    main.duo .single { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
   }
   /* 접는 칸. 넓은 화면에선 summary 를 숨기고 늘 펴 둔 것처럼 보인다. */
   .fold { min-width: 0; }
