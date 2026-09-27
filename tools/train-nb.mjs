@@ -134,6 +134,26 @@ export function audit() {
     ? JSON.parse(readFileSync('docs/labels-audit-240.json', 'utf8')) : [];
 }
 
+// 홀드아웃에서 무작위로 뽑은 200건. 사람이 찍을 자리다 — 240건은 SLM 라벨로 층을
+// 나눠 뽑아서 실제 분포가 아니다. 이건 뽑은 그대로라 되맞춤 없이 실제 분포의 정확도다.
+// y 가 빈 줄은 아직 안 찍은 것. 찍기 전에도 학습에서는 뺀다(나중에 잴 자리를 모델이
+// 미리 보면 안 된다). 파일은 --sample-random 으로 만든다.
+const RANDOM_FILE = 'docs/labels-random-200.json';
+export const RANDOM_SEED = 20260926;
+export function randomSet() {
+  return existsSync(RANDOM_FILE) ? JSON.parse(readFileSync(RANDOM_FILE, 'utf8')) : [];
+}
+
+/** 홀드아웃(학습 4000·사람 240 뺀 것)을 id 순으로 놓고 LCG 로 섞어 앞에서 n 건. */
+export function sampleRandom(pool, n = 200, seed = RANDOM_SEED) {
+  let s = seed;
+  const rnd = () => (s = (s * 1103515245 + 12345) % 2147483648) / 2147483648;
+  const a = pool.slice().sort((x, y) => x.id - y.id);
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  // 찍는 사람이 SLM 이 뭐라 했는지 보면 그쪽으로 끌려간다. 라벨은 가린다.
+  return a.slice(0, n).map(r => ({ id: r.id, t: r.t, text: r.text, y: '' }));
+}
+
 export function datasets() {
   const tuned = new Set(JSON.parse(readFileSync('docs/labels-4000.json', 'utf8')).map(r => r.id));
   const all = JSON.parse(readFileSync('docs/labels-holdout-12000.json', 'utf8'));
@@ -155,8 +175,8 @@ export function datasets() {
   const heldIds = new Set(held.map(r => r.id));
   const extra = [...read150, ...mine].filter(r => r.y && r.text && !heldIds.has(r.id));
 
-  // 사람 자에 든 글은 어느 쪽에도 넣지 않는다.
-  const audited = new Set(audit().map(r => r.id));
+  // 사람 자에 든 글은 어느 쪽에도 넣지 않는다. 아직 안 찍은 무작위 200건도.
+  const audited = new Set([...audit(), ...randomSet()].map(r => r.id));
   const drop = a => a.filter(r => !audited.has(r.id));
 
   return {
@@ -197,13 +217,24 @@ export function serialize(m) {
 // ── CLI ──────────────────────────────────────────────────────
 //   node tools/train-nb.mjs          자로 잰다. 학습 4,170 · 홀드아웃 11,643
 //   node tools/train-nb.mjs --full   가진 라벨 전부로 배워 model.json 을 쓴다
+//   node tools/train-nb.mjs --sample-random   찍을 무작위 200건을 만든다(있으면 안 덮는다)
 // node -e 로 불러 쓸 때는 argv[1] 이 없다. 그때는 CLI 를 돌리지 않는다.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const OPT = { nMin: 1, nMax: 2, alpha: 1, binarize: true, minDf: 1 };
   const { train4k, held, extra } = datasets();
   const ruler = [...train4k, ...extra];
 
-  if (process.argv.includes('--full')) {
+  if (process.argv.includes('--sample-random')) {
+    if (existsSync(RANDOM_FILE)) { console.log(`${RANDOM_FILE} 이 이미 있다 — 찍은 라벨을 덮지 않는다.`); process.exit(1); }
+    // 뽑는 자리는 무작위 200건을 빼기 전의 홀드아웃이다.
+    const tuned = new Set(JSON.parse(readFileSync('docs/labels-4000.json', 'utf8')).map(r => r.id));
+    const a240 = new Set(audit().map(r => r.id));
+    const pool = JSON.parse(readFileSync('docs/labels-holdout-12000.json', 'utf8'))
+      .filter(r => !tuned.has(r.id) && !a240.has(r.id));
+    const rows = sampleRandom(pool);
+    writeFileSync(RANDOM_FILE, JSON.stringify(rows));
+    console.log(`${RANDOM_FILE} — 홀드아웃 ${pool.length.toLocaleString()}건에서 ${rows.length}건 · 시드 ${RANDOM_SEED}`);
+  } else if (process.argv.includes('--full')) {
     // 재는 건 위의 4,170건짜리로 하고, 내보내는 건 가진 걸 다 쓴 모델이다.
     // 데이터가 3.8배라 실제 성능은 잰 숫자보다 나을 것이다 — 다만 잰 건 아니다.
     const all = [...ruler, ...held];
@@ -254,6 +285,18 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
       for (const [tag, pred] of [['SLM', t => bySlm.get(t)],
                                  ['분류기', t => predict(full, t).y], ['사전', lex]])
         console.log(`  ${tag.padEnd(4)} ${pct(reweigh(pred))}`);
+    }
+
+    // 무작위 200건 중 사람이 찍은 것. 되맞춤 없이 그대로가 실제 분포의 정확도다.
+    const rnd = randomSet().filter(r => r.y);
+    if (rnd.length) {
+      const full = train([...ruler, ...held], OPT);
+      const slm = new Map(JSON.parse(readFileSync('docs/labels-holdout-12000.json', 'utf8')).map(r => [r.id, r.y]));
+      const bySlm = new Map(rnd.map(r => [r.text, slm.get(r.id)]));
+      console.log(`\n\n무작위 ${rnd.length}건(시드 ${RANDOM_SEED}) — 실제 분포 그대로\n`);
+      console.log(report(rnd, t => bySlm.get(t), 'SLM').text, '\n');
+      console.log(report(rnd, t => predict(full, t).y, '분류기').text, '\n');
+      console.log(report(rnd, lex, '사전').text);
     }
   }
 }
