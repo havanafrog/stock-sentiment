@@ -5,8 +5,10 @@
 //   화면(html)   망 먼저. 안 되면 들고 있던 것 — 앱이 흰 화면으로 안 뜨게
 //   아이콘 등    들고 있던 것 먼저, 뒤에서 새로 받아 둔다
 // 틀을 바꾸면 V 를 올린다. 옛 칸은 activate 에서 지운다.
-const V = 'shell-v2';
-const SHELL = ['/', 'app.webmanifest', 'logo-128.png', 'logo-256.png', 'logo-512.png'];
+const V = 'shell-v3';
+// logo-256.png 는 저장소에 없다(.gitignore). 새로 받은 곳에선 404 라 addAll 이 통째로
+// 실패해 일꾼이 아예 안 섰다 — 알림도 여기서 받으니 빼 둔다.
+const SHELL = ['/', 'app.webmanifest', 'logo-128.png', 'logo-512.png'];
 
 self.addEventListener('install', e => {
   // 입장 키 쿠키가 있어야 받아진다. 같은 곳이라 쿠키는 저절로 붙는다.
@@ -17,6 +19,33 @@ self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
     .then(ks => Promise.all(ks.filter(k => k !== V).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
+});
+
+// ── 곡소리 경보 알림 ──
+// 내용은 암호화된 푸시 안에 다 들어 있다. 받는 순간 아무것도 받아 오지 않으니
+// 키 쿠키가 없어도 알림은 뜬다. 조용한 푸시는 아이폰이 막으니 받으면 늘 띄운다.
+// 같은 종목은 tag 가 같아 쌓이지 않고 덮인다.
+self.addEventListener('push', e => {
+  let d = {};
+  try { d = e.data?.json() ?? {}; } catch { /* 깨진 본문이어도 알림은 띄운다 */ }
+  const t = typeof d.t === 'string' ? d.t : '';
+  e.waitUntil(self.registration.showNotification(d.title ?? '곡소리계산기 경보', {
+    body: d.body ?? '', icon: 'logo-512.png', lang: 'ko',
+    tag: t ? `wail-${t}` : 'wail', renotify: true, data: { t },
+  }));
+});
+
+// 누르면 그 종목 실시간으로. 열린 창이 있으면 그 창을 쓰고, 없으면 새로 연다.
+// 새 창은 최상위 이동이라 SameSite=Lax 키 쿠키가 붙는다.
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  const t = e.notification.data?.t ?? '';
+  e.waitUntil((async () => {
+    const open = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const w = open.find(c => new URL(c.url).origin === location.origin);
+    if (w) { await w.focus(); w.postMessage({ type: 'open', t }); return; }
+    await self.clients.openWindow(t ? `/?t=${encodeURIComponent(t)}#live` : '/#live');
+  })());
 });
 
 self.addEventListener('fetch', e => {

@@ -1291,6 +1291,9 @@ const store = {
   get(k, dflt) { try { return localStorage.getItem('live.' + k) ?? dflt; } catch { return dflt; } },
   set(k, v) { try { localStorage.setItem('live.' + k, v); } catch { /* 사파리 프라이빗 등 */ } },
 };
+// 경보 알림을 눌러 새 창으로 열면 ?t=SNDK 가 붙어 온다. 종목만 받아 두고 주소에선 뗀다.
+const OPEN_T = new URLSearchParams(location.search).get('t');
+if (OPEN_T) { store.set('ticker', OPEN_T); history.replaceState(null, '', location.pathname + location.hash); }
 const UI = { ticker: store.get('ticker', null), cur: store.get('cur', 'USD') };
 
 let LAST = null;
@@ -3347,6 +3350,13 @@ let showTab = () => {};
 // 안드로이드·크롬·엣지. 아이폰 사파리는 그 알림이 없어 안내 글만 한 번 띄운다.
 (() => {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* 없어도 사이트는 돈다 */ });
+  // 열린 창에서 경보 알림을 누르면 일꾼이 이 창으로 종목을 넘긴다.
+  navigator.serviceWorker?.addEventListener('message', e => {
+    if (e.data?.type !== 'open') return;
+    if (e.data.t) pickTicker(e.data.t);
+    location.hash = 'live';
+    showTab('main');
+  });
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
   if (standalone) return;
   let ask = null;

@@ -12,7 +12,8 @@ WORKDIR /app
 # 코드는 이미지에, 남는 것은 볼륨에. 섞으면 갱신할 때마다 데이터가 위험해진다.
 COPY paths.mjs toss.mjs tickers.mjs push.mjs lexicon.js model.json \
      server.mjs build.mjs fetch-comments.mjs \
-     live.html index.html data.js logo-128.png ./
+     live.html index.html data.js logo-128.png \
+     sw.js app.webmanifest logo-512.png logo-maskable.png ./
 
 # 볼륨을 안 걸고 띄워도 죽지는 않게. 걸면 이 자리를 덮어쓴다.
 RUN mkdir -p /data && chown -R node:node /data /app
