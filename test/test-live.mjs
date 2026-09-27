@@ -47,6 +47,7 @@ global.document = {
   getElementById: id => node(id),
   createElement: () => makeNode(),
   createElementNS: () => makeNode(),
+  querySelector: () => null,
   addEventListener: () => {},
 };
 global.addEventListener = () => {};
