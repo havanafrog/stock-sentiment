@@ -515,6 +515,7 @@
 
   /* 종목 — 심볼 위, 한글 이름 아래. 한 줄에 몰면 이름이 길 때 표가 밀린다. */
   .board .sym { font-weight: 600; line-height: 18px; }
+  .board .av, .lh { display: none; }
   .board .nm { display: block; color: var(--faint); font-weight: 400; font-size: 12px;
     line-height: 16px; overflow: hidden; text-overflow: ellipsis; max-width: 150px; }
 
@@ -595,6 +596,32 @@
       display: flex; flex-direction: column; gap: 14px; }
     main.duo .board .c-value, main.duo .board .c-str, main.duo .board .c-vol,
     main.duo .board .rk { display: none; }
+    /* 판을 오른쪽 목록으로 — 토스 주문 화면처럼 차트가 가운데, 종목이 오른쪽.
+       한 줄 = 머리글자 원 · 티커/이름 · 현재가/등락률 · 곡소리(90 이상 붉은 알약).
+       표는 그대로 두고 줄만 격자로 편다 — 정렬·누르기·고른 줄 표시가 전과 같다. */
+    main.duo { grid-template-columns: minmax(0, 1fr) clamp(320px, 18vw, 360px); }
+    main.duo #viewBoard { order: 2; }
+    main.duo .lh { display: flex; align-items: baseline; gap: 6px; padding: 2px 4px 6px; font-size: 15px; font-weight: 700; }
+    main.duo #boardN { color: var(--faint); font-weight: 600; }
+    main.duo .board, main.duo .board thead, main.duo .board tbody { display: block; }
+    main.duo .board thead tr { display: flex; justify-content: flex-end; gap: 12px; padding: 0 8px 6px; }
+    main.duo .board th { padding: 0; }
+    main.duo .board tbody tr { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto 40px;
+      grid-template-rows: auto auto; column-gap: 10px; align-items: center; padding: 8px; border-radius: var(--radius); }
+    main.duo .board td { height: auto; padding: 0; background: none; }
+    main.duo .board tbody tr:hover { background: var(--neutral); }
+    main.duo .board tr[aria-selected="true"] { background: var(--accent-wash); }
+    main.duo .board tr[aria-selected="true"] td, main.duo .board tbody tr:hover td { background: none; }
+    main.duo .board td:nth-child(2) { grid-column: 1 / 3; grid-row: 1 / 3; display: grid;
+      grid-template-columns: 32px minmax(0, 1fr); column-gap: 10px; align-items: center; }
+    main.duo .board .av { display: grid; grid-row: 1 / 3; place-items: center; width: 32px; height: 32px;
+      border-radius: 50%; background: var(--neutral); color: var(--text-secondary); font-size: 11px; font-weight: 700; font-style: normal; }
+    main.duo .board .sym { font-size: 14.5px; justify-self: start; }
+    main.duo .board .nm { overflow: hidden; text-overflow: ellipsis; }
+    main.duo .board td:nth-child(3) { grid-column: 3; grid-row: 1; font-weight: 600; }
+    main.duo .board td.chg { grid-column: 3; grid-row: 2; font-size: 12px; }
+    main.duo .board .chgv { display: none; }
+    main.duo .board td:last-child { grid-column: 4; grid-row: 1 / 3; text-align: center; }
     /* 판에 340~400px 를 내주고 나면 차트가 1280 한 칸일 때(725)보다 좁은 575 였다.
        2단 안에선 820~1399 폭과 같은 1.7:1 로 차트 쪽에 폭을 돌려준다. */
     main.duo .single { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); }
@@ -1063,6 +1090,8 @@
 
   <div id="viewBoard" role="tabpanel" aria-labelledby="tabBoard">
     <div class="card">
+      <!-- 1440 이상 2단에선 판이 오른쪽 목록이 된다(토스 주문 화면의 관심 칸 구도). 그때만 보이는 머리. -->
+      <div class="lh" aria-hidden="true">종목 <span id="boardN"></span></div>
       <div class="boardwrap">
         <table class="board" id="board" aria-label="종목 판"><thead id="boardHead"><tr>
           <th class="rk"></th>
@@ -2576,7 +2605,8 @@ function paintBoard(order, tickers, feary) {
     const idx = v.w60?.idx;
     return `<tr data-t="${t}" aria-selected="${t === UI.ticker}">`
       + `<td class="rk">${i + 1}</td>`
-      + `<td><button type="button" class="sym">${t}`
+      + `<td><i class="av" aria-hidden="true">${t.slice(0, 2)}</i>`
+        + `<button type="button" class="sym"${t === UI.ticker ? ' aria-current="true"' : ''}>${t}`
         + `${feary.includes(t) ? '<span class="fdot"></span>' : ''}</button>`
         + `<span class="nm">${esc(v.name ?? '')}</span></td>`
       + `<td>${p ? money(p.close) : '—'}</td>`
@@ -2595,6 +2625,9 @@ function paintBoard(order, tickers, feary) {
         + `${idx == null ? '—' : Math.round(idx)}</span></td>`
       + '</tr>';
   }).join('');
+
+  const bn = $('boardN');
+  if (bn) bn.textContent = rows.length;
 
   // 어느 칸으로 정렬 중인지 머리글에 표시한다.
   const hrow = $('boardHead')?.children?.[0];
