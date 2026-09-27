@@ -345,6 +345,12 @@
   /* [hidden] 은 UA 규칙이라 위의 display 선언에 진다.
      끈 보조지표가 빈 자리로 남아 있었다. */
   .charts svg[hidden], .chead[hidden] { display: none; }
+  /* 종목을 바꾸면 이름·가격은 바로 새 종목인데 봉은 새 봉이 올 때까지 이전 종목
+     것이 남아 있었다. 비우면 빈 칸이 되니, 흐리게 둬 "아직 옛 그림" 임을 보이고
+     새 봉이 오면 짧게 되살린다. 흐림은 상태라 움직임 줄이기에서도 남긴다. */
+  .charts svg { transition: opacity .18s ease-out; }
+  .charts.wait svg { opacity: .4; }
+  @media (prefers-reduced-motion: reduce) { .charts svg { transition: none; } }
   /* 끌어서 이동할 때 축 글자가 선택되면 파랗게 잡혀 끌린다.
      pan-y 는 세로 스크롤만 브라우저에 넘긴다 — 폰에서 페이지는 굴러가고
      가로로 끄는 건 차트가 받는다. none 이면 폰에서 페이지가 아예 안 움직였다. */
@@ -1333,7 +1339,7 @@ function card(ticker, d, meta) {
   // 노드 315개에 제목이 페이지 제목 하나뿐이라, 읽기 도구로 가격 차트·곡소리 지수로
   // 건너뛸 수 없었다.
   return [`
-  <div class="card${isFear ? ' fear' : ''}">
+  <div class="card${isFear ? ' fear' : ''}"${BAR.wait && BAR.hold ? ` style="min-height:${BAR.hold}px"` : ''}>
     <div class="head" role="heading" aria-level="2">
       <span class="tk">${ticker}</span>
       <span class="nm">${d.name !== ticker ? d.name : ''}</span>
@@ -1383,7 +1389,7 @@ function card(ticker, d, meta) {
 
     ${d.error ? `<div class="err">수집 실패: ${d.error}</div>` : ''}
 
-    <div class="charts">
+    <div class="charts${BAR.wait ? ' wait' : ''}"${BAR.wait ? ' aria-busy="true"' : ''}>
       <div class="chead"><b role="heading" aria-level="3">가격</b><span id="cUnitLab"></span><span class="now" id="cNowP"></span></div>
       <svg id="cPrice" viewBox="0 0 600 200" role="img" aria-label="봉 차트"></svg>
       <svg id="cVol" viewBox="0 0 600 46" role="img" aria-label="거래량"></svg>
@@ -2044,6 +2050,12 @@ async function loadBars() {
   }
   paintUnitSeg();
   drawBars();
+  if (BAR.wait) {                        // 종목을 바꾼 뒤 첫 봉 — 흐림과 붙잡은 높이를 푼다
+    BAR.wait = false; BAR.hold = 0;
+    const ch = document.querySelector('#cards .charts');
+    ch?.classList.remove('wait'); ch?.removeAttribute('aria-busy');
+    ch?.closest('.card')?.style.removeProperty('min-height');
+  }
   loadFear();
 }
 
@@ -2924,6 +2936,9 @@ $('avgLine').checked = store.get('avgLine', '1') === '1';
 function pickTicker(t) {
   if (!t || t === UI.ticker) return;
   UI.ticker = t; store.set('ticker', t);
+  // 새 봉이 올 때까지 카드 높이를 붙잡는다 — 글 줄 수가 달라 폰에서 15px 튀었다.
+  BAR.wait = true;
+  BAR.hold = document.querySelector('#cards .card')?.offsetHeight ?? 0;
   if (LAST) paint(LAST);
   paintPTicker();
   if (pOpened) loadPosts(true);          // 글 탭도 같은 종목을 보게 맞춘다
