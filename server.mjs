@@ -24,7 +24,8 @@
 
 import { createServer } from 'node:http';
 import { DATA_DIR, dataPath, BASELINE_FILE, BASELINE_FALLBACK, LABELS_FILE, PULSE_FILE, ensureDataDir } from './paths.mjs';
-import { readFileSync, writeFileSync, appendFileSync, existsSync, statSync, unlinkSync, watchFile } from 'node:fs';
+import { readFileSync, writeFileSync, appendFileSync, existsSync, statSync, unlinkSync, renameSync, watchFile } from 'node:fs';
+import { makeVapid, send, gate } from './push.mjs';
 import { join, dirname, extname, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { randomBytes, timingSafeEqual, createHmac } from 'node:crypto';
@@ -149,7 +150,14 @@ function authed(req, res) {
     }
     return true;
   }
-  if (keyOk(cookieOf(req, 'k'))) return true;
+  if (keyOk(cookieOf(req, 'k'))) {
+    // 화면을 열 때마다 1년을 다시 센다. 알림을 눌러 여는 날 쿠키가 만료돼 404 가
+    // 뜨는 일을 줄인다. api·파일 요청까지 헤더를 달 이유는 없다 — 화면만.
+    if (req.method === 'GET' && u.pathname === '/') {
+      res.setHeader('Set-Cookie', `k=${encodeURIComponent(KEY)}; HttpOnly; SameSite=Lax; Path=/; Max-Age=31536000`);
+    }
+    return true;
+  }
 
   res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8' });
   res.end('없는 경로입니다');
@@ -1211,9 +1219,56 @@ function snapshot() {
 const clients = new Set();
 // 점 찍기는 보는 사람이 없어도 돌아야 한다 — 나중에 붙은 브라우저가 과거를 봐야 하기 때문이다.
 // 그래서 clients 검사보다 sample() 이 먼저다.
+// ── 경보 푸시 ────────────────────────────────────────────────
+// 판·탭의 붉은 점과 같은 값(w60.idx)이 경보선을 넘으면 그 종목을 켠 폰에 보낸다.
+// 판정(넘는 순간·다시 무장·쿨다운)은 push.mjs 의 gate. 그 상태도 파일에 둬야
+// 서버를 다시 켤 때 이미 울린 경보가 또 울리지 않는다.
+const VAPID_FILE = dataPath('.vapid.json'), PUSH_FILE = dataPath('push.json');
+const PUSH_SUBJECT = 'https://github.com/havanafrog/stock-sentiment';
+const PUSH_MAX = 500;
+const VAPID = existsSync(VAPID_FILE) ? JSON.parse(readFileSync(VAPID_FILE, 'utf8'))
+  : (() => { const v = makeVapid(); writeFileSync(VAPID_FILE, JSON.stringify(v) + '\n'); return v; })();
+const PUSH = existsSync(PUSH_FILE) ? JSON.parse(readFileSync(PUSH_FILE, 'utf8')) : { subs: {}, gate: {} };
+/** 반쯤 쓰다 죽으면 구독이 통째로 날아간다. 옆에 쓰고 이름을 바꾼다. */
+function savePush() {
+  writeFileSync(PUSH_FILE + '.tmp', JSON.stringify(PUSH));
+  renameSync(PUSH_FILE + '.tmp', PUSH_FILE);
+}
+/** 그 종목을 켠 구독 전부에. 죽은 구독(404·410)은 지운다. */
+async function pushTo(t, payload) {
+  const subs = Object.entries(PUSH.subs).filter(([, s]) => s.tickers.includes(t));
+  const codes = await Promise.all(subs.map(([endpoint, s]) =>
+    send({ endpoint, keys: s.keys }, payload, VAPID, { subject: PUSH_SUBJECT, topic: `wail-${t}` })));
+  let gone = 0;
+  subs.forEach(([e], i) => {
+    if (codes[i] === 404 || codes[i] === 410) { delete PUSH.subs[e]; gone++; }
+    else if (!(codes[i] >= 200 && codes[i] < 300)) console.warn(`\n  푸시 실패 ${codes[i]} · ${e.slice(0, 30)}…`);
+  });
+  if (gone) savePush();
+  return codes;
+}
+function pushCheck(snap) {
+  const now = Date.now();
+  let dirty = false;
+  for (const t of TICKERS) {
+    const d = snap.tickers[t];
+    if (!d) continue;
+    const st = (PUSH.gate[t] ??= {});
+    const was = JSON.stringify(st);
+    const idx = d.warming ? null : d.w60.idx;           // 창을 채우는 중엔 값이 없는 것과 같다
+    const fire = gate(st, idx, now, { on: LEX.FEAR_ALERT, rearm: LEX.FEAR_ALERT - 10 });
+    if (JSON.stringify(st) !== was) dirty = true;
+    if (fire) pushTo(t, { t, idx: Math.round(idx), at: snap.at,
+      title: `${t} 곡소리 ${Math.round(idx)}`,
+      body: `최근 60분 곡소리 글 ${d.w60.fearN}건 · 경보선 ${LEX.FEAR_ALERT}` });
+  }
+  if (dirty) savePush();
+}
+
 function broadcast() {
   const snap = snapshot();
   sample(snap);
+  pushCheck(snap);
   if (!clients.size) return;
   const line = `data: ${JSON.stringify(snapshot())}\n\n`;   // 방금 찍은 점까지 담아 다시 만든다
   for (const res of clients) { try { res.write(line); } catch { clients.delete(res); } }
@@ -1465,6 +1520,38 @@ createServer((req, res) => {
       return res.end(JSON.stringify({ error: e.message }));
     }
     return sendJSON(res, 200, out);
+  }
+
+  if (path === '/api/push/key' && req.method === 'GET') {  // 구독에 쓸 공개키
+    return sendJSON(res, 200, { key: VAPID.pub, alert: LEX.FEAR_ALERT });
+  }
+
+  // 구독 하나의 종목 목록. tickers 를 빼고 보내면 지금 목록만 돌려준다(토글 그리기용).
+  // 빈 목록을 보내면 구독을 지운다. endpoint 는 비밀처럼 다룬다 — 주소창·로그에 안 싣는다.
+  if (path === '/api/push/sub' && req.method === 'POST') {
+    return readBody(req).then(({ sub, tickers }) => {
+      const e = sub?.endpoint, k = sub?.keys ?? {};
+      let good = false;
+      try {
+        good = new URL(e).protocol === 'https:' && e.length <= 1024
+          && Buffer.from(k.p256dh ?? '', 'base64url').length === 65
+          && Buffer.from(k.auth ?? '', 'base64url').length === 16;
+      } catch { /* URL 이 아니다 */ }
+      if (!good) return sendJSON(res, 400, { error: '구독 값을 확인하세요' });
+      if (tickers === undefined) return sendJSON(res, 200, { tickers: PUSH.subs[e]?.tickers ?? [] });
+      if (!Array.isArray(tickers)) return sendJSON(res, 400, { error: 'tickers 는 목록입니다' });
+      const want = [...new Set(tickers)].filter(t => TICKERS.includes(t));
+      if (!want.length) {
+        if (PUSH.subs[e]) { delete PUSH.subs[e]; savePush(); }
+        return sendJSON(res, 200, { tickers: [] });
+      }
+      if (!PUSH.subs[e] && Object.keys(PUSH.subs).length >= PUSH_MAX) {
+        return sendJSON(res, 429, { error: '구독이 너무 많습니다.' });
+      }
+      PUSH.subs[e] = { keys: { p256dh: k.p256dh, auth: k.auth }, tickers: want, at: new Date().toISOString() };
+      savePush();
+      sendJSON(res, 200, { tickers: want });
+    }).catch(err => sendJSON(res, 400, { error: err.message }));
   }
 
   if (path === '/api/label' && req.method === 'GET') {   // 찍어 둔 정답 전부
