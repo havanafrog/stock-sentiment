@@ -3445,6 +3445,36 @@ if ('ResizeObserver' in globalThis) {
   ro.observe($('banner'));
 }
 
+// ── 숨은 탭 미리 배치 ──
+// 탭을 처음 열 때 멈춤(폰 흉내 사용법 ~500ms)은 요소 수가 아니라 처음 쓰는 한글 글자·글꼴을
+// 찾는 레이아웃 비용이었다. 같은 탭을 두 번째 열 땐 거의 안 든다. 그 첫 비용을 한가할 때로
+// 옮긴다: 숨은 판을 한 번에 하나씩, 보이지 않게(visibility) 같은 폭으로 펴서 배치만 시키고
+// 바로 도로 숨긴다. 한 태스크 안이라 화면에 칠해지지 않는다. 데이터는 새로 안 부른다.
+// 사람이 막 누르거나 치는 중이면 다음 틈으로 미룬다.
+(() => {
+  const idle = globalThis.requestIdleCallback ?? (f => setTimeout(() => f({ timeRemaining: () => 50 }), 300));
+  const queue = ['viewHelp', 'viewMain', 'viewAnalysis', 'viewPosts', 'viewBoard'];
+  let lastInput = 0;
+  for (const t of ['pointerdown', 'keydown', 'wheel', 'touchstart'])
+    addEventListener(t, () => { lastInput = Date.now(); }, { passive: true, capture: true });
+  const warm = () => {
+    if (Date.now() - lastInput < 1000) return idle(warm);
+    const el = $(queue.shift());
+    if (el?.hidden) {
+      const w = document.querySelector('main').clientWidth;
+      el.style.cssText += `;position:absolute;visibility:hidden;width:${w}px;animation:none`;
+      el.hidden = false;
+      void el.offsetHeight;                       // 여기서 배치된다
+      el.hidden = true;
+      el.style.removeProperty('position'); el.style.removeProperty('visibility');
+      el.style.removeProperty('width'); el.style.removeProperty('animation');
+    }
+    if (queue.length) idle(warm);
+  };
+  // 첫 화면을 다 그린 뒤에 시작한다.
+  addEventListener('load', () => setTimeout(() => idle(warm), 1500));
+})();
+
 // ── 라벨 200 (#label200) ──
 // 무작위로 뽑은 200건을 사람이 찍는다. 찍은 것은 서버가 들고 있어 다시 열면
 // 안 찍은 첫 글에서 이어진다 — 폰을 바꿔도 같다.
