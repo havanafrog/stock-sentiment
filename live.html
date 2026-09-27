@@ -836,6 +836,19 @@
   .ioshint button { float: right; border: 0; background: none; color: var(--text-secondary);
     font: inherit; cursor: pointer; min-width: 24px; min-height: 24px; }
 
+  /* 맨 위로. 폰에서만, 한 화면 넘게 내려갔을 때만 뜬다 — 글 목록이 수천 줄이다.
+     채팅 단추(56x48, 오른쪽·아래 16px) 12px 위에 가운데 줄을 맞춰 앉힌다.
+     채팅 판이 열리면 판이 덮으니 숨긴다. */
+  .topbtn { display: none; }
+  @media (max-width: 640px) {
+    .topbtn { display: grid; place-items: center; position: fixed; z-index: 40;
+      right: 22px; bottom: calc(76px + env(safe-area-inset-bottom));
+      width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%;
+      background: var(--surface-1); color: var(--text-primary); font: inherit; font-size: 18px;
+      box-shadow: var(--ring), 0 2px 8px rgba(0,0,0,.12); cursor: pointer; }
+    .topbtn[hidden], .chat:not([hidden]) ~ .topbtn { display: none; }
+  }
+
   /* 익명 채팅 — 오른쪽 아래 단추로 열고 닫는다. 폰에서는 아래에서 올라오는 판.
      .app 안에 둔다. 색 토큰이 :root 가 아니라 .app 에 걸려 있다. */
   .chatbtn { position: fixed; right: 16px; bottom: calc(16px + env(safe-area-inset-bottom));
@@ -907,6 +920,7 @@
     <button type="submit">보내기</button></form>
 </section>
 <button class="chatbtn" id="chatBtn" type="button" aria-controls="chat" aria-expanded="false">채팅<span class="n" id="chatN"></span></button>
+<button class="topbtn" id="topBtn" type="button" aria-label="맨 위로" hidden>↑</button>
   <div class="top">
     <div class="brand">
       <img src="logo-128.png" alt="" width="30" height="30">
@@ -2920,6 +2934,17 @@ function pickTicker(t) {
 $('segTicker').onclick = ev => {
   const b = ev.target.closest('button'); if (!b) return;
   pickTicker(b.dataset.t);
+};
+
+// 맨 위로. 보이고 말고는 CSS 가 폰에서만 허락한다 — 여기선 내려간 만큼만 본다.
+const topSync = () => { $('topBtn').hidden = scrollY < innerHeight; };
+addEventListener('scroll', topSync, { passive: true });
+topSync();
+$('topBtn').onclick = () => {
+  const still = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  scrollTo({ top: 0, behavior: still ? 'auto' : 'smooth' });
+  // 단추는 곧 숨는다. 초점이 BODY 로 떨어지지 않게 고른 탭으로 옮긴다.
+  document.querySelector('.tabs [aria-selected="true"]')?.focus({ preventScroll: true });
 };
 
 $('boardBody').onclick = ev => {
