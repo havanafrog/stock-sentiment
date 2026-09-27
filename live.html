@@ -965,6 +965,14 @@
     background: var(--text-primary); color: var(--page); font: inherit; font-size: 12px;
     font-weight: 600; cursor: pointer; }
   .install[hidden] { display: none; }
+  /* 사용법 탭 맨 위 설치 칸 */
+  .appbox { margin: 0 0 18px; padding: 14px 16px; border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--ring); }
+  .appbox h2 { margin-top: 0; }
+  .appbig { min-height: 44px; padding: 0 18px; font-weight: 700; }
+  .appbig[hidden], .appok[hidden], .apphow[hidden] { display: none; }
+  .appok { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); }
+  .apphow { margin: 10px 0 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; }
+  .apphow li.me { color: var(--text-primary); font-weight: 600; }
   .ioshint { flex-basis: 100%; margin: 0; padding: 8px 10px; border-radius: var(--radius);
     background: var(--accent-wash); color: var(--text-primary); font-size: 12.5px; }
   .ioshint[hidden] { display: none; }
@@ -1325,6 +1333,14 @@
   </div>
 
   <div class="foot" id="viewHelp" role="tabpanel" aria-labelledby="tabHelp" hidden>
+    <!-- 머리 줄 설치 단추는 브라우저가 "설치할 수 있다" 고 알릴 때만 떠서, 이미 설치했거나
+         알림이 없는 기기에선 사라진 것처럼 보였다. 여기엔 늘 있다: 단추 또는 기기별 방법. -->
+    <section class="appbox" aria-labelledby="appH">
+      <h2 id="appH">앱으로 설치</h2>
+      <p class="appok" id="appOk" hidden>앱으로 쓰는 중이에요 ✓</p>
+      <button type="button" class="btn appbig" id="installBig" hidden>앱으로 설치</button>
+      <ol class="apphow" id="appHow"></ol>
+    </section>
     <h2>곡소리 지수</h2>
     <div class="eq">k     = 그 봉이 덮는 구간에 온 공포 글 수
 μ, σ  = 그 <b>종목</b> · 그 <b>미 동부 시각</b> · <b>같은 봉 길이</b>의 평소 공포 글 수
@@ -3604,17 +3620,30 @@ let showTab = () => {};
 (() => {
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => { /* 없어도 사이트는 돈다 */ });
   const standalone = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
-  if (standalone) return;
+  const ua = navigator.userAgent ?? '';
+  const ios = /iphone|ipad|ipod/i.test(ua) && !/crios|fxios/i.test(ua);
+  // 사용법 탭의 설치 칸: 지금 기기에 맞는 방법을 맨 위에.
+  const how = {
+    android: '안드로이드 크롬: 오른쪽 위 <b>⋮</b> → <b>앱 설치</b>(또는 <b>홈 화면에 추가</b>)',
+    ios: '아이폰 사파리: 아래 <b>공유 □↑</b> → <b>홈 화면에 추가</b>',
+    desk: '데스크톱 크롬·엣지: 주소창 오른쪽 <b>설치</b> 아이콘(모니터에 ↓)',
+  };
+  const kind = ios ? 'ios' : /android/i.test(ua) ? 'android' : 'desk';
+  $('appHow').innerHTML = [kind, ...Object.keys(how).filter(k => k !== kind)]
+    .map(k => `<li${k === kind ? ' class="me"' : ''}>${how[k]}</li>`).join('');
+  const installed = () => { $('appOk').hidden = false; $('appHow').hidden = true; $('installBig').hidden = true; };
+  if (standalone) { installed(); return; }
   let ask = null;
-  addEventListener('beforeinstallprompt', e => { e.preventDefault(); ask = e; $('installBtn').hidden = false; });
-  $('installBtn').onclick = async () => {
+  addEventListener('beforeinstallprompt', e => {
+    e.preventDefault(); ask = e; $('installBtn').hidden = false; $('installBig').hidden = false;
+  });
+  $('installBtn').onclick = $('installBig').onclick = async () => {
     if (!ask) return;
     ask.prompt();
     await ask.userChoice.catch(() => null);
-    ask = null; $('installBtn').hidden = true;
+    ask = null; $('installBtn').hidden = true; $('installBig').hidden = true;
   };
-  addEventListener('appinstalled', () => { $('installBtn').hidden = true; });
-  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) && !/crios|fxios/i.test(navigator.userAgent);
+  addEventListener('appinstalled', () => { $('installBtn').hidden = true; installed(); });
   if (ios && !store.get('iosHintSeen', '')) {
     $('iosHint').hidden = false;
     $('iosHintX').onclick = () => { $('iosHint').hidden = true; store.set('iosHintSeen', '1'); };
