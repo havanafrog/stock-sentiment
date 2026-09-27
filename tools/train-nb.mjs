@@ -263,6 +263,7 @@ export function serialize(m) {
 //   node tools/train-nb.mjs --full   가진 라벨 전부로 배워 model.json 을 쓴다
 //   node tools/train-nb.mjs --lr [--full 파일]   같은 일을 로지스틱 회귀로 (후보, 채택 전)
 //   node tools/train-nb.mjs --sample-random   찍을 무작위 200건을 만든다(있으면 안 덮는다)
+//   node tools/train-nb.mjs --merge-random    폰에서 찍은 라벨(data/labels.jsonl)을 그 200건 파일로 옮긴다
 // node -e 로 불러 쓸 때는 argv[1] 이 없다. 그때는 CLI 를 돌리지 않는다.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const OPT = { nMin: 1, nMax: 2, alpha: 1, binarize: true, minDf: 1 };
@@ -271,7 +272,23 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const { train4k, held, extra } = datasets();
   const ruler = [...train4k, ...extra];
 
-  if (process.argv.includes('--sample-random')) {
+  if (process.argv.includes('--merge-random')) {
+    // 폰에서 찍은 줄(POST /api/label → labels.jsonl)을 200건 파일의 y 로 옮긴다.
+    // labels.jsonl 의 text 는 posts.json 에서 찾는데 홀드아웃 글은 거기 없을 수 있다 —
+    // 그래서 text 없이 id 로만 맞춘다. 같은 id 는 마지막 줄이 이기고, y:null 은 무른 것.
+    const lf = process.env.STOCK_DATA_DIR ? join(process.env.STOCK_DATA_DIR, 'labels.jsonl') : 'data/labels.jsonl';
+    const last = new Map();
+    if (existsSync(lf)) for (const line of readFileSync(lf, 'utf8').split('\n')) {
+      try { const r = JSON.parse(line); last.set(r.id, r.y ?? ''); } catch { /* 빈 줄·잘린 줄 */ }
+    }
+    const rows = randomSet();
+    if (!rows.length) { console.log(`${RANDOM_FILE} 이 없다 — --sample-random 먼저.`); process.exit(1); }
+    let moved = 0;
+    for (const r of rows) if (last.has(r.id) && last.get(r.id) !== r.y) { r.y = last.get(r.id); moved++; }
+    writeFileSync(RANDOM_FILE, JSON.stringify(rows));
+    const done = rows.filter(r => r.y).length;
+    console.log(`${RANDOM_FILE} — ${moved}건 옮김 · 찍힘 ${done}/${rows.length} (${lf})`);
+  } else if (process.argv.includes('--sample-random')) {
     if (existsSync(RANDOM_FILE)) { console.log(`${RANDOM_FILE} 이 이미 있다 — 찍은 라벨을 덮지 않는다.`); process.exit(1); }
     // 뽑는 자리는 무작위 200건을 빼기 전의 홀드아웃이다.
     const tuned = new Set(JSON.parse(readFileSync('docs/labels-4000.json', 'utf8')).map(r => r.id));
