@@ -315,19 +315,34 @@
   /* 켠 수는 폰에서만 보인다(칩을 숨기는 대신). 넓은 화면은 칩이 곧 수다. */
   .indn { display: none; margin-left: 4px; color: var(--pos-ink); }
   /* 고르기 판. 넓은 화면은 단추 밑 팝오버, 폰은 아래 640px 블록이 시트로 바꾼다. */
-  .indpop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; width: 260px; padding: 10px;
+  .indpop { position: absolute; top: calc(100% + 6px); left: 0; z-index: 30; width: 300px; padding: 4px 0 8px;
     background: var(--surface-1); color: var(--text-primary); border-radius: var(--radius-lg);
     box-shadow: var(--ring), 0 12px 32px rgba(0, 0, 0, .16); }
   .indpop[hidden], .indback[hidden] { display: none; }
   .indhd, .indok { display: none; }
-  .indgrp { margin: 6px 6px 4px; font-size: 11.5px; font-weight: 600; color: var(--faint); }
-  .mas { display: flex; flex-direction: column; gap: 2px; font-size: 14px; color: var(--text-primary); }
-  .mas label { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 8px; cursor: pointer;
-    border-radius: var(--radius); }
+  /* 줄 = 선 색 막대 · 이름 + 한 줄 설명 · 스위치. 속은 체크박스(role=switch) 그대로라
+     저장·그리기는 같다. 체크박스는 보이지 않게 두고 초점 테는 스위치에 그린다. */
+  .indgrp { padding: 14px 16px 6px; font-size: 12px; font-weight: 700; color: var(--faint); letter-spacing: .02em; }
+  .mas + .indgrp { border-top: 1px solid var(--hairline); margin-top: 6px; }
+  .mas { display: flex; flex-direction: column; color: var(--text-primary); }
+  .mas label { position: relative; display: flex; align-items: center; gap: 12px; min-height: 52px;
+    padding: 8px 16px; box-sizing: border-box; cursor: pointer; }
   .mas label:hover { background: var(--neutral); }
-  .mas label:has(input:checked) { background: var(--accent-wash); color: var(--text-primary); font-weight: 600; }
-  .mas input { margin: 0; width: 17px; height: 17px; accent-color: var(--pos); }
-  .mas .k, .indchip .k { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+  .mas input { position: absolute; opacity: 0; width: 1px; height: 1px; margin: 0; }
+  .mas .k { width: 18px; height: 4px; border-radius: 2px; flex: none; }
+  .indchip .k { width: 14px; height: 3px; border-radius: 2px; display: inline-block; }
+  .indt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .indnm { font-size: 14.5px; font-weight: 600; }
+  .indds { font-size: 12px; color: var(--faint); }
+  /* 끈 바탕은 --muted — 흰 판 위 5.9, 어두운 판 위도 3 을 넘는다(UI 부품 기준 3:1). */
+  .tgl { position: relative; width: 40px; height: 24px; border-radius: 12px; flex: none;
+    background: var(--muted); transition: background-color .15s; }
+  .tgl::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform .15s; }
+  .mas input:checked ~ .tgl { background: var(--pos-ink); }
+  .mas input:checked ~ .tgl::after { transform: translateX(16px); }
+  .mas input:focus-visible ~ .tgl { outline: 2px solid var(--pos-ink); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { .tgl, .tgl::after { transition: none; } }
   .cnote { font-size: 11px; color: var(--muted); margin: 4px 0 0; }
 
   /* 크로스헤어 · 툴팁 */
@@ -695,16 +710,17 @@
     /* 폰은 아래에서 올라오는 시트. 뒤는 어둡게 깔고 Tab 은 시트 안에서만 돈다. */
     .indpop { position: fixed; left: 0; right: 0; top: auto; bottom: 0; width: auto; z-index: 60;
       max-height: 80vh; overflow-y: auto; border-radius: 16px 16px 0 0;
-      padding: 6px 16px calc(16px + env(safe-area-inset-bottom)); animation: indup .18s ease-out; }
+      padding: 6px 0 calc(16px + env(safe-area-inset-bottom)); animation: indup .18s ease-out; }
     @keyframes indup { from { transform: translateY(100%); } }
     @media (prefers-reduced-motion: reduce) { .indpop { animation: none; } }
     .indback { position: fixed; inset: 0; z-index: 59; background: rgba(0, 0, 0, .35); }
-    .indhd { display: flex; align-items: center; font-size: 16px; }
+    .indhd { display: flex; align-items: center; font-size: 16px; padding: 0 4px 0 16px; }
     .indx { margin-left: auto; width: 44px; height: 44px; border: 0; background: none; font: inherit;
       font-size: 18px; color: var(--text-secondary); cursor: pointer; }
-    .mas label { min-height: 48px; font-size: 15px; }
+    .mas label { min-height: 56px; }
+    .indnm { font-size: 15px; }
     /* 누르는 즉시 반영된다. 완료는 닫기만 한다. 글자는 지면색 — 두 테마 모두 4.5 를 넘는다. */
-    .indok { display: block; width: 100%; height: 48px; margin-top: 10px; border: 0; border-radius: var(--radius);
+    .indok { display: block; width: calc(100% - 32px); height: 48px; margin: 10px 16px 0; border: 0; border-radius: var(--radius);
       background: var(--pos-ink); color: var(--page); font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; }
     /* 평단 줄의 '선' 체크박스. 라벨까지 쳐도 누르는 높이가 20px 로 AA 24px 에
        못 미쳤다. 옆 평단 입력칸 높이(28px)만큼 세운다. */
@@ -1116,16 +1132,16 @@
       <div class="indhd"><b>지표</b><button type="button" class="indx" id="indX" aria-label="닫기">✕</button></div>
       <div class="indgrp">이동평균선</div>
       <div class="mas" id="masBox">
-        <label><input type="checkbox" data-ma="20"><i class="k" style="background:var(--ma20)"></i>20선</label>
-        <label><input type="checkbox" data-ma="120"><i class="k" style="background:var(--ma120)"></i>120선</label>
-        <label><input type="checkbox" data-ma="200"><i class="k" style="background:var(--ma200)"></i>200선</label>
+        <label><input type="checkbox" role="switch" data-ma="20" aria-describedby="ds-20"><i class="k" style="background:var(--ma20)"></i><span class="indt"><span class="indnm">20선</span><span class="indds" id="ds-20">최근 20봉 평균 · 짧은 흐름</span></span><span class="tgl" aria-hidden="true"></span></label>
+        <label><input type="checkbox" role="switch" data-ma="120" aria-describedby="ds-120"><i class="k" style="background:var(--ma120)"></i><span class="indt"><span class="indnm">120선</span><span class="indds" id="ds-120">최근 120봉 평균 · 중간 흐름</span></span><span class="tgl" aria-hidden="true"></span></label>
+        <label><input type="checkbox" role="switch" data-ma="200" aria-describedby="ds-200"><i class="k" style="background:var(--ma200)"></i><span class="indt"><span class="indnm">200선</span><span class="indds" id="ds-200">최근 200봉 평균 · 긴 흐름</span></span><span class="tgl" aria-hidden="true"></span></label>
       </div>
       <div class="indgrp">보조지표</div>
       <div class="mas" id="indBox">
-        <label><input type="checkbox" data-ind="macd"><i class="k" style="background:var(--sig)"></i>MACD</label>
-        <label><input type="checkbox" data-ind="rsi"><i class="k" style="background:var(--rsi)"></i>RSI</label>
-        <label><input type="checkbox" data-ind="mfi"><i class="k" style="background:var(--mfi)"></i>매수/매도 압력</label>
-        <label><input type="checkbox" data-ind="wm"><i class="k" style="background:var(--neg)"></i>곡소리 MACD</label>
+        <label><input type="checkbox" role="switch" data-ind="macd" aria-describedby="ds-macd"><i class="k" style="background:var(--sig)"></i><span class="indt"><span class="indnm">MACD</span><span class="indds" id="ds-macd">추세가 꺾이는 신호 · 12/26/9</span></span><span class="tgl" aria-hidden="true"></span></label>
+        <label><input type="checkbox" role="switch" data-ind="rsi" aria-describedby="ds-rsi"><i class="k" style="background:var(--rsi)"></i><span class="indt"><span class="indnm">RSI</span><span class="indds" id="ds-rsi">과열 70 위 · 침체 30 아래</span></span><span class="tgl" aria-hidden="true"></span></label>
+        <label><input type="checkbox" role="switch" data-ind="mfi" aria-describedby="ds-mfi"><i class="k" style="background:var(--mfi)"></i><span class="indt"><span class="indnm">매수/매도 압력</span><span class="indds" id="ds-mfi">돈이 들어오나 나가나 · MFI</span></span><span class="tgl" aria-hidden="true"></span></label>
+        <label><input type="checkbox" role="switch" data-ind="wm" aria-describedby="ds-wm"><i class="k" style="background:var(--neg)"></i><span class="indt"><span class="indnm">곡소리 MACD</span><span class="indds" id="ds-wm">곡소리 흐름이 꺾이는 때</span></span><span class="tgl" aria-hidden="true"></span></label>
       </div>
       <button type="button" class="indok" id="indOk">완료</button>
       </div>
@@ -2225,7 +2241,7 @@ function paintUnitSeg() {
 function indCount() {
   const on = [...$('masBox').querySelectorAll('input:checked'), ...$('indBox').querySelectorAll('input:checked')];
   $('indChips').innerHTML = on.map(i => {
-    const lab = i.closest('label'), name = lab.textContent.trim();
+    const lab = i.closest('label'), name = lab.querySelector('.indnm').textContent;
     const kind = i.dataset.ma ? 'ma' : 'ind';
     return `<span class="indchip"><i class="k" style="background:${lab.querySelector('.k').style.background}"></i>${name}`
       + `<button type="button" data-off="${kind}:${i.dataset[kind]}" aria-label="${name} 끄기">×</button></span>`;
