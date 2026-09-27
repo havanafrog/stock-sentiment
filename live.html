@@ -439,10 +439,16 @@
   /* 전환: 들어오는 판·채팅·시트만 짧게 떠오른다. opacity·transform 만 쓴다 — 레이아웃을 안
      건드려 한 번의 배치 뒤로 합성만 돈다. 무거운 그리기는 이미 칠한 뒤(이중 rAF)로 미뤄 둔다. */
   @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+  /* 폰에서 밀어 넘길 땐 민 방향 옆에서 들어온다(transform 만). */
+  @keyframes fromR { from { transform: translateX(28px); } }
+  @keyframes fromL { from { transform: translateX(-28px); } }
+  main[data-swipe="l"] > [role="tabpanel"]:not([hidden]) { animation: fromR .18s ease-out; }
+  main[data-swipe="r"] > [role="tabpanel"]:not([hidden]) { animation: fromL .18s ease-out; }
   main > [role="tabpanel"]:not([hidden]), #viewLabel:not([hidden]) { animation: rise .16s ease-out; }
   .chat:not([hidden]) { animation: rise .18s ease-out; }
   @media (prefers-reduced-motion: reduce) {
-    main > [role="tabpanel"]:not([hidden]), #viewLabel:not([hidden]), .chat:not([hidden]) { animation: none; }
+    main > [role="tabpanel"]:not([hidden]), #viewLabel:not([hidden]), .chat:not([hidden]),
+    main[data-swipe] > [role="tabpanel"]:not([hidden]) { animation: none; }
   }
   .pitem:last-child { border-bottom: 0; }
   .ph { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted);
@@ -3608,6 +3614,42 @@ let showTab = () => {};
   btn.analysis.onclick = () => { location.hash = 'analysis'; show('analysis'); };
   btn.posts.onclick    = () => { location.hash = 'posts';    show('posts');    };
   btn.help.onclick     = () => { location.hash = 'help';     show('help');     };
+
+  // 폰: 좌우로 밀어 탭을 옮긴다(아래 막대 순서). 손 뗄 때 한 번 판정한다 — 가로가 60px
+  // 넘고 세로의 1.5배 넘을 때만. 리스너는 passive 라 세로 스크롤을 막지 않는다.
+  // 차트(끌어 이동·확대), 옆으로 굴러가는 줄, 입력칸, 열린 채팅판·지표 시트에서 시작한
+  // 손짓은 버린다. 이동은 탭 단추를 누르는 것과 같다 — 해시·뒤로가기 기록이 똑같다.
+  const order = ['board', 'main', 'analysis', 'posts', 'help'];
+  const noSwipe = '#cPrice, #cVol, #cFear, #cMacd, #cRsi, #cWm, #cMfi, input, textarea, select, .chat, .indpop, .tabs';
+  const sideScroll = el => {
+    for (; el && el !== document.body; el = el.parentElement) {
+      const ox = getComputedStyle(el).overflowX;
+      if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1) return true;
+    }
+    return false;
+  };
+  let touch = null;
+  document.addEventListener('touchstart', e => {
+    touch = null;
+    if (e.touches.length !== 1 || !matchMedia('(max-width: 640px)').matches) return;
+    if (!$('chat').hidden || !$('indPop').hidden) return;
+    const t = e.target;
+    if (t.closest?.(noSwipe) || sideScroll(t)) return;
+    touch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+  }, { passive: true });
+  document.addEventListener('touchend', e => {
+    if (!touch) return;
+    const p = e.changedTouches[0], dx = p.clientX - touch.x, dy = p.clientY - touch.y;
+    touch = null;
+    if (Math.abs(dx) <= 60 || Math.abs(dx) <= 1.5 * Math.abs(dy)) return;
+    const i = order.indexOf(cur);
+    const next = order[i + (dx < 0 ? 1 : -1)];
+    if (i < 0 || !next) return;                          // 끝 탭에서 더 밀면 아무 일 없음
+    const m = document.querySelector('main');
+    m.dataset.swipe = dx < 0 ? 'l' : 'r';                // 들어오는 방향(떠오르기 대신)
+    btn[next].click();
+    setTimeout(() => { delete m.dataset.swipe; }, 250);
+  }, { passive: true });
   addEventListener('hashchange', () => show(fromHash()));
   wide.addEventListener('change', () => show(cur));
   show(fromHash());
