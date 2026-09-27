@@ -685,7 +685,7 @@
     /* 노치·둥근 모서리를 피해 앉힌다. 가로는 가로 모드에서만 0 이 아니고,
        아래는 홈 인디케이터 위로 띄운다. env() 를 모르는 브라우저는 0 으로 본다. */
     .app { padding: calc(12px + env(safe-area-inset-top)) calc(11px + env(safe-area-inset-right))
-                    calc(44px + env(safe-area-inset-bottom)) calc(11px + env(safe-area-inset-left)); }
+                    calc(96px + env(safe-area-inset-bottom)) calc(11px + env(safe-area-inset-left)); }
     /* 아래쪽 .card 기본 규칙(padding 16px, 모서리 10px)이 뒤에 있어 이 줄은
        여태 한 번도 안 먹었다. 이름을 두 번 적어 이긴다. */
     .card.card { padding: 12px; border-radius: var(--radius); }
@@ -699,40 +699,25 @@
     .curbox .seg button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
     .curbox .seg button:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
     .curbox .seg button::after { content: ''; position: absolute; left: 0; right: 0; top: -6px; bottom: -6px; }
-    /* 탭 줄을 위에 붙여 둔다. 글 목록이 수천 줄이라, 탭을 바꾸려고 맨 위까지
-       올라가는 게 폰에서 제일 귀찮은 일이었다. 지면색을 깔아야 글이 비쳐 지나가지
-       않는다. 옆으로 넉넉히 물려 카드 그림자까지 덮는다.
-       노치: 붙었을 때 버튼이 상태표시줄 밑으로 들어가면 안 된다. top 을 내리면
-       그 위 틈으로 글이 지나가므로, 대신 노치 높이만큼 속을 띄우고 같은 높이를
-       바깥에서 빼 온다 — 붙기 전 자리는 그대로고, 붙으면 지면색이 노치를 덮는다.
-       덮여 죽는 문제: 아래쪽 .tabs 바탕 규칙이 이 파일에서 더 뒤에 있어, 같은
-       힘이면 뒤가 이긴다. 그래서 여기 margin-*·gap·top 이 여태 통째로 죽어
-       있었다 (top: env(...) 한 줄도 같은 이유로 죽었다). 이름을 두 번 적어
-       힘을 올린다 — 규칙 순서를 건드리는 것보다 한 군데만 바뀐다. */
-    .tabs.tabs { margin-bottom: 12px; gap: 0;
-      position: sticky; top: 0; z-index: 5;
-      background: var(--page); margin-left: -11px; margin-right: -11px;
-      margin-top: calc(-1 * env(safe-area-inset-top));
-      padding: env(safe-area-inset-top) 11px 0;
-      /* 글자를 200% 로 키우면(195px 폭) 탭 다섯이 안 들어간다. 단추가 38px 로
-         줄며 한글이 한 자씩 꺾여 78px 높이의 세로 글씨가 됐고, 그래도 8px 가
-         넘쳐 화면 전체가 옆으로 밀렸다. 탭 줄만 옆으로 밀리게 가둔다 — 390px
-         에선 다 들어가 아무것도 안 바뀐다. */
-      overflow-x: auto; scrollbar-width: none; }
-    .tabs button { white-space: nowrap; flex-shrink: 0; }
-    /* 옆으로 밀리게 가두면 줄 밖으로 삐져나온 것은 잘린다. 고른 탭 밑줄은 -1px
-       로 탭 줄 테두리에 걸쳐 있어 통째로 잘려 사라졌다 — 줄 안으로 들인다.
-       아래쪽 .tabs button 규칙이 뒤에 있어 이름을 두 번 적어 이긴다. */
-    .tabs.tabs button { margin-bottom: 0; }
-    /* 좌우 여백 10px 는 여기 있다가 아래쪽 기본 규칙(padding: 8px 13px)에 져서
-       여태 한 번도 안 먹었다. 390px 에선 탭이 다 들어가 줄일 이유가 없고, 줄이면
-       '글' 탭 누를 폭만 38 -> 32px 로 좁아진다. 글자를 키워 폭이 모자랄 때만
-       줄인다 — 200%(195px)에서 끝까지 보이는 탭이 셋에서 넷이 되고, 150%
-       (260px)에선 다섯이 다 들어간다. 13px 로 다섯이 다 들어가려면 278px 가
-       든다 — 그보다 좁을 때만 줄인다. */
-    @media (max-width: 280px) {
-      .tabs.tabs button { padding-left: 10px; padding-right: 10px; }
-    }
+    /* 탭은 화면 아래 떠 있는 막대(토스 앱처럼). 위에 붙여 두던 탭 줄을 내려 첫 화면이 넓어지고
+       엄지가 닿는다. 막대 오른쪽 끝 칸은 채팅 단추가 차지한다(탭이 아니라 따로 떠 있는 단추를
+       같은 자리에 겹쳐 앉힌다 — 탭 목록에는 탭만 둔다). 아이폰 홈 막대만큼 띄운다. */
+    .tabs.tabs { position: fixed; z-index: 45; left: 12px; right: 12px;
+      bottom: calc(10px + env(safe-area-inset-bottom)); height: 64px; margin: 0; gap: 0;
+      padding: 0 62px 0 4px; border: 0; border-radius: 22px;
+      background: var(--surface-1); background: color-mix(in srgb, var(--surface-1) 94%, transparent);
+      -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+      box-shadow: var(--ring), 0 8px 28px rgba(0, 0, 0, .14); }
+    .tabs.tabs button { flex: 1 1 0; min-width: 44px; height: 64px; margin: 0; padding: 0 2px;
+      border: 0; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; font-size: 11px; font-weight: 600; color: var(--faint); }
+    .tabs.tabs button[aria-selected="true"] { color: var(--pos-ink); }
+    .tabs .tl, .chatbtn .tl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .tabs.tabs .ti, .chatbtn.chatbtn .ti { display: block; width: 24px; height: 24px; fill: none; stroke: currentColor;
+      stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
+    .tabs.tabs button[aria-selected="true"] .ti { fill: color-mix(in srgb, currentColor 14%, transparent); }
+    .tabs.tabs .ti circle[r=".6"] { fill: currentColor; }
+    .tabs button:focus-visible, .chatbtn:focus-visible { outline: 2px solid var(--pos-ink); outline-offset: -4px; border-radius: 16px; }
     .ptxt { font-size: 14.5px; }
 
     /* 머리가 150px 를 먹었다. 로고와 제목을 줄여 첫 화면을 차트에 내준다. */
@@ -805,7 +790,7 @@
     /* 누를 자리를 손가락에 맞춘다. 재 보니 탭 37px, 종목칩·기간칩 31px 이었다.
        보이는 크기는 그대로 두고 누르는 높이만 키운다 — 촘촘한 판이 헐거워지면
        한 화면에 담기는 줄이 줄어든다. */
-    .tabs button { min-height: 44px; }
+
     .seg button { min-height: 40px; }
 
     /* 조작 줄이 세 단이었다 — 종목칩 / 통화+환율 / 봉단위+지표 로 128px 를 먹어
@@ -964,6 +949,7 @@
   .foot h4 { font-size: 12.5px; margin: 12px 0 4px; color: var(--text-primary); }
 
   .tabs { display: flex; gap: 2px; margin: 0 0 18px; border-bottom: 1px solid var(--border); }
+  .tabs .ti, .chatbtn .ti { display: none; }
   .tabs button { appearance: none; border: 0; background: none; cursor: pointer; font: inherit;
     font-size: 13.5px; color: var(--muted); padding: 8px 13px;
     border-bottom: 1.5px solid transparent; margin-bottom: -1px;
@@ -1013,12 +999,12 @@
   .lbmsg { margin: 8px 0 0; font-size: 12.5px; color: var(--text-secondary); min-height: 1.5em; }
 
   /* 맨 위로. 폰에서만, 한 화면 넘게 내려갔을 때만 뜬다 — 글 목록이 수천 줄이다.
-     채팅 단추(56x48, 오른쪽·아래 16px) 12px 위에 가운데 줄을 맞춰 앉힌다.
+     아래 탭 막대(높이 64, 아래 10px) 12px 위, 막대 안 채팅 칸과 가운데 줄을 맞춰 앉힌다.
      채팅 판이 열리면 판이 덮으니 숨긴다. */
   .topbtn { display: none; }
   @media (max-width: 640px) {
     .topbtn { display: grid; place-items: center; position: fixed; z-index: 40;
-      right: 22px; bottom: calc(76px + env(safe-area-inset-bottom));
+      right: 23px; bottom: calc(86px + env(safe-area-inset-bottom));
       width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%;
       background: var(--surface-1); color: var(--text-primary); font: inherit; font-size: 18px;
       box-shadow: var(--ring), 0 2px 8px rgba(0,0,0,.12); cursor: pointer; }
@@ -1070,6 +1056,16 @@
   @media (max-width: 640px) {
     .chat.chat { left: 0; right: 0; bottom: 0; width: auto; height: 70vh; height: 70dvh;
       border-radius: 14px 14px 0 0; padding-bottom: env(safe-area-inset-bottom); }
+    /* 채팅 단추는 아래 막대의 오른쪽 끝 칸. 모양만 막대 칸처럼 바꾼다(aria-expanded 그대로).
+       안 읽은 수는 아이콘 위 빨간 점. 판(시트)은 막대보다 위에 뜬다. */
+    .chatbtn { right: 16px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 46;
+      width: 58px; min-width: 44px; height: 64px; padding: 0; border-radius: 0 22px 22px 0;
+      background: none; color: var(--faint); box-shadow: none; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 3px; font-size: 11px; }
+    .chatbtn[aria-expanded="true"] { color: var(--pos-ink); }
+    .chatbtn .n { position: absolute; top: 8px; left: 32px; margin: 0; min-width: 16px; padding: 0 4px;
+      font-size: 10px; line-height: 16px; }
+    .chat.chat { z-index: 60; }
     /* 판이 열리면 단추가 입력칸을 가린다. 판 위 닫기 단추가 대신한다. */
     .chat:not([hidden]) ~ .chatbtn { display: none; }
     /* 폰 입력칸이 16px 보다 작으면 사파리가 화면을 확대한다. */
@@ -1095,7 +1091,7 @@
   <form id="chatForm"><input id="chatIn" maxlength="200" autocomplete="off" placeholder="200자까지" aria-label="보낼 말">
     <button type="submit">보내기</button></form>
 </section>
-<button class="chatbtn" id="chatBtn" type="button" aria-controls="chat" aria-expanded="false">채팅<span class="n" id="chatN"></span></button>
+<button class="chatbtn" id="chatBtn" type="button" aria-controls="chat" aria-expanded="false"><svg class="ti" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 4c4.7 0 8.5 3.1 8.5 7s-3.8 7-8.5 7c-1 0-2-.1-2.9-.4L5 19.5l1.2-3.3C4.8 14.9 3.5 13 3.5 11c0-3.9 3.8-7 8.5-7z"/></svg><span class="tl">채팅</span><span class="n" id="chatN"></span></button>
 <button class="topbtn" id="topBtn" type="button" aria-label="맨 위로" hidden>↑</button>
   <div class="top">
     <div class="brand">
@@ -1124,11 +1120,11 @@
   <div class="tabs" role="tablist">
     <!-- 탭과 판을 짝지어 둔다. 없으면 읽기 도구는 탭을 골라도 어느 판이 열렸는지
          모르고, 판도 이름 없는 덩어리로 들린다. 숨긴 판은 hidden 이라 알아서 빠진다. -->
-    <button id="tabBoard" role="tab" aria-controls="viewBoard" aria-selected="true">메인</button>
-    <button id="tabMain" role="tab" aria-controls="viewMain" aria-selected="false">실시간</button>
-    <button id="tabAnalysis" role="tab" aria-controls="viewAnalysis" aria-selected="false">분석</button>
-    <button id="tabPosts" role="tab" aria-controls="viewPosts" aria-selected="false">글</button>
-    <button id="tabHelp" role="tab" aria-controls="viewHelp" aria-selected="false">사용법</button>
+    <button id="tabBoard" role="tab" aria-controls="viewBoard" aria-selected="true"><svg class="ti" aria-hidden="true" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg><span class="tl">메인</span></button>
+    <button id="tabMain" role="tab" aria-controls="viewMain" aria-selected="false"><svg class="ti" aria-hidden="true" viewBox="0 0 24 24"><path d="M3 17l5-6 4 4 5-7 4 5"/><path d="M3 21h18"/></svg><span class="tl">실시간</span></button>
+    <button id="tabAnalysis" role="tab" aria-controls="viewAnalysis" aria-selected="false"><svg class="ti" aria-hidden="true" viewBox="0 0 24 24"><rect x="4" y="12" width="3.5" height="8" rx="1"/><rect x="10.3" y="7" width="3.5" height="13" rx="1"/><rect x="16.5" y="4" width="3.5" height="16" rx="1"/></svg><span class="tl">분석</span></button>
+    <button id="tabPosts" role="tab" aria-controls="viewPosts" aria-selected="false"><svg class="ti" aria-hidden="true" viewBox="0 0 24 24"><path d="M5 5h14a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H10l-4 3v-3H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/><path d="M8 9h8M8 12h5"/></svg><span class="tl">글</span></button>
+    <button id="tabHelp" role="tab" aria-controls="viewHelp" aria-selected="false"><svg class="ti" aria-hidden="true" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-1 .8-1 1.5v.4"/><circle cx="12" cy="16.8" r=".6"/></svg><span class="tl">사용법</span></button>
   </div>
 
   <!-- 판 다섯을 본문으로 묶는다. 읽기 도구의 '본문으로 건너뛰기' 가 머리와 탭 줄을
