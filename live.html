@@ -431,6 +431,19 @@
   .btn:hover { background: var(--neutral); }
   .plist { margin-top: 12px; padding-top: 4px; border-top: 1px solid var(--border); }
   .pitem { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  /* 글 탭을 열 때 레이아웃이 전환을 막았다(390·CPU 4배 느리게 497ms). 화면 밖 글은
+     보일 때 배치한다 — 긴 한글 줄바꿈이 제일 비싸다. 높이는 어림값을 두고 한 번 보면 기억한다. */
+  .pitem, .feed .post { content-visibility: auto; contain-intrinsic-size: auto 88px; }
+  .feed .post { contain-intrinsic-size: auto 44px; }
+
+  /* 전환: 들어오는 판·채팅·시트만 짧게 떠오른다. opacity·transform 만 쓴다 — 레이아웃을 안
+     건드려 한 번의 배치 뒤로 합성만 돈다. 무거운 그리기는 이미 칠한 뒤(이중 rAF)로 미뤄 둔다. */
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
+  main > [role="tabpanel"]:not([hidden]), #viewLabel:not([hidden]) { animation: rise .16s ease-out; }
+  .chat:not([hidden]) { animation: rise .18s ease-out; }
+  @media (prefers-reduced-motion: reduce) {
+    main > [role="tabpanel"]:not([hidden]), #viewLabel:not([hidden]), .chat:not([hidden]) { animation: none; }
+  }
   .pitem:last-child { border-bottom: 0; }
   .ph { display: flex; align-items: center; gap: 8px; font-size: 11.5px; color: var(--muted);
     margin-bottom: 3px; font-variant-numeric: tabular-nums; flex-wrap: wrap; }
@@ -3535,7 +3548,9 @@ let showTab = () => {};
     // 복원하면 껍데기만 뜨고 내용은 안 불러온 채로 굳는다. 안 보이는 동안엔
     // 끊길 화면도 없으니 미룰 이유가 없다 — 바로 한다.
     if (typeof requestAnimationFrame === 'function' && !document.hidden)
-      requestAnimationFrame(() => requestAnimationFrame(heavy));
+      // 판이 떠오르는 동안(.16s)은 그리지 않는다 — 합성만 도는 틈에 레이아웃을 끼우면 끊긴다.
+      requestAnimationFrame(() => requestAnimationFrame(() =>
+        setTimeout(heavy, matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 170)));
     else heavy();                       // 점검용 껍데기에는 rAF 가 없다
   };
   showTab = show;
