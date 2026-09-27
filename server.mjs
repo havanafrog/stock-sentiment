@@ -826,6 +826,8 @@ function selftest() {
       ok('봉: 몸통에서 10% 넘게 먼 저가는 몸통 끝으로', bad.low === 1760 && bad.high === 1768, JSON.stringify(bad));
       ok('봉: 몸통 근처 꼬리는 그대로', fine.low === 1700 && fine.high === 1790);
       ok('봉: 고가도 같은 규칙', up.high === 101 && up.low === 99, JSON.stringify(up));
+      const [day] = tameWicks([{ open: 100, close: 102, high: 122, low: 80 }], 0.25);
+      ok('봉: 일봉(25%)은 20% 꼬리를 그대로 둔다', day.high === 122 && day.low === 80, JSON.stringify(day));
     }
     ok('채팅: 최근 것만 남긴다', CHAT.length === CHAT_MAX && CHAT.at(-1).text === 'x' + (CHAT_MAX + 19));
     CHAT.splice(0, CHAT.length, ...keep); chatLast.clear();
@@ -927,7 +929,8 @@ async function getBars(ticker, unit) {
   if (hit && Date.now() - hit.at < UNITS[unit].cache) return hit.rows;
   const st = LIVE.get(ticker);
   if (!st) throw new Error(`모르는 종목입니다: ${ticker}`);
-  const rows = tameWicks(await fetchBars(st.code, unit, MAX_COUNT));
+  // 일봉은 하루 새 몸통 밖으로 크게 찍고 돌아오는 날이 있다(레버리지 ETF) — 25% 까지 둔다.
+  const rows = tameWicks(await fetchBars(st.code, unit, MAX_COUNT), unit.startsWith('day') ? 0.25 : 0.10);
   BARS.set(key, { at: Date.now(), rows });
   return rows;
 }
@@ -1084,7 +1087,8 @@ async function pollTicker(ticker, warmup = false) {
     pages++;
     // 창 밖까지 갔으면 끝. 워밍업 중에는 이미 본 글을 만나도 계속 판다 —
     // 창을 채우는 게 목적이라 중복은 건너뛰기만 하면 된다.
-    if (tooOld || !hasNext || key === cursor) break;
+    // 창 끝(60분 전)까지 닿았거나 더 받을 글이 없으면 창은 다 찬 것이다.
+    if (tooOld || !hasNext || key === cursor) { st.filled = true; break; }
     if (hitKnown && !warmup) break;
     cursor = key;
     await sleep(80);
@@ -1210,7 +1214,10 @@ function snapshot() {
     }
 
     const oldest = posts.length ? minutesAgo(posts[posts.length - 1].at) : 0;
-    const warming = oldest < WINDOW_MIN * 0.8;
+    // 예전엔 "창 안 가장 오래된 글이 48분 넘었나" 만 봤다. 글이 드문 시간대엔 창을 끝까지
+    // 다 받아도 가장 오래된 글이 20분 전이라 영원히 '채우는 중' 이었고, 판의 곡소리 칸이
+    // 전부 '—' 였다. 창 끝까지 받은 적이 있으면(filled) 찬 것으로 본다.
+    const warming = !st.filled && oldest < WINDOW_MIN * 0.8;
     const z60 = warming ? { z: null, why: '창을 채우는 중' } : fearZ(ticker, w60.fear, w60.n);
     // 공포지수는 개수로 낸다. 표본 문턱이 없다 — 0건도 뜻이 있는 값이다.
     const fearN = posts.filter(p => p.fear && minutesAgo(p.at) <= WINDOW_MIN).length;
