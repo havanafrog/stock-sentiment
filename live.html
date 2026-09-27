@@ -2308,19 +2308,23 @@ function indOpen() {
   pop.hidden = false;
   $('indBack').hidden = !indPhone();
   $('indAdd').setAttribute('aria-expanded', 'true');
+  // 폰 시트는 채팅처럼 뒤로가기로 닫히게 기록을 한 칸 쌓는다.
+  if (indPhone() && !history.state?.ind) history.pushState({ ...history.state, ind: 1 }, '');
   // 오른쪽 끝에 붙은 단추면 판이 화면 밖으로 나간다 — 오른쪽에 맞춘다.
   pop.style.left = pop.style.right = '';
   if (!indPhone() && pop.getBoundingClientRect().right > innerWidth - 8) { pop.style.left = 'auto'; pop.style.right = '0'; }
   pop.querySelector('input')?.focus();
 }
-function indClose(back = true) {
+function indClose(back = true, fromPop = false) {
   if ($('indPop').hidden) return;
+  if (!fromPop && history.state?.ind) history.back();   // 쌓은 칸을 치운다
   $('indPop').hidden = true;
   $('indBack').hidden = true;
   $('indAdd').setAttribute('aria-expanded', 'false');
   if (back) $('indAdd').focus();
 }
 $('indAdd').onclick = () => ($('indPop').hidden ? indOpen() : indClose());
+addEventListener('popstate', () => { if (!$('indPop').hidden && !history.state?.ind) indClose(true, true); });
 $('indX').onclick = $('indOk').onclick = $('indBack').onclick = () => indClose();
 $('indPop').addEventListener('keydown', e => {
   if (e.key === 'Escape') { e.stopPropagation(); indClose(); return; }
@@ -3607,16 +3611,24 @@ addEventListener('online', () => { if (!es || es.readyState === EventSource.CLOS
     } catch { err.textContent = '앞 대화를 못 불러왔습니다.'; }
   }
 
-  function toggle(open) {
+  // 뒤로가기로 채팅만 닫는다(폰·설치 앱). 열 때 기록을 한 칸 쌓고, 뒤로가기면 그 칸이
+  // 빠지며 닫힌다. ✕·Esc·단추로 닫을 땐 쌓은 칸을 여기서 치운다 — 안 그러면 뒤로가기를
+  // 두 번 눌러야 페이지를 떠난다. 주소(#탭)는 그대로라 탭 전환(hashchange)과 안 엉킨다.
+  function toggle(open, fromPop = false) {
     box.hidden = !open;
     btn.setAttribute('aria-expanded', String(open));
     store.set('chatOpen', open ? '1' : '');
     if (open) {
+      if (!history.state?.chat) history.pushState({ ...history.state, chat: 1 }, '');
       unread = 0; badge.textContent = '';
       load().then(() => { list.scrollTop = list.scrollHeight; });
       input.focus({ preventScroll: true });
-    } else btn.focus({ preventScroll: true });
+    } else {
+      if (!fromPop && history.state?.chat) history.back();
+      btn.focus({ preventScroll: true });
+    }
   }
+  addEventListener('popstate', () => { if (!box.hidden && !history.state?.chat) toggle(false, true); });
   btn.onclick = () => toggle(box.hidden);
   $('chatX').onclick = () => toggle(false);
   box.addEventListener('keydown', e => { if (e.key === 'Escape') toggle(false); });
