@@ -39,14 +39,38 @@ for (const f of FILES) {
 
   // 밝은 테마에 있는 색 토큰은 어두운 테마에도 있어야 한다.
   // 한쪽에만 정의하면 다른 테마에서 그 요소가 사라진다.
-  const lightBlock = style.slice(style.indexOf('color-scheme: light;'),
-                                 style.indexOf('@media (prefers-color-scheme: dark)'));
-  const darkBlock = style.slice(style.indexOf('@media (prefers-color-scheme: dark)'),
-                               style.indexOf(':root[data-theme="dark"]'));
-  const themeBlock = style.slice(style.indexOf(':root[data-theme="dark"]'));
+  //
+  // 블록은 셀렉터 자리에서 중괄호 짝으로 자른다. 첫 indexOf 나 글자 수로 자르면
+  // 앞에 같은 미디어 쿼리가 하나 더 생기거나(body 바탕) 주석이 길어질 때 엉뚱한
+  // 곳을 읽어, CSS 는 멀쩡한데 실패가 났다.
+  /** open 자리의 '{' 부터 짝이 맞는 '}' 까지. */
+  const body = open => {
+    for (let i = open, d = 0; i < style.length; i++) {
+      if (style[i] === '{') d++;
+      else if (style[i] === '}' && --d === 0) return style.slice(open, i + 1);
+    }
+    return '';
+  };
+  /** 셀렉터(정규식)가 여는 블록. 없으면 빈 문자열. */
+  const rule = re => { const m = re.exec(style); return m ? body(m.index + m[0].length - 1) : ''; };
+  /** 이 글귀를 품은 가장 안쪽 블록. */
+  const around = text => {
+    const at = style.indexOf(text);
+    if (at < 0) return '';
+    for (let i = at, d = 0; i >= 0; i--) {
+      if (style[i] === '}') d++;
+      else if (style[i] === '{' && d-- === 0) return body(i);
+    }
+    return '';
+  };
+  const lightBlock = around('color-scheme: light;');
+  const darkBlock = rule(/@media \(prefers-color-scheme: dark\)\s*\{\s*[^{}]*\.app\s*\{/);
+  const themeBlock = rule(/:root\[data-theme="dark"\]\s*\.app\s*\{/);
+  ok('테마 블록 셋을 찾았다', lightBlock && darkBlock && themeBlock,
+     `밝음 ${lightBlock.length} / 어두움 ${darkBlock.length} / data-theme ${themeBlock.length}`);
 
   const names = b => new Set([...b.matchAll(/(--[a-zA-Z][\w-]*)\s*:/g)].map(m => m[1]));
-  const light = names(lightBlock), dark = names(darkBlock), theme = names(themeBlock.slice(0, 1400));
+  const light = names(lightBlock), dark = names(darkBlock), theme = names(themeBlock);
 
   // 어두운 테마는 밝은 것 위에 덮어쓰므로 전부 다시 낼 필요는 없다.
   // 다만 어두운 쪽에만 있는 이름은 밝은 테마에서 정의가 없다는 뜻이라 위험하다.
