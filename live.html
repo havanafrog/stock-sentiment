@@ -3191,7 +3191,7 @@ let showTab = () => {};
   const show = name => {
     cur = name;
     const duo = wide.matches && (name === 'board' || name === 'main');
-    document.querySelector?.('main')?.classList.toggle('duo', duo);
+    document.querySelector('main').classList.toggle('duo', duo);
     for (const k in view) {
       view[k].hidden = !(k === name || (duo && (k === 'board' || k === 'main')));
       btn[k].setAttribute('aria-selected', String(k === name));
@@ -3226,7 +3226,7 @@ let showTab = () => {};
   btn.posts.onclick    = () => { location.hash = 'posts';    show('posts');    };
   btn.help.onclick     = () => { location.hash = 'help';     show('help');     };
   addEventListener('hashchange', () => show(fromHash()));
-  wide.addEventListener?.('change', () => show(cur));
+  wide.addEventListener('change', () => show(cur));
   show(fromHash());
 })();
 
