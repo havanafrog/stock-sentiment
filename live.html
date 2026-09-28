@@ -710,7 +710,7 @@
        같은 자리에 겹쳐 앉힌다 — 탭 목록에는 탭만 둔다). 아이폰 홈 막대만큼 띄운다. */
     .tabs.tabs { position: fixed; z-index: 45; left: 12px; right: 12px;
       bottom: calc(10px + env(safe-area-inset-bottom)); height: 64px; margin: 0; gap: 0;
-      padding: 0 62px 0 4px; border: 0; border-radius: 22px;
+      padding: 0 4px; border: 0; border-radius: 22px;
       background: var(--surface-1); background: color-mix(in srgb, var(--surface-1) 94%, transparent);
       -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
       box-shadow: var(--ring), 0 8px 28px rgba(0, 0, 0, .14); }
@@ -1013,12 +1013,12 @@
   .lbmsg { margin: 8px 0 0; font-size: 12.5px; color: var(--text-secondary); min-height: 1.5em; }
 
   /* 맨 위로. 폰에서만, 한 화면 넘게 내려갔을 때만 뜬다 — 글 목록이 수천 줄이다.
-     아래 탭 막대(높이 64, 아래 10px) 12px 위, 막대 안 채팅 칸과 가운데 줄을 맞춰 앉힌다.
+     아래 탭 막대 위 채팅 단추(52) 10px 위, 가운데 줄을 맞춰 앉힌다.
      채팅 판이 열리면 판이 덮으니 숨긴다. */
   .topbtn { display: none; }
   @media (max-width: 640px) {
     .topbtn { display: grid; place-items: center; position: fixed; z-index: 40;
-      right: 23px; bottom: calc(86px + env(safe-area-inset-bottom));
+      right: 20px; bottom: calc(148px + env(safe-area-inset-bottom));
       width: 44px; height: 44px; padding: 0; border: 0; border-radius: 50%;
       background: var(--surface-1); color: var(--text-primary); font: inherit; font-size: 18px;
       box-shadow: var(--ring), 0 2px 8px rgba(0,0,0,.12); cursor: pointer; }
@@ -1070,16 +1070,20 @@
   @media (max-width: 640px) {
     .chat.chat { left: 0; right: 0; bottom: 0; width: auto; height: 70vh; height: 70dvh;
       border-radius: 14px 14px 0 0; padding-bottom: env(safe-area-inset-bottom); }
-    /* 채팅 단추는 아래 막대의 오른쪽 끝 칸. 모양만 막대 칸처럼 바꾼다(aria-expanded 그대로).
-       안 읽은 수는 아이콘 위 빨간 점. 판(시트)은 막대보다 위에 뜬다. */
-    .chatbtn { right: 16px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 46;
-      width: 58px; min-width: 44px; height: 64px; padding: 0; border-radius: 0 22px 22px 0;
-      background: none; color: var(--faint); box-shadow: none; display: flex; flex-direction: column;
-      align-items: center; justify-content: center; gap: 3px; font-size: 11px; }
-    .chatbtn[aria-expanded="true"] { color: var(--pos-ink); }
-    .chatbtn .n { position: absolute; top: 8px; left: 32px; margin: 0; min-width: 16px; padding: 0 4px;
-      font-size: 10px; line-height: 16px; }
-    .chat.chat { z-index: 60; }
+    /* 채팅 단추는 막대 밖, 막대 위 오른쪽에 떠 있는 둥근 단추(맨 위로가 그 위에 쌓인다).
+       막대 칸에 넣었더니 탭 칸이 좁아졌다. 아이콘만 보이고 이름('채팅')은 읽기 도구용으로
+       남긴다. 안 읽은 수는 단추 오른쪽 위 빨간 점. */
+    .chatbtn { right: 16px; bottom: calc(86px + env(safe-area-inset-bottom)); z-index: 46;
+      width: 52px; min-width: 52px; height: 52px; padding: 0; border-radius: 26px;
+      display: grid; place-items: center; }
+    .chatbtn .tl { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    .chatbtn .n { position: absolute; top: -2px; right: -2px; margin: 0; min-width: 18px; padding: 0 4px;
+      font-size: 10.5px; line-height: 18px; }
+    /* 채팅판은 막대를 덮지 않고 막대 위에 뜬다(판 아래끝 = 막대 윗선 − 8px). 입력 중(키보드)엔
+       막대가 숨으니 바닥에 붙는다. */
+    .chat.chat { z-index: 60; left: 8px; right: 8px; bottom: calc(82px + env(safe-area-inset-bottom));
+      height: 62dvh; border-radius: 14px; padding-bottom: 0; }
+    .app.kbd .chat.chat { left: 0; right: 0; bottom: 0; border-radius: 14px 14px 0 0; }
     /* 키보드: 채팅 입력칸이 키보드에 가려졌다. 안드로이드 크롬은 위 viewport 메타
        (interactive-widget=resizes-content)로 화면이 줄어 판이 알아서 올라온다. 아이폰 사파리는
        화면을 안 줄이고 키보드가 덮으니, 가려진 높이(--kb)만큼 판을 올리고 보이는 높이(--vvh)에
@@ -3630,26 +3634,24 @@ let showTab = () => {};
   const order = ['board', 'main', 'analysis', 'posts', 'help'];
   const noSwipe = '#cPrice, #cVol, #cFear, #cMacd, #cRsi, #cWm, #cMfi, input, textarea, select, .chat, .indpop, .tabs';
   const sideScroll = el => {
-    for (; el && el !== document.body; el = el.parentElement) {
+    for (; el && el !== el.ownerDocument.body; el = el.parentElement) {
       const ox = getComputedStyle(el).overflowX;
       if ((ox === 'auto' || ox === 'scroll') && el.scrollWidth > el.clientWidth + 1) return true;
     }
     return false;
   };
   let touch = null;
-  document.addEventListener('touchstart', e => {
-    touch = null;
-    if (e.touches.length !== 1 || !matchMedia('(max-width: 640px)').matches) return;
-    if (!$('chat').hidden || !$('indPop').hidden) return;
-    const t = e.target;
-    if (t.closest?.(noSwipe) || sideScroll(t)) return;
-    touch = { x: e.touches[0].clientX, y: e.touches[0].clientY };
-  }, { passive: true });
-  document.addEventListener('touchend', e => {
+  // 폰에서 메인·글·사용법만 안 넘어갔다. 브라우저가 세로 스크롤을 가져가면 touchend 대신
+  // touchcancel 이 오는 탓으로 본다 — 마지막 위치(touchmove)로 둘 다에서 판정한다.
+  // 기준: |dx| 40 넘고 세로의 1.2배 넘거나, 빠르게 튕기면(0.3px/ms 넘고 |dx| 25 넘음).
+  const judge = e => {
     if (!touch) return;
-    const p = e.changedTouches[0], dx = p.clientX - touch.x, dy = p.clientY - touch.y;
+    const p = e.changedTouches?.[0];
+    const x = p ? p.clientX : touch.lx, y = p ? p.clientY : touch.ly, t = p ? e.timeStamp : touch.lt;
+    const dx = x - touch.x, dy = y - touch.y, v = Math.abs(dx) / Math.max(1, t - touch.t);
     touch = null;
-    if (Math.abs(dx) <= 60 || Math.abs(dx) <= 1.5 * Math.abs(dy)) return;
+    const across = Math.abs(dx) > 1.2 * Math.abs(dy);
+    if (!(across && (Math.abs(dx) > 40 || (v > 0.3 && Math.abs(dx) > 25)))) return;
     const i = order.indexOf(cur);
     const next = order[i + (dx < 0 ? 1 : -1)];
     if (i < 0 || !next) return;                          // 끝 탭에서 더 밀면 아무 일 없음
@@ -3657,7 +3659,28 @@ let showTab = () => {};
     m.dataset.swipe = dx < 0 ? 'l' : 'r';                // 들어오는 방향(떠오르기 대신)
     btn[next].click();
     setTimeout(() => { delete m.dataset.swipe; }, 250);
-  }, { passive: true });
+  };
+  // 분석 탭 본문은 같은 출처 iframe(index.html)이라 터치가 이 문서로 안 온다 — 거기에도 붙인다.
+  const listen = doc => {
+    doc.addEventListener('touchstart', e => {
+      touch = null;
+      if (e.touches.length !== 1 || !matchMedia('(max-width: 640px)').matches) return;
+      if (!$('chat').hidden || !$('indPop').hidden) return;
+      const t = e.target;
+      if (t.closest?.(noSwipe) || sideScroll(t)) return;
+      const p = e.touches[0];
+      touch = { x: p.clientX, y: p.clientY, t: e.timeStamp, lx: p.clientX, ly: p.clientY, lt: e.timeStamp };
+    }, { passive: true });
+    doc.addEventListener('touchmove', e => {
+      if (!touch) return;
+      const p = e.touches[0];
+      touch.lx = p.clientX; touch.ly = p.clientY; touch.lt = e.timeStamp;
+    }, { passive: true });
+    doc.addEventListener('touchend', judge, { passive: true });
+    doc.addEventListener('touchcancel', () => { if (touch) judge({ timeStamp: touch.lt }); }, { passive: true });
+  };
+  listen(document);
+  $('snapFrame').addEventListener('load', () => { try { listen($('snapFrame').contentDocument); } catch { /* 다른 출처면 못 붙인다 */ } });
   addEventListener('hashchange', () => show(fromHash()));
   wide.addEventListener('change', () => show(cur));
   show(fromHash());
@@ -3782,7 +3805,9 @@ addEventListener('online', () => { if (!es || es.readyState === EventSource.CLOS
       if (!history.state?.chat) history.pushState({ ...history.state, chat: 1 }, '');
       unread = 0; badge.textContent = '';
       load().then(() => { list.scrollTop = list.scrollHeight; });
-      input.focus({ preventScroll: true });
+      // 폰은 열자마자 입력칸에 초점을 주면 키보드가 화면 반을 덮는다. 판 안(닫기 단추)에
+      // 초점을 두고, 입력칸을 누를 때 키보드가 올라오게 한다.
+      (matchMedia('(max-width: 640px)').matches ? $('chatX') : input).focus({ preventScroll: true });
     } else {
       if (!fromPop && history.state?.chat) history.back();
       btn.focus({ preventScroll: true });
