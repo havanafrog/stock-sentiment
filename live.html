@@ -1115,7 +1115,7 @@
   <div class="cl" id="chatList" aria-live="polite"></div>
   <div class="cerr" id="chatErr" role="alert"></div>
   <form id="chatForm"><input id="chatIn" maxlength="200" autocomplete="off" enterkeyhint="send" placeholder="200자까지" aria-label="보낼 말">
-    <button type="submit">보내기</button></form>
+    <button type="submit" id="chatSend">보내기</button></form>
 </section>
 <button class="chatbtn" id="chatBtn" type="button" aria-controls="chat" aria-expanded="false"><svg class="ti" aria-hidden="true" viewBox="0 0 24 24"><path d="M12 4c4.7 0 8.5 3.1 8.5 7s-3.8 7-8.5 7c-1 0-2-.1-2.9-.4L5 19.5l1.2-3.3C4.8 14.9 3.5 13 3.5 11c0-3.9 3.8-7 8.5-7z"/></svg><span class="tl">채팅</span><span class="n" id="chatN"></span></button>
 <button class="topbtn" id="topBtn" type="button" aria-label="맨 위로" hidden>↑</button>
@@ -3743,9 +3743,13 @@ addEventListener('online', () => { if (!es || es.readyState === EventSource.CLOS
   vv?.addEventListener('scroll', sync);
   const typing = el => !!el?.matches?.('input, textarea, [contenteditable="true"]');
   document.addEventListener('focusin', e => { if (typing(e.target)) app.classList.add('kbd'); sync(); });
-  document.addEventListener('focusout', e => {
-    if (typing(e.target)) app.classList.remove('kbd');
-    setTimeout(sync, 300);                       // 키보드가 내려간 뒤 한 번 더 잰다
+  // 초점이 빠지자마자 풀면 막대가 다시 나타나고 키보드가 내려가며 판이 움직여, 누르던
+  // 단추(보내기)가 손 아래서 비켜 갔다. 조금 기다렸다가 정말 입력이 끝났을 때만 푼다.
+  document.addEventListener('focusout', () => {
+    setTimeout(() => {
+      if (!typing(document.activeElement)) app.classList.remove('kbd');
+      sync();                                     // 키보드가 내려간 뒤 한 번 더 잰다
+    }, 250);
   });
 })();
 
@@ -3824,6 +3828,11 @@ addEventListener('online', () => { if (!es || es.readyState === EventSource.CLOS
     $('chatWho').textContent = nick();
   };
 
+  // 보내기 단추를 누르는 순간 입력칸이 초점을 잃으면 키보드가 내려가고 판이 움직여, 손을
+  // 뗄 때 단추가 이미 다른 자리라 한 번에 안 보내졌다. 단추가 초점을 가져가지 않게 막는다 —
+  // 키보드가 그대로 있고 연달아 보낼 수 있다(엔터로 보낼 때와 같은 흐름).
+  const send = $('chatSend');
+  for (const t of ['pointerdown', 'mousedown']) send.addEventListener(t, e => e.preventDefault());
   $('chatForm').onsubmit = async e => {
     e.preventDefault();
     const text = input.value.trim();
