@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <!-- viewport-fit=cover: 노치 있는 폰에서 지면색이 화면 끝까지 간다. 안 주면
      위아래에 흰 띠가 남는다. 대신 내용은 아래 safe-area 로 밀어 넣는다. -->
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <title>곡소리계산기</title>
 <link rel="icon" type="image/png" href="logo-128.png">
 <!-- 홈 화면에 추가하면 주소창 없이 앱처럼 열린다. 폰으로 자주 보는 화면이라
@@ -1080,6 +1080,14 @@
     .chatbtn .n { position: absolute; top: 8px; left: 32px; margin: 0; min-width: 16px; padding: 0 4px;
       font-size: 10px; line-height: 16px; }
     .chat.chat { z-index: 60; }
+    /* 키보드: 채팅 입력칸이 키보드에 가려졌다. 안드로이드 크롬은 위 viewport 메타
+       (interactive-widget=resizes-content)로 화면이 줄어 판이 알아서 올라온다. 아이폰 사파리는
+       화면을 안 줄이고 키보드가 덮으니, 가려진 높이(--kb)만큼 판을 올리고 보이는 높이(--vvh)에
+       맞춘다 — 스크립트가 visualViewport 로 잰다. 입력 중엔 아래 탭 막대·맨 위로를 숨겨
+       막대가 키보드 위로 튀어 오르지 않게 한다. */
+    .chat.chat { --kb: 0px; --vvh: 100dvh;
+      transform: translateY(calc(-1 * var(--kb))); max-height: calc(var(--vvh) - 8px); }
+    .app.kbd .tabs.tabs, .app.kbd .topbtn { display: none; }
     /* 판이 열리면 단추가 입력칸을 가린다. 판 위 닫기 단추가 대신한다. */
     .chat:not([hidden]) ~ .chatbtn { display: none; }
     /* 폰 입력칸이 16px 보다 작으면 사파리가 화면을 확대한다. */
@@ -3695,6 +3703,28 @@ let showTab = () => {};
 // 망이 끊기면 숫자가 멈춘 이유를 말한다. 일꾼 덕에 화면은 떠 있지만 숫자는 옛것이다.
 addEventListener('offline', () => { $('dot').className = 'dot err'; $('status').textContent = '오프라인 — 마지막으로 받은 숫자입니다'; });
 addEventListener('online', () => { if (!es || es.readyState === EventSource.CLOSED) openStream(); });
+
+// ── 폰 키보드 ──
+// 아이폰 사파리는 키보드가 열려도 화면을 안 줄여 채팅 입력칸이 키보드 밑에 깔렸다.
+// 보이는 칸(visualViewport)과 화면 높이 차이 = 키보드가 가린 높이. 그만큼 채팅판을 올린다.
+// 입력칸에 초점이 있는 동안은 .app.kbd — 아래 탭 막대를 숨긴다(안드로이드에서 막대가
+// 키보드 위로 따라 올라와 입력칸을 가리지 않게).
+(() => {
+  const vv = globalThis.visualViewport, box = $('chat'), app = document.querySelector('.app');
+  const sync = () => {
+    if (!vv) return;
+    box.style.setProperty('--kb', Math.max(0, Math.round(innerHeight - vv.height - vv.offsetTop)) + 'px');
+    box.style.setProperty('--vvh', Math.round(vv.height) + 'px');
+  };
+  vv?.addEventListener('resize', sync);
+  vv?.addEventListener('scroll', sync);
+  const typing = el => !!el?.matches?.('input, textarea, [contenteditable="true"]');
+  document.addEventListener('focusin', e => { if (typing(e.target)) app.classList.add('kbd'); sync(); });
+  document.addEventListener('focusout', e => {
+    if (typing(e.target)) app.classList.remove('kbd');
+    setTimeout(sync, 300);                       // 키보드가 내려간 뒤 한 번 더 잰다
+  });
+})();
 
 // ── 익명 채팅 ────────────────────────────────────────────────
 // 들어온 사람끼리 떠드는 방 하나. 서버는 메모리에만 최근 100개를 들고 있다.
