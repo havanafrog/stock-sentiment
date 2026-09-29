@@ -438,6 +438,10 @@
 
   /* 전환: 들어오는 판·채팅·시트만 짧게 떠오른다. opacity·transform 만 쓴다 — 레이아웃을 안
      건드려 한 번의 배치 뒤로 합성만 돈다. 무거운 그리기는 이미 칠한 뒤(이중 rAF)로 미뤄 둔다. */
+  /* 판이 옆에서 들어오는 동안(translateX) 문서가 390→407px 로 넓어져, 폰에선 화면 기준이
+     흔들려 아래 떠 있는 탭 막대·단추가 37px 밑으로 내려갔다. main 밖으로 삐져나온 몫은
+     잘라 둔다 — clip 은 스크롤 칸을 만들지 않아 붙어 따라오는 칸(sticky)은 그대로다. */
+  main { overflow-x: clip; }
   @keyframes rise { from { opacity: 0; transform: translateY(6px); } }
   /* 폰에서 밀어 넘길 땐 민 방향 옆에서 들어온다(transform 만). */
   @keyframes fromR { from { transform: translateX(28px); } }
