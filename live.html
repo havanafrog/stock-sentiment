@@ -338,11 +338,12 @@
   .indt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
   .indnm { font-size: 14.5px; font-weight: 600; }
   .indds { font-size: 12px; color: var(--faint); }
-  /* 끈 바탕은 --muted — 흰 판 위 5.9, 어두운 판 위도 3 을 넘는다(UI 부품 기준 3:1). */
+  /* 끈 바탕은 --muted — 흰 판 위 5.9, 어두운 판 위도 3 을 넘는다(UI 부품 기준 3:1).
+     손잡이는 판 색 — 흰 손잡이는 어두운 테마의 밝은 --muted 바탕 위에서 2.52 였다. */
   .tgl { position: relative; width: 40px; height: 24px; border-radius: 12px; flex: none;
     background: var(--muted); transition: background-color .15s; }
   .tgl::after { content: ''; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%;
-    background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform .15s; }
+    background: var(--surface-1); box-shadow: 0 1px 2px rgba(0, 0, 0, .25); transition: transform .15s; }
   .mas input:checked ~ .tgl { background: var(--pos-ink); }
   .mas input:checked ~ .tgl::after { transform: translateX(16px); }
   .mas input:focus-visible ~ .tgl { outline: 2px solid var(--pos-ink); outline-offset: 2px; }
