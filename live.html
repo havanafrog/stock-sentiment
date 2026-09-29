@@ -2930,18 +2930,27 @@ $('single').addEventListener('pointermove', ev => {
 $('single').addEventListener('pointerleave', ev => {
   if (ev.pointerType !== 'touch') hideHairs();
 });
-// 손가락엔 hover 가 없다. 누른 자리를 바로 읽어 주고, 떼면 잠깐 뒤 지운다.
-let tapClear = null;
+// 손가락엔 hover 가 없다. 누르고 있는 동안·끄는 동안 읽어 주고, 떼면 곧 지운다(토스처럼).
+// 예전엔 떼고 2.6초를 더 두었는데, 폰에선 "눌러도 창이 안 사라진다" 로 읽혔다.
+// 떼면 80ms 뒤. 차트 밖을 누르거나 스크롤이 시작되면(pointercancel·scroll) 바로 지운다.
+// 마우스 호버는 그대로(떠날 때 지운다).
+let tapClear = null, touchTip = false;
 $('single').addEventListener('pointerdown', ev => {
   if (ev.pointerType !== 'touch' || !inChart(ev)) return;
   clearTimeout(tapClear);
+  touchTip = true;
   moveHairs(ev);
 });
+addEventListener('pointerdown', ev => {
+  if (ev.pointerType === 'touch' && !inChart(ev)) { clearTimeout(tapClear); hideHairs(); }
+}, true);
 addEventListener('pointerup', ev => {
   if (ev.pointerType !== 'touch') return;
   clearTimeout(tapClear);
-  tapClear = setTimeout(hideHairs, 2600);
+  tapClear = setTimeout(hideHairs, 80);
 });
+addEventListener('pointercancel', ev => { if (ev.pointerType === 'touch') { clearTimeout(tapClear); hideHairs(); } });
+addEventListener('scroll', () => { if (touchTip) { touchTip = false; hideHairs(); } }, { passive: true });
 
 // ── 봉 확대·이동 ──
 // 차트는 card() 안에 있어 매 스냅샷마다 새로 만들어진다. 개별 요소에 붙이면
