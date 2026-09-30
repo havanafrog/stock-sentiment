@@ -983,6 +983,8 @@
   .appbox h2 { margin-top: 0; }
   .appbig { min-height: 44px; padding: 0 18px; font-weight: 700; }
   .appbig[hidden], .appok[hidden], .apphow[hidden], .dbgbox[hidden] { display: none; }
+  .dbgtoggle { margin: 18px 0 0; font-size: 11px; }
+  .dbgtoggle .lnk { padding: 5px 0; min-height: 24px; color: var(--faint); font-size: 11px; }
   .dbgbox textarea { width: 100%; box-sizing: border-box; font: 11px/1.4 var(--mono); }
   .appok { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); }
   .apphow { margin: 10px 0 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; }
@@ -1418,6 +1420,8 @@ z     = (k − μ) / σ
         <button type="button" class="btn" id="dbgClear">지우기</button></p>
       <textarea id="dbgOut" readonly rows="10" aria-label="스크롤 기록"></textarea>
     </section>
+    <!-- 설치 앱은 주소를 못 바꿔 ?debug=scroll 을 못 붙인다. 여기서 켜고 끈다(눈에 덜 띄게). -->
+    <p class="dbgtoggle"><button type="button" class="lnk" id="dbgToggle">스크롤 기록 켜기</button></p>
   </div>
 
   <!-- 숨은 판: 무작위 200건을 폰으로 찍는다. 탭 줄에는 없고 #label200 으로만 연다.
@@ -3571,6 +3575,9 @@ if ('ResizeObserver' in globalThis) {
   addEventListener('load', () => setTimeout(() => idle(warm), 1500));
 })();
 
+// 켜고 끄면 다시 불러온다 — 감싸기는 페이지를 열 때 한 번만 건다.
+$('dbgToggle').textContent = DBG_SCROLL ? '스크롤 기록 끄기' : '스크롤 기록 켜기';
+$('dbgToggle').onclick = () => { store.set('debugScroll', DBG_SCROLL ? '' : '1'); location.reload(); };
 if (DBG_SCROLL) {
   $('dbgBox').hidden = false;
   const show = () => { $('dbgOut').value = JSON.stringify(DBG_SCROLL.read(), null, 1); };
