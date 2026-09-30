@@ -2371,7 +2371,7 @@ function indOpen() {
   // 오른쪽 끝에 붙은 단추면 판이 화면 밖으로 나간다 — 오른쪽에 맞춘다.
   pop.style.left = pop.style.right = '';
   if (!indPhone() && pop.getBoundingClientRect().right > innerWidth - 8) { pop.style.left = 'auto'; pop.style.right = '0'; }
-  pop.querySelector('input')?.focus();
+  pop.querySelector('input')?.focus({ preventScroll: true });
 }
 function indClose(back = true, fromPop = false) {
   if ($('indPop').hidden) return;
@@ -2379,7 +2379,7 @@ function indClose(back = true, fromPop = false) {
   $('indPop').hidden = true;
   $('indBack').hidden = true;
   $('indAdd').setAttribute('aria-expanded', 'false');
-  if (back) $('indAdd').focus();
+  if (back) $('indAdd').focus({ preventScroll: true });
 }
 $('indAdd').onclick = () => ($('indPop').hidden ? indOpen() : indClose());
 addEventListener('popstate', () => { if (!$('indPop').hidden && !history.state?.ind) indClose(true, true); });
@@ -2388,8 +2388,8 @@ $('indPop').addEventListener('keydown', e => {
   if (e.key === 'Escape') { e.stopPropagation(); indClose(); return; }
   if (e.key !== 'Tab' || !indPhone()) return;          // 시트는 Tab 을 안에 가둔다
   const f = [...$('indPop').querySelectorAll('input, button')];
-  if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
-  else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+  if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus({ preventScroll: true }); }
+  else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus({ preventScroll: true }); }
 });
 // 팝오버: 바깥을 누르거나 초점이 칩 줄 밖으로 나가면 닫는다(초점은 간 곳에 둔다).
 document.addEventListener('pointerdown', e => {
@@ -2408,7 +2408,7 @@ $('indChips').onclick = ev => {
   inp.checked = false;
   inp.dispatchEvent(new Event('change', { bubbles: true }));
   const left = [...$('indChips').querySelectorAll('[data-off]')];
-  (left[at] ?? left[at - 1] ?? $('indAdd')).focus();
+  (left[at] ?? left[at - 1] ?? $('indAdd')).focus({ preventScroll: true });
 };
 
 // 탭 제목에 현재가와 등락률. 창을 여러 개 띄워 두고 곁눈질할 때 이게 전부다.
@@ -3409,10 +3409,10 @@ async function tkAdd() {
     $('tkBase').value = '';
     tkOk = null;
     tkLoad();
-    if (kb) $('tkBase').focus();          // 다음 티커를 칠 자리
+    if (kb) $('tkBase').focus({ preventScroll: true });          // 다음 티커를 칠 자리
   } catch (e) {
     tkSay('✗ ' + e.message, 'no'); $('tkAdd').disabled = false;
-    if (kb) $('tkAdd').focus();           // 다시 누를 자리
+    if (kb) $('tkAdd').focus({ preventScroll: true });           // 다시 누를 자리
   }
 }
 
@@ -3438,10 +3438,12 @@ function tkRender(d) {
       + `${busy ? `<i>${busy}</i>` : ''}`
       + `<button class="tkdel" data-del="${r.t}" title="${r.t} 삭제">\u00d7</button></span>`;
   }).join('');
+  // 다시 그릴 때 초점을 되돌려도 화면은 안 움직인다 — 폰 설치 앱에서 화면 밖 칩으로 초점이
+  // 가면 스크롤이 그리로 튀었다. 초점 되돌리기는 전부 preventScroll.
   if (was) {
     const all = [...$('tkList').querySelectorAll('.tkdel')];
     const to = all.find(b => b.dataset.del === was.dataset.del) || all[at] || all[at - 1];
-    if (to) to.focus(); else if (kb) $('tkBase').focus();
+    if (to) to.focus({ preventScroll: true }); else if (kb) $('tkBase').focus({ preventScroll: true });
   }
 
   // 종목이 늘면 한 바퀴가 길어진다. 주기를 넘기면 회차를 건너뛴다.
