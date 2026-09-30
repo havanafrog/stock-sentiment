@@ -982,7 +982,8 @@
   .appbox { margin: 0 0 18px; padding: 14px 16px; border-radius: var(--radius-lg); background: var(--surface-1); box-shadow: var(--ring); }
   .appbox h2 { margin-top: 0; }
   .appbig { min-height: 44px; padding: 0 18px; font-weight: 700; }
-  .appbig[hidden], .appok[hidden], .apphow[hidden] { display: none; }
+  .appbig[hidden], .appok[hidden], .apphow[hidden], .dbgbox[hidden] { display: none; }
+  .dbgbox textarea { width: 100%; box-sizing: border-box; font: 11px/1.4 var(--mono); }
   .appok { margin: 0; font-size: 14px; font-weight: 600; color: var(--text-primary); }
   .apphow { margin: 10px 0 0; padding-left: 18px; display: grid; gap: 6px; font-size: 13px; }
   .apphow li.me { color: var(--text-primary); font-weight: 600; }
@@ -1408,6 +1409,15 @@ z     = (k − μ) / σ
     <p class="cnote">기준선 만드는 법, 보조지표 공식, 사전 내용은
     <a href="https://github.com/havanafrog/stock-sentiment" target="_blank"
        rel="noreferrer">저장소 README</a> 에 있습니다.</p>
+    <!-- 스크롤 기록기(?debug=scroll 로 한 번 열면 켜짐, ?debug=off 로 끔). 평소엔 안 보인다. -->
+    <section class="dbgbox" id="dbgBox" hidden>
+      <h2>스크롤 기록</h2>
+      <p class="cnote">화면이 갑자기 튄 순간을 최근 20건까지 남깁니다. 아래를 복사해 알려 주세요.</p>
+      <p><button type="button" class="btn" id="dbgShow">스크롤 기록 보기</button>
+        <button type="button" class="btn" id="dbgCopy">복사</button>
+        <button type="button" class="btn" id="dbgClear">지우기</button></p>
+      <textarea id="dbgOut" readonly rows="10" aria-label="스크롤 기록"></textarea>
+    </section>
   </div>
 
   <!-- 숨은 판: 무작위 200건을 폰으로 찍는다. 탭 줄에는 없고 #label200 으로만 연다.
@@ -1477,6 +1487,44 @@ const store = {
   set(k, v) { try { localStorage.setItem('live.' + k, v); } catch { /* 사파리 프라이빗 등 */ } },
 };
 const UI = { ticker: store.get('ticker', null), cur: store.get('cur', 'USD') };
+
+// ── 스크롤 기록기 ──
+// 폰 설치 앱에서 "가만히 보는데 스크롤이 튄다" 는 제보를 헤드리스로는 재현하지 못했다.
+// 주소에 ?debug=scroll 을 붙여 한 번 열면 켜진다(설치 앱은 주소를 못 바꾸니 기억해 둔다),
+// ?debug=off 로 끈다. 켜져 있으면 스크롤을 옮기는 호출(scrollTo·scrollBy·scroll·
+// scrollIntoView·focus)과, 스크롤이 200px 넘게 줄어든 순간을 스택과 함께 최근 20건 남긴다.
+// 사용법 탭 맨 아래에서 꺼내 복사한다. 평소엔 아무것도 감싸지 않는다.
+const DBG_SCROLL = (() => {
+  const q = new URLSearchParams(location.search).get('debug');
+  if (q === 'scroll') store.set('debugScroll', '1');
+  else if (q === 'off') store.set('debugScroll', '');
+  if (store.get('debugScroll', '') !== '1') return false;
+  const read = () => { try { return JSON.parse(store.get('scrollLog', '[]')); } catch { return []; } };
+  const push = (kind, detail) => {
+    const a = read();
+    a.push({ at: new Date().toISOString().slice(11, 23), kind, detail, y: Math.round(scrollY),
+      h: document.documentElement.scrollHeight, tab: location.hash || '#', focus: document.activeElement?.id || document.activeElement?.tagName,
+      stack: (new Error().stack || '').split('\n').slice(2, 7).map(x => x.trim()).join(' < ') });
+    store.set('scrollLog', JSON.stringify(a.slice(-20)));
+  };
+  for (const k of ['scrollTo', 'scrollBy', 'scroll']) {
+    const o = window[k].bind(window);
+    window[k] = (...a) => { push('window.' + k, JSON.stringify(a)); return o(...a); };
+  }
+  const si = Element.prototype.scrollIntoView;
+  Element.prototype.scrollIntoView = function (...a) { push('scrollIntoView', this.id || this.className); return si.apply(this, a); };
+  const fo = HTMLElement.prototype.focus;
+  HTMLElement.prototype.focus = function (o) {
+    if (!o?.preventScroll) push('focus', this.id || this.className || this.tagName);
+    return fo.call(this, o);
+  };
+  let last = scrollY;
+  addEventListener('scroll', () => {
+    if (last - scrollY > 200) push('scroll 줄어듦', Math.round(last) + '→' + Math.round(scrollY));
+    last = scrollY;
+  }, { passive: true });
+  return { read, clear: () => store.set('scrollLog', '[]') };
+})();
 
 let LAST = null;
 // 경보선. lexicon.js 가 유일한 출처라 서버가 스냅샷에 실어 보낸다.
@@ -3522,6 +3570,18 @@ if ('ResizeObserver' in globalThis) {
   // 첫 화면을 다 그린 뒤에 시작한다.
   addEventListener('load', () => setTimeout(() => idle(warm), 1500));
 })();
+
+if (DBG_SCROLL) {
+  $('dbgBox').hidden = false;
+  const show = () => { $('dbgOut').value = JSON.stringify(DBG_SCROLL.read(), null, 1); };
+  $('dbgShow').onclick = show;
+  $('dbgCopy').onclick = async () => {
+    show();
+    try { await navigator.clipboard.writeText($('dbgOut').value); $('dbgCopy').textContent = '복사함'; }
+    catch { $('dbgOut').select(); }             // 복사가 막히면 골라 두어 길게 눌러 복사하게
+  };
+  $('dbgClear').onclick = () => { DBG_SCROLL.clear(); show(); };
+}
 
 // ── 라벨 200 (#label200) ──
 // 무작위로 뽑은 200건을 사람이 찍는다. 찍은 것은 서버가 들고 있어 다시 열면
