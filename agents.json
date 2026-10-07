@@ -1,0 +1,89 @@
+{
+  "$comment": "agentsemble 팀 계획 — node <agentsemble>/bin/setup.mjs --all 로 각 작업칸에 건다. 판: /agentsemble board",
+  "main": {
+    "dir": ".",
+    "what": "뇌 — 일을 쪼개 서브에 넘기고, 결과를 검증해 합친다",
+    "not": "live.html 화면 코드·모델 학습 코드를 직접 고치지 않는다",
+    "owns": [
+      "server.mjs",
+      "toss.mjs",
+      "tickers.mjs",
+      "paths.mjs",
+      "build.mjs",
+      "fetch-comments.mjs",
+      "tools/",
+      "test/",
+      "deploy/",
+      "ops/",
+      "docs/",
+      "agents.json",
+      "README.md"
+    ],
+    "plugins": {
+      "superpowers@claude-plugins-official": true,
+      "ponytail@ponytail": true,
+      "caveman@caveman": true,
+      "claude-context-optimizer@cco": true,
+      "notion-log@notion-log": true
+    },
+    "skills": [
+      "planning-with-files"
+    ]
+  },
+  "ui": {
+    "dir": "../stock-sentiment-auto",
+    "branch": "auto/ui",
+    "what": "live.html 화면 — 폰·데스크톱을 크롬으로 재서 고친다",
+    "not": "main 에 직접 병합하지 않는다",
+    "owns": [
+      "live.html",
+      "index.html",
+      "sw.js",
+      "app.webmanifest",
+      "tools/contrast-test.mjs",
+      "tools/tap-test.mjs",
+      "tools/theme-flip-test.mjs",
+      "tools/phone-flow-test.mjs",
+      "tools/overflow-test.mjs",
+      "tools/chart-touch-test.mjs"
+    ],
+    "plugins": {
+      "superpowers@claude-plugins-official": true,
+      "ponytail@ponytail": true,
+      "caveman@caveman": true,
+      "claude-context-optimizer@cco": false,
+      "notion-log@notion-log": false
+    },
+    "skills": [
+      "taste"
+    ]
+  },
+  "train": {
+    "dir": "../stock-sentiment-train",
+    "branch": "auto/train",
+    "what": "라벨링·사전·모델 — 이 PC 로 돌리고 main 이 검증한다",
+    "not": "main 에 직접 병합하지 않는다",
+    "owns": [
+      "lexicon.js",
+      "model.json",
+      "tools/train-nb.mjs",
+      "tools/bakeoff.mjs",
+      "tools/eval-lexicon.mjs",
+      "tools/label-slm.mjs",
+      "docs/model-bakeoff.md"
+    ],
+    "plugins": {
+      "superpowers@claude-plugins-official": false,
+      "ponytail@ponytail": true,
+      "caveman@caveman": true,
+      "claude-context-optimizer@cco": false,
+      "notion-log@notion-log": false
+    },
+    "skills": [
+      "lexicon-tuning",
+      "backtest-expert",
+      "signal-postmortem",
+      "contrarian-setup-gate"
+    ]
+  }
+}
