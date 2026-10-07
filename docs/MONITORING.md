@@ -1,5 +1,7 @@
 # 여러 창을 지켜보는 법
 
+> 판은 agentsemble 로 옮겼다 — 맨 아래 「만들려면」. 아래는 그 판을 만든 생각이다.
+
 Claude Code 창을 여럿 띄워 놓고 일하면, 어느 창이 지금 무엇을 하는지 알 길이
 없다. 창끼리는 서로 말을 안 한다. 이 저장소의 `ops/` 가 그걸 푼 방법을
 다른 과제에도 쓸 수 있게 적는다.
@@ -145,19 +147,17 @@ const NOT_HUMAN = [/^</, /^Caveat:/, /^Base directory for this skill:/];
 
 ## 만들려면
 
+판은 [agentsemble](https://github.com/havanafrog/agentsemble) 플러그인으로 옮겼다
+(2026-10-08). 이 저장소의 `ops/` 판이 그 첫 꼴이다. 남은 것은 훅과 장부뿐이다.
+
 ```
-ops/board.mjs      판 서버 — 기록을 읽어 JSON 으로 낸다. 점검 56개
-ops/board.html     화면 — 2초마다 /api/board 를 받는다
-ops/focus.mjs      호스트 도우미 — 창을 앞으로 가져오거나 되살린다
-ops/cost.mjs       토큰을 돈으로. 이어 읽기
-ops/whoasked.mjs   UserPromptSubmit 훅
+ops/whoasked.mjs   UserPromptSubmit 훅 — 옆 창이 방금 받은 말
+ops/handoff.mjs    Stop 훅 — 장부에 올라온 것을 상대에게 넘겼나
 ops/ledger.mjs     장부 (주장 / 판정)
 ```
 
-```bash
-node ops/board.mjs              # 127.0.0.1:8730
-node ops/board.mjs --selftest   # 점검 56개, 네트워크 없이
-node ops/focus.mjs              # 호스트 도우미 8732
+```
+/agentsemble board    # 127.0.0.1:8740 — 팀 · Map · 창 · 도구 · 장부
 ```
 
-자세한 것은 [ops/README.md](../ops/README.md) 에 있다.
+팀 계획은 저장소 맨 위 `agents.json`. 자세한 것은 [ops/README.md](../ops/README.md).

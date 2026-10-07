@@ -7,19 +7,37 @@
 //   node ops/whoasked.mjs             훅이 부르는 꼴 (stdin 으로 JSON)
 //   node ops/whoasked.mjs --selftest
 //
-// 왜 훅인가: 판(board.mjs)도 같은 것을 보여 주지만 판은 사람이 봐야 보인다.
+// 왜 훅인가: 판(agentsemble board)도 같은 것을 보여 주지만 판은 사람이 봐야 보인다.
 // 훅은 이 창이 다음 말을 받을 때 저절로 따라 들어온다 — 판을 안 띄워도 된다.
 //
 // ponytail: 파일 하나에 통째로 쓴다. 두 창이 같은 순간에 치면 뒤엣것이 이겨서
 // 알림 하나를 놓친다. 알림 하나 놓치는 건 아무것도 안 망가뜨린다. 잠금이 필요할
 // 만큼 창을 많이 열면 그때 파일을 창마다 쪼갠다.
 
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { homedir } from 'node:os';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { sessionNames } from './board.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+
+// 창 이름은 기록(jsonl)이 아니라 등록부에 있다. 한 창에 파일 하나, 파일 이름은 pid 다.
+const SESSION_DIR = process.env.OPS_SESSION_DIR || join(homedir(), '.claude', 'sessions');
+
+/** 사람이 /rename 으로 붙인 이름만 sessionId 로 짝짓는다. 이어 열어 파일이 둘이면 나중 것. */
+export function sessionNames(dir = SESSION_DIR) {
+  const best = new Map();
+  if (!existsSync(dir)) return best;
+  for (const f of readdirSync(dir)) {
+    if (!f.endsWith('.json')) continue;   // 같은 폴더에 .key 도 산다
+    let j; try { j = JSON.parse(readFileSync(join(dir, f), 'utf8')); } catch { continue; }
+    if (!j?.sessionId || !j.name || j.nameSource !== 'user') continue;
+    const at = j.updatedAt ?? 0;
+    if ((best.get(j.sessionId)?.at ?? -1) >= at) continue;
+    best.set(j.sessionId, { name: String(j.name).trim(), at });
+  }
+  return new Map([...best].map(([k, v]) => [k, v.name]));
+}
 export const STORE = process.env.OPS_WHOASKED ?? join(HERE, 'whoasked.json');
 
 const WINDOW_MS = 30 * 60 * 1000;   // 30분보다 오래된 말은 소식이 아니다
