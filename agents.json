@@ -85,5 +85,34 @@
       "signal-postmortem",
       "contrarian-setup-gate"
     ]
+  },
+  "sim": {
+    "dir": "../stock-sentiment-team/sim",
+    "branch": "agent/sim",
+    "what": "곡소리 지표 시뮬레이션 — docs/sim-brief.md",
+    "not": "main 에 병합하지 않는다. tools/sim/ 밖을 고치지 않는다",
+    "owns": [
+      "tools/sim/",
+      "docs/sim-report.md"
+    ],
+    "plugins": {
+      "superpowers@claude-plugins-official": false,
+      "ponytail@ponytail": true,
+      "caveman@caveman": true,
+      "claude-context-optimizer@cco": false,
+      "notion-log@notion-log": false
+    },
+    "skills": [
+      "backtest-expert"
+    ],
+    "model": "sonnet",
+    "autonomy": "run"
+  },
+  "review": {
+    "shared": true,
+    "what": "sim 결과를 다시 재서 장부에 판정한다",
+    "not": "파일을 고치지 않는다",
+    "model": "opus",
+    "autonomy": "ask"
   }
 }
