@@ -23,7 +23,8 @@ claude
 
 ## 판
 
-판은 [agentsemble](https://github.com/havanafrog/agentsemble) 플러그인으로 옮겼습니다
+판은 [agentsemble](https://github.com/havanafrog/agentsemble) 플러그인으로 옮겼습니다. Docker Desktop 에서 `agentsemble-board` 를 ▶ 로 켜면 됩니다
+(`docker compose -f ops/docker-compose.yml up -d board`)
 (2026-10-08). 이 폴더의 옛 판(도커, 8730)은 지웠습니다.
 
 ```
