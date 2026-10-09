@@ -102,6 +102,8 @@ services:
       - ${OPS_LOG_DIR_HOST}:/claude/projects/${OPS_LOG_SLUG}:ro
       - ${OPS_LOG_DIR_HOST}-auto:/claude/projects/${OPS_LOG_SLUG}-auto:ro
       - ${OPS_LOG_DIR_HOST}-train:/claude/projects/${OPS_LOG_SLUG}-train:ro
+      # 새 작업칸(stock-sentiment-team/<역할>)을 파면 한 줄 더한다.
+      - ${OPS_LOG_DIR_HOST}-team-sim:/claude/projects/${OPS_LOG_SLUG}-team-sim:ro
 
 volumes:
   ops-scratch:
