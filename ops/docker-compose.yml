@@ -56,5 +56,19 @@ services:
     tmpfs:
       - /tmp
 
+  # 판(agentsemble) 입구. Docker Desktop 에서 ▶ 로 켜고 8740 을 누르면 들어간다.
+  # 판 본체는 이 PC 에서 8745 로 돈다(시작프로그램 agentsemble-board.vbs) — 통은 넘기기만 한다.
+  # 그래야 판에서 Open 을 누르면 PC 의 CLI 창이 열리고, 빠르다. 자세한 것은 board-proxy.mjs.
+  board:
+    image: node:24-alpine
+    container_name: agentsemble-board
+    init: true
+    restart: "no"          # Docker Desktop 과 같이 뜨지 않게. 위 verifier 주석의 파란화면 이야기 참고
+    command: ["node", "/proxy/board-proxy.mjs"]
+    ports:
+      - "127.0.0.1:8740:8740"
+    volumes:
+      - ./board-proxy.mjs:/proxy/board-proxy.mjs:ro
+
 volumes:
   ops-scratch:
