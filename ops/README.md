@@ -26,7 +26,7 @@ claude
 판은 [agentsemble](https://github.com/havanafrog/agentsemble) 플러그인으로 옮겼습니다. 이 PC 에서 직접 돕니다 —
 로그인하면 시작프로그램(`agentsemble-board.vbs`)이 창 없이 띄웁니다. 판에서 **Open** 을 누르면 그 CLI 창이
 앞으로 오고, 닫혀 있으면 `claude --resume` 으로 다시 열립니다. 통(Docker) 안에서는 창을 못 열고 느려서 뺐습니다.
-(2026-10-08). 이 폴더의 옛 판(도커, 8730)은 지웠습니다.
+옛 판(도커, 8730)은 2026-10-08 에 지웠습니다.
 
 ```
 /agentsemble board      # http://127.0.0.1:8740
