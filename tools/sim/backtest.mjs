@@ -75,7 +75,7 @@ export function buyHold(bars, from, to, fee = FEE) {
   return x > e ? tradeReturn(bars[e].open, bars[x].close, fee) : null;
 }
 
-function rng(seed) {   // mulberry32
+export function rng(seed) {   // mulberry32
   let a = seed >>> 0;
   return () => {
     a = (a + 0x6D2B79F5) >>> 0;
