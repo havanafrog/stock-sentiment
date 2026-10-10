@@ -45,3 +45,4 @@ tools/self-loop.jsonl
 # agent 마다 agentsemble setup 이 넣는 스킬 — git 에 안 올린다
 .claude/skills/*
 tools/collect.log
+tools/sim/cache/
