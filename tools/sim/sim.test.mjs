@@ -83,3 +83,48 @@ test('무작위 기준: 시드 고정이라 같은 값, 겹치지 않는 같은 
   assert.equal(a.sorted.length, 50);
   assert.equal(randomBaseline(bars, rows, 3, 0, 0, 60, 50), null);
 });
+
+// ── koru.mjs ──
+import { shortReturn, bootstrap, hourCandidates, hourMatchedRandom, events, signalAt as kSignal } from './koru.mjs';
+
+test('koru 숏: 가격 하락만큼 벌고 왕복 비용 2·FEE 를 문다, 롱과 합치면 비용 두 배', () => {
+  near(shortReturn(100, 90), 0.1 - 2 * FEE);
+  near(shortReturn(100, 100), -2 * FEE);
+  near(shortReturn(100, 110), -0.1 - 2 * FEE);
+  assert.ok(Math.abs(tradeReturn(100, 110) + shortReturn(100, 110) + 2 * FEE) < 3e-3);   // 롱 ≈ +g - 2f, 숏 = -g - 2f
+});
+
+test('koru 부트스트랩: 고정 seed 에서 같은 구간, 평균을 품는다', () => {
+  const r = [0.01, -0.02, 0.03, 0.0, -0.01, 0.02];
+  const a = bootstrap(r, 200), b = bootstrap(r, 200);
+  assert.deepEqual(a, b);
+  assert.ok(a.lo <= a.mean && a.mean <= a.hi);
+  assert.equal(bootstrap([]), null);
+});
+
+test('koru 시간대 맞춘 후보: 같은 hour 의 봉만, 뽑힌 것도 같은 hour', () => {
+  const bars = mkBars(120), rows = mkRows(Array.from({ length: 120 }, (_, i) => (i % 2 ? 0.3 : 0.2)));
+  const hr = i => new Date(bars[i].ms).getUTCHours();
+  const cand = hourCandidates(bars, rows, [5, 17], 3, MIN_N, 0);
+  assert.deepEqual([...cand.keys()].sort((a, b) => a - b), [5, 17]);
+  for (const [h, idx] of cand) assert.ok(idx.length > 0 && idx.every(i => hr(i) === h));
+  const evs = [{ hour: 5, e: 0, x: 0 }, { hour: 17, e: 0, x: 0 }];
+  const a = hourMatchedRandom(bars, rows, evs, 3, MIN_N, 0, 40), b = hourMatchedRandom(bars, rows, evs, 3, MIN_N, 0, 40);
+  assert.deepEqual(a, b);
+  assert.equal(a.long.length, 40);
+  assert.equal(hourMatchedRandom(bars, rows, [{ hour: 99 }], 3, MIN_N, 0, 40), null);   // 그 시에 후보가 없다
+});
+
+test('koru 사건: 롱·숏이 같은 진입·청산을 쓰고, 신호 종류별로 미래 정보를 안 쓴다', () => {
+  const bars = mkBars(40), rows = mkRows([...flat, 0.9, ...Array(9).fill(0.25)]);
+  const [t] = events(bars, rows, 'wail', 2, 3, MIN_N, 0);
+  near(t.long, tradeReturn(131, 133.5));
+  near(t.short, shortReturn(131, 133.5));
+  // 댓글 수 신호: 봉 30 의 n 만 키우면 30 에서만 켜지고, 그 뒤 값은 30 의 신호에 영향이 없다
+  const nr = mkRows(Array(40).fill(0.2)).map((r, i) => ({ ...r, n: MIN_N + (i % 2) }));
+  const withSpike = nr.map((r, i) => (i === 30 ? { ...r, n: 60 } : r));
+  assert.equal(kSignal(withSpike, 30, 2, 'n', MIN_N), true);
+  const later = withSpike.map((r, i) => (i > 30 ? { ...r, n: 999 } : r));
+  assert.equal(kSignal(later, 30, 2, 'n', MIN_N), true);
+  assert.equal(kSignal(nr, 30, 2, 'n', MIN_N), false);
+});
