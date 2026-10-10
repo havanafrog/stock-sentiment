@@ -10,7 +10,7 @@
 // 남의 페이지에서 온 요청은 판이 그대로 막는다.
 import { createServer, request } from 'node:http';
 
-const LISTEN = 8740;
+const LISTEN = Number(process.env.BOARD_LISTEN ?? 8740);   // 판을 하나 더 띄울 때(시험용 등) 다른 포트로
 const TARGET = { host: process.env.BOARD_HOST ?? 'host.docker.internal', port: Number(process.env.BOARD_PORT ?? 8745) };
 const FRONT = new Set([`http://127.0.0.1:${LISTEN}`, `http://localhost:${LISTEN}`]);
 const BACK = `127.0.0.1:${TARGET.port}`;
