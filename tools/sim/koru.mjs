@@ -105,6 +105,13 @@ export function hourMatchedRandom(bars, rows, evs, H, minN, from, runs = RANDOM_
   for (const d of ['long', 'short']) out[d].sort((a, b) => a - b);
   return out;
 }
+/** 신호 봉의 UTC 날짜 하나씩 빼고 다시 잰 평균 수익의 [최소, 최대]. 하루짜리 사건이 결과를 만든 건 아닌지 본다. */
+export function leaveOneDayOut(bars, evs, dir) {
+  const day = t => new Date(bars[t.i].ms).toISOString().slice(0, 10), days = [...new Set(evs.map(day))];
+  if (days.length < 2) return null;
+  const ms = days.map(d => mean(evs.filter(t => day(t) !== d).map(t => t[dir])));
+  return { days: days.length, lo: Math.min(...ms), hi: Math.max(...ms) };
+}
 const quantileOf = (sorted, v) => sorted.filter(x => x < v).length / sorted.length;
 
 const pct = (v, d = 2) => v == null ? '-' : (v * 100).toFixed(d) + '%';
@@ -131,7 +138,32 @@ async function main() {
     cells++; if (star(bl)) sig++; if (star(bs)) sig++;
     console.log(`| ${name[kind]} | ${k} | ${H} | ${ev.length} | ${ci(bl)}${star(bl)} | ${q('long')} | ${ci(bs)}${star(bs)} | ${q('short')} |`);
   }
-  console.log(`\n구간이 0 을 품지 않은 칸: ${sig} / ${cells * 2} (롱·숏 합). 순전히 우연이어도 2.5%·양쪽 5% 정도는 나온다.\n`);
+  console.log(`
+구간이 0 을 품지 않은 칸: ${sig} / ${cells * 2} (롱·숏 합). 순전히 우연이어도 2.5%·양쪽 5% 정도는 나온다.
+`);
+
+  console.log('### 하루씩 빼도 (구간이 0 을 품지 않은 칸만)\n');
+  console.log('| 신호 | k | H | 방향 | 거래 수 | 신호 날짜 수 | 평균 | 하루 뺀 평균의 범위 |\n|---|---|---|---|---|---|---|---|');
+  for (const kind of Object.keys(SIGNALS)) for (const k of KS) for (const H of HS) {
+    const ev = events(bars, rows, kind, k, H, MIN_N, first);
+    for (const d of ['long', 'short']) {
+      if (!star(bootstrap(ev.map(t => t[d])))) continue;
+      const l = leaveOneDayOut(bars, ev, d);
+      console.log(`| ${name[kind]} | ${k} | ${H} | ${d === 'long' ? '롱' : '숏'} | ${ev.length} | ${l.days} | ${pct(mean(ev.map(t => t[d])))} | ${pct(l.lo)} ~ ${pct(l.hi)} |`);
+    }
+  }
+  console.log();
+
+  console.log('### 앞 절반 / 뒤 절반 (신호 봉 기준, 구간이 0 을 품지 않은 숏 칸)\n');
+  console.log('| 신호 | k | H | 앞 절반 숏 평균 (거래) | 뒤 절반 숏 평균 (거래) |\n|---|---|---|---|---|');
+  const mid = first + Math.floor((bars.length - first) / 2);
+  for (const kind of Object.keys(SIGNALS)) for (const k of KS) for (const H of HS) {
+    const ev = events(bars, rows, kind, k, H, MIN_N, first);
+    if (!star(bootstrap(ev.map(t => t.short)))) continue;
+    const h = (a, b) => { const e = ev.filter(t => t.i >= a && t.i < b); return e.length ? `${pct(mean(e.map(t => t.short)))} (${e.length})` : '- (0)'; };
+    console.log(`| ${name[kind]} | ${k} | ${H} | ${h(first, mid)} | ${h(mid, bars.length)} |`);
+  }
+  console.log();
 
   console.log('### MIN_N 민감도 (롱 평균 / 숏 평균, 거래 수)\n');
   console.log('| 신호 | k | H | MIN_N=5 | MIN_N=10 | MIN_N=20 | 부호 뒤집힘 |\n|---|---|---|---|---|---|---|');
