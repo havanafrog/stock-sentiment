@@ -142,7 +142,7 @@ async function main() {
     if (first < 0) { meta.push(`| ${t} | ${comments.length} | 0 | 0 | 봉과 겹치는 댓글 없음 |`); continue; }
     const good = rows.filter(r => r.n >= MIN_N).length;
     meta.push(`| ${t} | ${comments.length} | ${last - first} | ${good} | ${new Date(bars[first].ms).toISOString().slice(0, 10)} ~ ${new Date(bars[last - 1].ms).toISOString().slice(0, 10)} |`);
-    if (good < MIN_TABLE) { meta[meta.length - 1] += ' 표본 부족 — 표 생략'; continue; }
+    if (good < MIN_TABLE) { meta[meta.length - 1] = meta.at(-1).replace(/ \|$/,' — 표본 부족, 표 생략 |'); continue; }
     for (const k of KS) for (const H of HS) {
       const s = summarize(runTrades(bars, rows, k, H, first, last));
       const rnd = randomBaseline(bars, rows, H, s.n, first, last);
