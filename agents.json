@@ -1,5 +1,6 @@
 {
   "$comment": "agentsemble 팀 계획 — node <agentsemble>/bin/setup.mjs --all 로 각 작업칸에 건다. 판: /agentsemble board",
+  "$title": "곡소리계산기",
   "main": {
     "dir": ".",
     "what": "뇌 — 일을 쪼개 서브에 넘기고, 결과를 검증해 합친다",
@@ -106,13 +107,15 @@
       "backtest-expert"
     ],
     "model": "sonnet",
-    "autonomy": "run"
+    "autonomy": "run",
+    "task": "KORU 시뮬"
   },
   "review": {
     "shared": true,
     "what": "sim 결과를 다시 재서 장부에 판정한다",
     "not": "파일을 고치지 않는다",
     "model": "opus",
-    "autonomy": "ask"
+    "autonomy": "ask",
+    "task": "KORU 시뮬"
   }
 }
