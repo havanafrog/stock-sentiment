@@ -3,6 +3,7 @@
 data
 work
 docs
+!docs/labels-random-200.json
 test
 tools
 node_modules

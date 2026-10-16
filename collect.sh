@@ -12,6 +12,8 @@
 #   20 6 * * * /home/ubuntu/stock-docker/collect.sh
 #   (06:20 UTC = 15:20 KST — 미국 장 마감 뒤)
 #
+# 빌드는 60 거래일(달력으로 석 달쯤) — 90 거래일이면 글 90일 밖으로 나가 차트 한 달이 빈다.
+#
 # 기간(90일)은 서버의 --load-days 와 맞춰야 한다. 여기가 짧으면 매일 새벽
 # 아카이브가 그만큼 잘려서, 애써 모은 과거가 하룻밤에 사라진다.
 #
@@ -25,5 +27,5 @@ exec sudo docker compose exec -T stock \
   sh -c 'T=$(node -e "console.log(JSON.parse(require(\"fs\").readFileSync(process.env.STOCK_DATA_DIR + \"/tickers.json\", \"utf8\")).join(\" \"))") \
          && echo "종목: $T" \
          && node --max-old-space-size=512 fetch-comments.mjs $T --days 90 \
-         && node --max-old-space-size=512 build.mjs --days 90' \
+         && node --max-old-space-size=512 build.mjs --days 60' \
   >> "$HOME/collect.log" 2>&1

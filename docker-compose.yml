@@ -23,8 +23,9 @@ services:
     # 자식 프로세스(fetch-comments·build)를 띄우므로 좀비가 남지 않게 init 을 쓴다
     init: true
 
-    # 봉·글 폴링 주기(초)와 메모리에 올릴 날짜 수
-    command: ["--poll", "5", "--load-days", "90", "--posts-days", "7"]
+    # 봉·글 폴링 주기(초)와 메모리에 올릴 날짜 수. 10초 — 5초로 몰아 묻던 2026-09 에
+    # 토스가 이 기계 IP 를 한동안 막았다. 집 PC 에서 10초로 돌릴 때는 탈이 없었다.
+    command: ["--poll", "10", "--load-days", "90", "--posts-days", "7"]
 
 volumes:
   stock-data:

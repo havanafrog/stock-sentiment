@@ -14,6 +14,8 @@ COPY paths.mjs toss.mjs tickers.mjs lexicon.js model.json \
      server.mjs build.mjs fetch-comments.mjs \
      live.html index.html data.js logo-128.png \
      sw.js app.webmanifest logo-512.png logo-maskable.png ./
+# 라벨 화면의 무작위 200 세트. 없으면 그 화면만 깨진다.
+COPY docs/labels-random-200.json ./docs/
 
 # 볼륨을 안 걸고 띄워도 죽지는 않게. 걸면 이 자리를 덮어쓴다.
 RUN mkdir -p /data && chown -R node:node /data /app
@@ -27,4 +29,4 @@ HEALTHCHECK --interval=30s --timeout=4s --start-period=40s --retries=3 \
   CMD node -e "fetch('http://127.0.0.1:8731/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
 
 ENTRYPOINT ["node", "server.mjs"]
-CMD ["--poll", "5", "--load-days", "90", "--posts-days", "7"]
+CMD ["--poll", "10", "--load-days", "90", "--posts-days", "7"]
